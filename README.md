@@ -1,2 +1,2 @@
 # petri
-Testing ground for genetic algorithms in a dynamic environment
+A testing ground for genetic algorithms in a dynamic environment
