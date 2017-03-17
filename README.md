@@ -3,13 +3,13 @@ A testing ground for genetic algorithms in a dynamic environment. Note that this
 
 INSTRUCTIONS:
 
-1.RUN IN FIREFOX!
+1: RUN IN FIREFOX!
 
 2: Click "NEW RANDOM 100" to generate a random assortment of creatures.
 
-3: Petris require some time to deviate from a non-cyclic swimming pattern (rotating only CW/CCW). Deviations indicate that desirable behaviours are forming out of the chaos. By 30-45 minutes (Generation  ~10), fluxuations in speed, eye position, and stimuli response will become noticable- note that most of these actions will still be random/useless to the creature. Clicking on any creature will bring up several statics to the right of the terrarium. In order from top left to bottom right, those stats are:
+3: Wait.
 
-**********************************************
+Petris require some time to deviate from a non-cyclic swimming pattern (rotating only CW/CCW). Deviations indicate that desirable behaviours are forming out of the chaos. By 30-45 minutes (Generation  ~10), fluxuations in speed, eye position, and stimuli response will become noticable- note that most of these actions will still be random/useless to the creature. Clicking on any creature will bring up several statics to the right of the terrarium. In order from top left to bottom right, those stats are:
 
 (COLUMN 1)
 
