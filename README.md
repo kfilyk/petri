@@ -1,15 +1,22 @@
 # petri
 A testing ground for genetic algorithms in a dynamic environment. Note that this program is subject to change as my experience progresses.
 
-INSTRUCTIONS:
+# INSTRUCTIONS
 
-1: RUN IN FIREFOX!
+1: Open zip file.
 
-2: Click "NEW RANDOM 100" to generate a random assortment of creatures.
+2: Right-click on html file, choose firefox as browser (runs faster than safari/chrome/IE)
 
-3: Wait.
+3: Click "NEW RANDOM 100" to generate a random assortment of creatures.
 
-Petris require some time to deviate from a non-cyclic swimming pattern (rotating only CW/CCW). Deviations indicate that desirable behaviours are forming out of the chaos. By 30-45 minutes (Generation  ~10), fluxuations in speed, eye position, and stimuli response will become noticable- note that most of these actions will still be random/useless to the creature. Clicking on any creature will bring up several statics to the right of the terrarium. In order from top left to bottom right, those stats are:
+4: Wait for five minutes. Most of the initial random petris will die. If the population dies out COMPLETELY, click "NEW RANDOM 100" again... this is the only thing to do, really, until I figure out how to ensure a base number of random petris are capable of surviving at the start. On average, expect the survival/propagation of 2 or 3 of the initial petris. 
+
+5: Once a small population has began to take off, wait another 55 minutes for anything interesting to happen.  Petris require time to deviate from unintelligent swimming patterns (rotating only CW/CCW, not moving, eating black tiles, eating their own species, etc). Stopping and starting, non-cyclic swimming patterns, and the extension/rotation of eyes (small circles) will indicate that desirable behaviour paths are forming. Note that when fluxuations in speed, eye position, and stimuli response DO become noticable, most of these actions will still be random/useless to the creature. 
+
+6: Watch your memory, and expect to run out eventually. When this happens, the simulation will stop/browser will crash. Your computer will be fine, but you'll have to close the browser and restart the simulation. That being said, I am working on a version of this code/other projects in c++, so this no longer is an issue. 
+
+# STATS
+Clicking on any creature will bring up several statics to the right of the terrarium. In order from top left to bottom right, those stats are:
 
 (COLUMN 1)
 
