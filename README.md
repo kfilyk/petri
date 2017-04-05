@@ -7,9 +7,11 @@ A testing ground for genetic algorithms in a dynamic environment. Note that this
 
 2: Click "NEW RANDOM 100" to generate a random assortment of creatures.
 
-3: Once a species has began to take off, wait a little while. Petris will require time to deviate from random movements (rotating only CW/CCW, permanently sticking to walls, etc). Stopping and starting, non-cyclic swimming patterns, and extension/rotation of eyes indicate that behaviour paths are forming.
+3: Once a species has began to take off, wait a while. Petris will require time to deviate from random movements (rotating only CW/CCW, permanently sticking to walls, etc). Stopping and starting, non-cyclic swimming patterns, and extension/rotation of eyes indicate that behaviour paths are forming.
 
-7: Watch your memory, and expect to run out eventually. When this happens, the simulation will stop/browser will crash. Your computer will be fine, but you'll have to close the browser and restart. I will be converting this project to C++ so this no longer is an issue. 
+4: When "NETCHILDREN" has stabilized above (or around) 1, you can turn on regression/propopagation functions. Note that these are experimental. Start low: I recommend using "REGRESS </1 CHILDREN" along with "PROPOGATION ON". 
+
+5: Watch your memory, and expect to run out eventually. When this happens, the simulation will stop/browser will crash. Your computer will be fine, but you'll have to close the browser and restart. I will be converting this project to C++ so this no longer is an issue. 
 
 # STATS
 Clicking on any creature will bring up several statics to the right of the terrarium. In order from top left to bottom right, those stats are:
