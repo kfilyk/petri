@@ -7,9 +7,9 @@ To further my own understanding, and to push the capabilities of this program, I
 
 1: Right-click on the html file, and use Firefox as the browser to run the program (runs faster than safari/chrome/IE). You may have to zoom out a little, by going to the Firefox menu and clicking View-> Zoom -> Zoom Out.
 
-2: Click "NEW RANDOM 100" to generate a random assortment of creatures.
+2: Click "NEW RANDOM 100" to generate a random assortment of creatures. Creatures "eat" the colors red, green, and blue, subtracting them from terrain tiles. Creatures have the ability to sense and eat/interact with each other.
 
-3: Once a few species have taken off, wait a while (~30 min). Creatures will require time to form coherent movements. Stopping and starting, non-cyclic swimming patterns, and extension/rotation of eyes indicate forming behaviour paths.
+3: Once a few species have taken off, wait a while (~30 min). Creatures will require time to form coherent movements. Stopping and starting, non-cyclic swimming patterns, and extension/rotation of eyes indicate that behaviour paths are forming.
 
 4: When the "NETCHILDREN" graph has stabilized with a value above 1 (Average of one child per current living creature),  you can turn on regress/propagate functions (in the console menu) to accelerate their evolution. Note that these functions are experimental, and will direct them towards having the greatest number of children. Start low, with "REGRESS </1 CHILDREN" and "PROPAGATE ON". Regress causes the genes of unsuccessful creatures (less children) to be taken away from the parents' gene pool. Propogate allows successful creatures (more children) to add their genes to the parents' gene pool. When parent divides, the creature inherits the average of those genes. If you'd like to turn these functions off and let creatures freely mutate, turn propagate off first, then wait ~5 min before turning regress off. 
 
