@@ -2508,12 +2508,11 @@ Animal.prototype.highlight=function() {
     if(this.cno!=null){
       ctx4.fillText("CNO: "+(this.cno+1),posx,posy+=10);
     }
-    ctx4.fillText("DESC: "+this.genePool+"/"+this.descendants,posx,posy+=10);
+    ctx4.fillText("GENO: "+this.genePool+"/"+this.descendants,posx,posy+=10);
 
     posy+=10;
     ctx4.fillText("NRG: "+round(this.energy),posx,posy+=10);
     ctx4.fillText("NETNRG: "+round(this.netNRG),posx,posy+=10);
-    ctx4.fillText("SCO: "+round(this.score),posx, posy+=10);
     ctx4.fillText("TOP: "+round(this.top),posx, posy+=10);
     ctx4.fillText("B$: "+(round(10000*this.brainCost)/10000),posx,posy+=10);
     posy+=10;
