@@ -1,7 +1,7 @@
 # Petri
-A testing ground for genetic algorithms in a dynamic environment. Note that this program is subject to change as my understanding of these maths progresses.
+A testing ground for genetic algorithms in a dynamic environment. Note that this program is subject to change.
 
-To further my own understanding, and to push the capabilities of this program, I am absolutely open to criticism and more than happy to accomodate collaboration. More than anything, this project serves to be exploratory, and to provide insight into the potential of machine learning.
+To further my own understanding, and to push the capabilities of this program, I am absolutely open to criticism and more than happy to accomodate collaboration. More than anything, this project serves to be exploratory.
 
 # INSTRUCTIONS
 
