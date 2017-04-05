@@ -7,7 +7,7 @@ To further my own understanding, and to push the capabilities of this program, I
 
 1: Right-click on the html file, and use Firefox as the browser to run the program (runs faster than safari/chrome/IE). You may have to zoom out a little, by going to the Firefox menu and clicking View-> Zoom -> Zoom Out.
 
-2: Click "NEW RANDOM 100" to generate a random assortment of creatures. Creatures "eat" the colors red, green, and blue, subtracting them from terrain tiles. Creatures have the ability to sense and eat/interact with each other.
+2: Click "NEW RANDOM 100" to generate a random assortment of creatures. Creatures "eat" the colors red, green, and blue, subtracting them from terrain tiles. Creatures may evolve the ability to sense and eat/interact with each other.
 
 3: Once a few species have taken off, wait a while (~30 min). Creatures will require time to form coherent movements. Stopping and starting, non-cyclic swimming patterns, and extension/rotation of eyes indicate that behaviour paths are forming.
 
