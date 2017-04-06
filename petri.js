@@ -98,7 +98,14 @@ var avePosNRGHist=[];
 var redResourceHist=[];
 var greenResourceHist=[];
 var blueResourceHist=[];
+
 var regressMode=0;
+/*
+1.15:
+5/4/17: IS REGRESS BEING DONE WRONG? Currently, I am finding difference between ANY ANCESTOR and the unsuccessful descendant,
+  then subtracting that difference from the gene pool. Instead, try finding difference between unsuccessful descendant and the
+  PARENT of that descendant, then subtracting THAT instead... Meanwhile, propagate function works rediculously TOO well...
+*/
 var propagateMode=0;
 
 /*
@@ -1087,6 +1094,10 @@ function randn_bm() { //random box-muller: generate normal distribution
     return Math.sqrt( -2.0 * Math.log( u ) ) * Math.cos( 2.0 * Math.PI * v );
 }
 
+function randn_one() {
+    return round((Math.random()*2)-1);
+}
+
 function Tile(x,y,num) {
   /*
   0.20:
@@ -1536,7 +1547,7 @@ Animal.prototype.think=function() {
   this.brain[0][inp++].is=this.mouth.sense;
   this.brain[0][inp++].is=this.mouth.sense2;
   this.brain[0][inp++].is=this.mouth.stray/180;
-  this.brain[0][inp++].is=this.mouth.dis/(2*this.size);
+  this.brain[0][inp++].is=this.mouth.dis/(2*this.maxSize);
   this.brain[0][inp++].is=this.health;
   this.brain[0][inp++].is=((this.size-this.midSize)-this.minSize)/this.midSize;
   this.brain[0][inp++].is=this.attack;
@@ -1547,7 +1558,7 @@ Animal.prototype.think=function() {
     this.brain[0][(4*j)+inp].is=this.eyes[j].col;
     this.brain[0][(4*j)+inp+1].is=this.eyes[j].sense;
     this.brain[0][(4*j)+inp+2].is=this.eyes[j].stray/180;
-    this.brain[0][(4*j)+inp+3].is=this.eyes[j].dis/(10*this.size);
+    this.brain[0][(4*j)+inp+3].is=this.eyes[j].dis/(10*this.maxSize);
   }
   inp+=(4*this.eyeNumber);
   for(var i=0, temp=0, bS=BRAINSIZECAP; i<bS; i++) {
@@ -1882,7 +1893,7 @@ Animal.prototype.grow=function() {
         }
         var mutant=new Animal(this.x,this.y,i);
         this.descendants++;
-        this.genePool++;
+        //this.genePool++;
         this.mutate(mutant);
         this.mouth.dis*=(this.size-this.minSize)/this.size;
         for(var j=0;j<this.eyeNumber;j++){
@@ -2004,12 +2015,16 @@ Animal.prototype.decay=function() {
           var ancestor = this.pidx;
           while(ancestor!=null){
             if(ancestor>=0){
-              this.regress(ancestor, 1);
-              animals[ancestor].genePool--;
+              this.softRegress(this.pidx, ancestor, 1);
+              if(ancestor==this.pidx){ // If ancestor wasnt parent, concentrate the mutation direction by reducing the gene pool...
+                animals[ancestor].genePool++;
+              }
               ancestor = animals[ancestor].pidx;
             } else {
-              this.regress(ancestor, 1);
-              deadanimals[-(ancestor+1)].genePool--;
+              this.softRegress(this.pidx, ancestor, 1);
+              if(ancestor==this.pidx){
+                deadanimals[-(ancestor+1)].genePool++;
+              }
               ancestor = deadanimals[-(ancestor+1)].pidx;
             }
           }
@@ -2020,12 +2035,16 @@ Animal.prototype.decay=function() {
             var ancestor = this.pidx;
             while(ancestor!=null){
               if(ancestor>=0){
-                this.regress(ancestor, 1);
-                animals[ancestor].genePool--;
+                this.softRegress(this.pidx, ancestor, 1);
+                if(ancestor==this.pidx){
+                  animals[ancestor].genePool++;
+                }
                 ancestor = animals[ancestor].pidx;
               } else {
-                this.regress(ancestor, 1);
-                deadanimals[-(ancestor+1)].genePool--;
+                this.softRegress(this.pidx, ancestor, 1);
+                if(ancestor==this.pidx){
+                  deadanimals[-(ancestor+1)].genePool++;
+                }
                 ancestor = deadanimals[-(ancestor+1)].pidx;
               }
             }
@@ -2120,8 +2139,8 @@ Animal.prototype.mutate=function(a) {
   a.muta=this.muta;
 
   var mux; //Starts at 1 to signify the current child
-  if(propagateMode==1){
-    mux=this.genePool; // descendants DO NOT include animals own children: rather, counts how successful each of its children have been at reproducing
+  if(propagateMode==1 && this.genePool>0){
+    mux=this.genePool; // descendants DO NOT include animals own children: rather, counts GRANDCHILDREN (how successful each of its children have been at reproducing)
   }else {
     mux=1;
   }
@@ -3070,6 +3089,7 @@ Animal.prototype.highlight=function() {
     }
   }
 }
+/*
 Animal.prototype.regress=function(index, scale) { // cI= child index, pI= parent index (if parent is alive)
   var pI;
   if(index>=0){
@@ -3119,6 +3139,60 @@ Animal.prototype.regress=function(index, scale) { // cI= child index, pI= parent
   pI.maxSizeGene=(round(10*pI.maxSizeGene)/10);
   pI.minSizeGene=(round(10*pI.minSizeGene)/10);
 }
+*/
+Animal.prototype.softRegress=function(pidx, idx, scale) { // cI= child index, pI= parent index (if parent is alive)
+  var pI;
+  var aI;
+  if(pidx>=0){
+    pI = animals[pidx];
+  } else {
+    pI = deadanimals[-(pidx+1)];
+  }
+  if(idx>=0){
+    aI = animals[idx];
+  } else {
+    aI = deadanimals[-(idx+1)];
+  }
+  for(var i=0, bL=BRAINLAYERSCAP; i<bL; i++) {
+    for(var j=0, bS=BRAINSIZECAP; j<bS; j++) {
+      for(var k=0, bS2=BRAINSIZECAP; k<bS2; k++) {
+        aI.brain[i][j].w1Genes[k]+=((pI.brain[i][j].weights[0][k]-this.brain[i][j].weights[0][k])/scale); //scale is bigger than 1 if more children than parent had-> regress to 0 LESS
+        aI.brain[i][j].w2Genes[k]+=((pI.brain[i][j].weights[1][k]-this.brain[i][j].weights[1][k])/scale);
+        aI.brain[i][j].bGenes[k]+=((pI.brain[i][j].bias[k]-this.brain[i][j].bias[k])/scale);
+
+        aI.brain[i][j].w1Genes[k]=(round(10000*aI.brain[i][j].w1Genes[k])/10000);
+        aI.brain[i][j].w2Genes[k]=(round(10000*aI.brain[i][j].w2Genes[k])/10000);
+        aI.brain[i][j].bGenes[k]=(round(10000*aI.brain[i][j].bGenes[k])/10000);
+      }
+    }
+  }
+
+  aI.mouth.mutrs[0]+=((pI.mouth.dissen-this.mouth.dissen)/scale);
+  aI.mouth.mutrs[1]+=((pI.mouth.dirsen-this.mouth.dirsen)/scale);
+
+  aI.mouth.mutrs[0]=(round(10000*aI.mouth.mutrs[0])/10000);
+  aI.mouth.mutrs[1]=(round(10000*aI.mouth.mutrs[1])/10000);
+
+  for(var i=0; i<EYECAP; i++) {
+    aI.eyes[i].mutrs[0]+=((pI.eyes[i].dissen-this.eyes[i].dissen)/scale);
+    aI.eyes[i].mutrs[1]+=((pI.eyes[i].dirsen-this.eyes[i].dirsen)/scale);
+
+    aI.eyes[i].mutrs[0]=(round(10000*aI.eyes[i].mutrs[0])/10000);
+    aI.eyes[i].mutrs[1]=(round(10000*aI.eyes[i].mutrs[1])/10000);
+  }
+
+  aI.senmuts[0]+=((pI.velres-this.velres)/scale);
+  aI.senmuts[1]+=((pI.rotres-this.rotres)/scale);
+
+  aI.senmuts[0]=(round(100*aI.senmuts[0])/100);
+  aI.senmuts[1]=(round(100*aI.senmuts[1])/100);
+
+  aI.maxSizeGene+=((pI.maxSize-this.maxSize)/scale);
+  aI.minSizeGene+=((pI.minSize-this.minSize)/scale);
+
+  aI.maxSizeGene=(round(10*aI.maxSizeGene)/10);
+  aI.minSizeGene=(round(10*aI.minSizeGene)/10);
+}
 Animal.prototype.propagate=function(index) { // cI= child index, pI= parent index (if parent is alive)
   var pI;
   if(index>=0){
@@ -3163,6 +3237,7 @@ Animal.prototype.propagate=function(index) { // cI= child index, pI= parent inde
   pI.maxSizeGene=(round(10*pI.maxSizeGene)/10);
   pI.minSizeGene=(round(10*pI.minSizeGene)/10);
 }
+
 /*
 Animal.prototype.mutate=function(a) {
   a.alive=true;
