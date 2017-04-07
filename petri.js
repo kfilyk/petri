@@ -71,7 +71,6 @@ var redResource=0;
 var blueResource=0;
 var greenResource=0;
 var globalFNRG=0;
-var netAge=0;
 
 var aveChildren=0; //Ratio of number of children per parent
 var aveLifespan=0;
@@ -79,9 +78,12 @@ var aveAge=0;
 var avePosNRG=0;
 
 var maxAveChildren=1;
-var maxAveLifespan=0;
-var maxAvePosNRG=0;
-var maxAveAge=0;
+var maxAveLifespan=1;
+var maxAvePosNRG=1;
+var maxAveAge=1;
+var maxPopPerGen=1;
+var maxFERPerGen=1;
+var maxChildPerGen=1;
 
 var maxRedResource=0;
 var maxBlueResource=0;
@@ -98,6 +100,16 @@ var avePosNRGHist=[];
 var redResourceHist=[];
 var greenResourceHist=[];
 var blueResourceHist=[];
+var popPerGen=[];
+var FERPerGen=[]; //FER: Food Energy Ratio
+var childPerGen=[];
+
+var graphHolder=new Array(5);
+graphHolder[0]=0;
+graphHolder[1]=1;
+graphHolder[2]=2;
+graphHolder[3]=3;
+graphHolder[4]=5;
 
 var regressMode=0;
 /*
@@ -165,67 +177,13 @@ function cycle() {
 	input.update();
 	tileman.update();
 	animan.update();
-
-  aveLifespan=netLifespan/(LIVEPOP+deadanimals.length);
-  avePosNRG=globalNetNRG/(LIVEPOP+deadanimals.length);
-  aveAge=netAge/LIVEPOP;
-  netAge=0;
-
-  if(time%100==0){ // EVERY 100 FRAMES
-    if(LIVEPOP!=0){
-      globalFNRG=globalFNRG/100;
-      aveChildren=aveChildren/100; //collected over 100 frames
-    } else {
-      globalFNRG=0;
-      aveChildren=0;
-    }
-    if(aveChildren>maxAveChildren){
-      maxAveChildren=aveChildren;
-    }
-
-    globalFNRGHist.push(globalFNRG); //add up all the ratios and divide by the number of living creatures
-    globalFNRG=0;
-    aveChildrenHist.push(aveChildren);
-    aveChildren=0;
-    aveLifespanHist.push(aveLifespan);
-    avePosNRGHist.push(avePosNRG);
-    redResourceHist.push(redResource);
-    blueResourceHist.push(blueResource);
-    greenResourceHist.push(greenResource);
-    aveAgeHist.push(aveAge);
-
-    if(aveLifespan>maxAveLifespan){
-      maxAveLifespan=aveLifespan;
-    }
-    if(avePosNRG>maxAvePosNRG){
-      maxAvePosNRG=avePosNRG;
-    }
-    if(aveAge>maxAveAge){
-      maxAveAge=aveAge;
-    }
-    if(redResource>maxRedResource){
-      maxRedResource=redResource;
-    }
-    if(greenResource>maxGreenResource){
-      maxGreenResource=greenResource;
-    }
-    if(blueResource>maxBlueResource){
-      maxBlueResource=blueResource;
-    }
-    if(redResource<minRedResource){
-      minRedResource=redResource;
-    }
-    if(greenResource<minGreenResource){
-      minGreenResource=greenResource;
-    }
-    if(blueResource<minBlueResource){
-      minBlueResource=blueResource;
-    }
+  if(time%100==0){ // COLLECT EVERY 100 FRAMES
+    statman.update();
   }
+  console.update();
   if(!pause){
     time++;
   }
-  console.update();
 	request=requestAnimationFrame(cycle);
 }
 var tileman = {
@@ -292,6 +250,63 @@ var animan = {
 		}
 	}
 }
+var statman = {
+  update : function() {
+    aveAge=aveAge/100;
+    globalFNRG=globalFNRG/100;
+    aveChildren=aveChildren/100;
+    if(deadanimals.length>0){
+      aveLifespan=netLifespan/deadanimals.length;
+      avePosNRG=globalNetNRG/deadanimals.length;
+    }else {
+      aveLifespan=0;
+      avePosNRG=0;
+    }
+    globalFNRGHist.push(globalFNRG); //add up all the ratios and divide by the number of living creatures
+    globalFNRG=0;
+    aveChildrenHist.push(aveChildren);
+    if(aveChildren>maxAveChildren){
+      maxAveChildren=aveChildren;
+    }
+    aveChildren=0;
+    aveLifespanHist.push(aveLifespan);
+    avePosNRGHist.push(avePosNRG);
+    redResourceHist.push(redResource);
+    blueResourceHist.push(blueResource);
+    greenResourceHist.push(greenResource);
+    aveAgeHist.push(aveAge);
+    if(aveAge>maxAveAge){
+      maxAveAge=aveAge;
+    }
+    aveAge=0;
+    if(aveLifespan>maxAveLifespan){
+      maxAveLifespan=aveLifespan;
+    }
+    if(avePosNRG>maxAvePosNRG){
+      maxAvePosNRG=avePosNRG;
+    }
+
+    if(redResource>maxRedResource){
+      maxRedResource=redResource;
+    }
+    if(greenResource>maxGreenResource){
+      maxGreenResource=greenResource;
+    }
+    if(blueResource>maxBlueResource){
+      maxBlueResource=blueResource;
+    }
+    if(redResource<minRedResource){
+      minRedResource=redResource;
+    }
+    if(greenResource<minGreenResource){
+      minGreenResource=greenResource;
+    }
+    if(blueResource<minBlueResource){
+      minBlueResource=blueResource;
+    }
+  }
+}
+
 var console = {
 	setup : function() {
 		ctx4.clearRect(0,0,CONSOLEX,CONSOLEY);
@@ -305,7 +320,7 @@ var console = {
 		ctx3.fillText("DEAD: ", 10, posy+=10);
 		ctx3.fillText("HIND: ", 10, posy+=10);
 		ctx3.fillText("NEW: ", 10, posy+=10);
-
+    ctx3.fillText("TIME: ", 10, posy+=10);
 		var posx2=440;
 		posy=10;
 		ctx3.fillRect(80,posy,2,12);
@@ -408,6 +423,7 @@ var console = {
 			} else {
 				posy+=10;
 			}
+      ctx4.fillText(time, posx, posy+=10);
 			posx=10;
 			posy=75;
 			ctx4.fillStyle="#FFFFFF";
@@ -451,231 +467,82 @@ var console = {
 					break;
 				}
 			}
-
-
       //GRAPHS
       ctx4.clearRect(0, 380, CONSOLEX, CONSOLEY-380); //Clear rect a little above, a little below
 
-      posx=10;
-      posy=400;
-      ctx4.fillText("TIME: "+time, posx, posy-40);
+      var buttonX=10;
+      ctx4.fillStyle="#FFFFFF";
+      for(var i=0;i<5; i++){
+        ctx4.fillRect(buttonX,490,10,10);
+        if(leftPressed){
+          if(consoleMouse && mouseX>buttonX && mouseX<buttonX+10 && mouseY>490 && mouseY<500) {
+            if(graphHolder[i]<5){
+              graphHolder[i]++;
+            } else {
+              graphHolder[i]=-1;
+            }
+            leftPressed=false;
+          }
+        } else if(rightPressed){
+          if(consoleMouse && mouseX>buttonX && mouseX<buttonX+10 && mouseY>490 && mouseY<500) {
+            if(graphHolder[i]>-1){
+              graphHolder[i]--;
+            } else {
+              graphHolder[i]=5;
+            }
+            rightPressed=false;
+          }
+        }
 
-      var initY=0;
-      var endY=0;
-      var show=0;
-      ctx4.strokeStyle="#FFFFFF";
-
-      //FNRG RATIO GRAPH
-      ctx4.beginPath();
-      posx=0;
+        buttonX+=20;
+      }
+      buttonX=10;
+      ctx4.fillStyle="#323232";
+      for(var i=0;i<5; i++){
+        ctx4.fillText(graphHolder[i],buttonX+1, 499);
+        buttonX+=20;
+      }
+      var lineX= CONSOLEX/(~~(time/100));
       posy=600;
-      var lineX=(CONSOLEX/(globalFNRGHist.length-1)); // array [0, 1, 2] has length 3. takes 2 lines to cross it.
-      for(var i=0; i<globalFNRGHist.length-1; i++){ // Will begin once array has length of at least 2. Initial length==1. Wait until length 2
-        initY = 100*globalFNRGHist[i];
-        endY= 100*globalFNRGHist[i+1];
-        ctx4.moveTo(posx,posy-initY);
-        ctx4.lineTo(posx+lineX, posy-endY);
-
-        if(consoleMouse && abs(mouseX-posx)<10 && abs(mouseY-(posy-initY))<10){
-          if(show==0) {
-            ctx4.fillText("%POSFNRG: "+(round(100*globalFNRGHist[i])/100), 10, posy-90);
-            ctx4.fillText("TIME: "+(i*100), 10, posy-80);
-            show=1;
-          }
-        }
-        posx+=lineX;
-        initY=endY;
-      }
-      if(show==0){
-        ctx4.fillText("%POSFNRG: "+round(100*globalFNRGHist[globalFNRGHist.length-1])/100, 10, posy-90);
-      }
-
-
-      //NETCHILDREN GRAPH
-      posx=0;
-      posy=700;
-      lineX=(CONSOLEX/(aveChildrenHist.length-1)); //when aveChildrenHist.length==2, there are two points. Then lineX==CONSOLEX.
-      endY=0;
-      show=0;
-      for(var i=0; i<aveChildrenHist.length-1; i++){ // Will begin once array has length of at least 2. Initial length==1. Wait until length 2
-        initY=100*aveChildrenHist[i]/maxAveChildren;
-        endY= 100*aveChildrenHist[i+1]/maxAveChildren;//Height of line
-        ctx4.moveTo(posx,posy-initY); // First point will be on (0, 500)
-        ctx4.lineTo(posx+lineX, posy-endY);
-
-        if(consoleMouse && abs(mouseX-posx)<10 && abs(mouseY-(posy-initY))<10){
-          if(show==0) {
-            ctx4.fillText("AVECHILDREN: "+round(100*aveChildrenHist[i])/100, 10, posy-90);
-            ctx4.fillText("TIME: "+(i*100), 10, posy-80);
-            show=1;
-          }
-        }
-        posx+=lineX;
-        initY=endY;
-      }
-      if(show==0){
-        ctx4.fillText("AVECHILDREN: "+round(100*aveChildrenHist[aveChildrenHist.length-1])/100, 10, posy-90);
-      }
-
-      // AVELIFESPAN GRAPH
-      posx=0;
-      posy=800;
-      initY=0;
-      endY=0;
-      show=0;
-      for(var i=0; i<aveLifespanHist.length-1; i++){ // Will begin once array has length of at least 2. Initial length==1. Wait until length 2
-        endY= 100*aveLifespanHist[i+1]/maxAveLifespan;//Height of line
-        ctx4.moveTo(posx,posy-initY); // First point will be on (0, 500)
-        ctx4.lineTo(posx+lineX, posy-endY);
-
-        if(consoleMouse && abs(mouseX-posx)<10 && abs(mouseY-(posy-initY))<10){
-          if(show==0) {
-            ctx4.fillText("AVELIFESPAN: "+round(aveLifespanHist[i]), 10, posy-90);
-            ctx4.fillText("TIME: "+(i*100), 10, posy-80);
-            show=1;
-          }
-        }
-        posx+=lineX;
-        initY=endY;
-      }
-      if(show==0){
-        ctx4.fillText("AVELIFESPAN: "+round(aveLifespan), 10, posy-90);
-      }
-
-      // AVEPOSNRG GRAPH
-      posx=0;
-      posy=900;
-      initY=0;
-      endY=0;
-      show=0;
-      for(var i=0; i<avePosNRGHist.length-1; i++){ // Will begin once array has length of at least 2. Initial length==1. Wait until length 2
-        endY= round(100*avePosNRGHist[i+1]/maxAvePosNRG);//Height of line
-        ctx4.moveTo(posx,posy-initY); // First point will be on (0, 500)
-        ctx4.lineTo(posx+lineX, posy-endY);
-
-        if(consoleMouse && abs(mouseX-posx)<10 && abs(mouseY-(posy-initY))<10){
-          if(show==0) {
-            ctx4.fillText("AVEPOSNRG: "+round(avePosNRGHist[i]), 10, posy-90);
-            ctx4.fillText("TIME: "+(i*100), 10, posy-80);
-            show=1;
-          }
-        }
-        posx+=lineX;
-        initY=endY;
-      }
-      if(show==0){
-        ctx4.fillText("AVEPOSNRG: "+round(avePosNRG), 10, posy-90);
-      }
-      ctx4.stroke();
-
-
-      // RESOURCE GRAPH
-      var showTime=-1;
-      var showReso=0;
-
-      // RED RESOURCE
-      ctx4.beginPath();
-      posx=0;
-      posy=1000;
-      var redRange=(maxRedResource-minRedResource);
-      initY=round(100*((redResourceHist[0]-minRedResource)/redRange));
-      endY=0;
-      show=0;
-      ctx4.strokeStyle="#FF0000";
-      for(var i=0; i<redResourceHist.length-1; i++){ // Will begin once array has length of at least 2. Initial length==1. Wait until length 2
-        endY=round(100*((redResourceHist[i+1]-minRedResource)/redRange));
-        ctx4.moveTo(posx,posy-initY);
-        ctx4.lineTo(posx+lineX,posy-endY);
-
-        if(consoleMouse && abs(mouseX-posx)<10 && abs(mouseY-(posy-initY))<10){
-          if(show==0) {
-            showReso=round(redResourceHist[i]);
-            if(showTime=-1){
-              showTime=i*100;
+      ctx4.fillStyle="#FFFFFF";
+      ctx4.strokeStyle="#FFFFFF";
+      for(var i=0;i<5; i++){
+        if(graphHolder[i]==0){
+          graph(lineX, posy, globalFNRGHist, "%POSFNRG: ", 1);
+        } else if(graphHolder[i]==1){
+          graph(lineX, posy, aveChildrenHist, "AVECHILDREN: ", 1);
+        } else if(graphHolder[i]==2){
+          graph(lineX, posy, aveLifespanHist, "AVELIFESPAN: ", maxAveLifespan);
+        } else if(graphHolder[i]==3){
+          graph(lineX, posy, avePosNRGHist, "AVEPOSNRG: ", maxAvePosNRG);
+        } else if(graphHolder[i]==4){
+          if(popPerGen.length>0){
+            var genX;
+            if(popPerGen.length>1){
+              genX = CONSOLEX/(popPerGen.length-1);
+            } else {
+              genX=0;
             }
-            show=1;
+            genGraph(genX, posy, FERPerGen, "FER: ", 1);
           }
-        }
-        posx+=lineX;
-        initY=endY;
-      }
-
-      ctx4.stroke();
-      if(show==0){
-        ctx4.fillText("RRESO: "+round(redResource), 10, posy-90);
-      } else {
-        ctx4.fillText("RRESO: "+showReso, 10, posy-90);
-      }
-
-      //GREEN RESOURCE
-      ctx4.beginPath();
-      posx=0;
-      var greenRange=(maxGreenResource-minGreenResource);
-      initY=round(100*((greenResourceHist[0]-minGreenResource)/greenRange));
-      endY=0;
-      show=0;
-      ctx4.strokeStyle="#00FF00";
-      for(var i=0; i<greenResourceHist.length-1; i++){ // Will begin once array has length of at least 2. Initial length==1. Wait until length 2
-        endY=round(100*((greenResourceHist[i+1]-minGreenResource)/greenRange));
-        ctx4.moveTo(posx,posy-initY);
-        ctx4.lineTo(posx+lineX, posy-endY);
-
-        if(consoleMouse && abs(mouseX-posx)<10 && abs(mouseY-(posy-initY))<10){
-          if(show==0) {
-            showReso=round(greenResourceHist[i]);
-            if(showTime=-1){
-              showTime=i*100;
-            }
-            show=1;
+        } else if(graphHolder[i]==5){
+          var showTime=-1;
+          var showReso=0;
+          ctx4.strokeStyle="#FF0000";
+          resoGraph(lineX, posy, 90, redResourceHist, "RRESO: ", minRedResource, maxRedResource);
+          ctx4.strokeStyle="#00FF00";
+          resoGraph(lineX, posy, 80, greenResourceHist, "GRESO: ", minGreenResource, maxGreenResource);
+          ctx4.strokeStyle="#0000FF";
+          resoGraph(lineX, posy, 70, blueResourceHist, "BRESO: ", minBlueResource, maxBlueResource);
+          if(showTime>-1){
+            ctx4.fillText("TIME: "+showTime, 10, posy-60);
           }
+          ctx4.strokeStyle="#FFFFFF";
         }
-        posx+=lineX;
-        initY=endY;
+        posy+=100;
       }
+    }
 
-      ctx4.stroke();
-      if(show==0){
-        ctx4.fillText("GRESO: "+round(greenResource), 10, posy-80);
-      } else {
-        ctx4.fillText("GRESO: "+showReso, 10, posy-80);
-      }
-
-      // BLUE RESOURCE
-      ctx4.beginPath();
-      posx=0;
-      var blueRange=(maxBlueResource-minBlueResource);
-      initY=round(100*((blueResourceHist[0]-minBlueResource)/blueRange));
-      endY=0;
-      show=0;
-      ctx4.strokeStyle="#0000FF";
-      for(var i=0; i<blueResourceHist.length-1; i++){ // Will begin once array has length of at least 2. Initial length==1. Wait until length 2
-        endY=round(100*((blueResourceHist[i+1]-minBlueResource)/blueRange));
-        ctx4.moveTo(posx,posy-initY);
-        ctx4.lineTo(posx+lineX, posy-endY);
-
-        if(consoleMouse && abs(mouseX-posx)<10 && abs(mouseY-(posy-initY))<10){
-          if(show==0) {
-            showReso=round(blueResourceHist[i]);
-            if(showTime=-1){
-              showTime=i*100;
-            }
-            show=1;
-          }
-        }
-        posx+=lineX;
-        initY=endY;
-      }
-      ctx4.stroke();
-      if(show==0){
-        ctx4.fillText("BRESO: "+round(blueResource), 10, posy-70);
-      } else {
-        ctx4.fillText("BRESO: "+showReso, 10, posy-70);
-      }
-      if(showTime!=-1){
-        ctx4.fillText("TIME: "+showTime, 10, posy-60);
-      }
-
-		}
 		if(highlighted!=null) {
 			if(highlighted<0) {
 				deadanimals[-(highlighted+1)].highlight();
@@ -685,7 +552,90 @@ var console = {
 		}
 	}
 }
+function graph(lx, y, g, txt, max) {
+  var initY;
+  var endY;
+  var show=0;
+  var posx=0;
+  ctx4.beginPath();
+  for(var i=0; i<g.length-1; i++){ // Will begin once array has length of at least 2. Initial length==1. Wait until length 2
+    initY = 100*g[i]/max;
+    endY= 100*g[i+1]/max;
+    ctx4.moveTo(posx,y-initY);
+    ctx4.lineTo(posx+lx, y-endY);
 
+    if(consoleMouse && abs(mouseX-posx)<10 && abs(mouseY-(y-initY))<10){
+      if(show==0) {
+        ctx4.fillText(txt+(round(100*g[i])/100), 10, y-90);
+        ctx4.fillText("TIME: "+(i*100), 10, y-80);
+        show=1;
+      }
+    }
+    posx+=lx;
+    initY=endY;
+  }
+  if(show==0){
+    ctx4.fillText(txt+round(100*g[g.length-1])/100, 10, y-90);
+  }
+  ctx4.stroke();
+}
+function resoGraph(lx, y, s, g, txt, min, max) {
+  var initY;
+  var endY;
+  var show=0;
+  var posx=0;
+  var range=(max-min);
+  ctx4.beginPath();
+  for(var i=0; i<g.length-1; i++){ // Will begin once array has length of at least 2. Initial length==1. Wait until length 2
+    initY=round(100*((g[i]-min)/range));
+    endY=round(100*((g[i+1]-min)/range));
+    ctx4.moveTo(posx,y-initY);
+    ctx4.lineTo(posx+lx,y-endY);
+
+    if(consoleMouse && abs(mouseX-posx)<10 && abs(mouseY-(y-initY))<10){
+      if(show==0) {
+        ctx4.fillText(txt+round(g[i]), 10, y-s);
+        if(showTime=-1){
+          showTime=i*100;
+        }
+        show=1;
+      }
+    }
+    posx+=lx;
+    initY=endY;
+  }
+  if(show==0){
+    ctx4.fillText(txt+round(g[g.length-1]), 10, y-s);
+  }
+  ctx4.stroke();
+}
+function genGraph(lx, y, g, txt, max) {
+  var initY;
+  var endY;
+  var show=0;
+  var posx=0;
+  ctx4.beginPath();
+  for(var i=0; i<g.length-1; i++){ // Will begin once array has length of at least 2. Initial length==1. Wait until length 2
+    initY= round(100*(g[i]/popPerGen[i])/max);
+    endY=round(100*(g[i+1]/popPerGen[i+1])/max);
+    ctx4.moveTo(posx,y-initY);
+    ctx4.strokeRect((posx-1), (y-initY-1),2,2);
+    ctx4.lineTo(posx+lx,y-endY);
+    if(consoleMouse && abs(mouseX-posx)<10 && abs(mouseY-(y-initY))<10){
+      if(show==0) {
+        ctx4.fillText(txt+round(100*(g[i]/popPerGen[i]))/100, 10, y-90);
+        ctx4.fillText("GEN "+i, 10, y-80);
+        show=1;
+      }
+    }
+    posx+=lx;
+  }
+  if(show==0){
+    ctx4.fillText(txt+round(100*g[g.length-1]/popPerGen[g.length-1])/100, 10, y-90);
+    ctx4.fillText("GEN "+(g.length-1), 10, y-80);
+  }
+  ctx4.stroke();
+}
 function resetStats(){
   time=0;
   netLifespan=0;
@@ -697,13 +647,16 @@ function resetStats(){
   avePosNRG=0;
 
   maxAveChildren=1;
-  maxAveLifespan=0;
-  maxAvePosNRG=0;
+  maxAveLifespan=1;
+  maxAvePosNRG=1;
 
   aveChildrenHist=[];
   aveLifespanHist=[];
   avePosNRGHist=[];
   globalFNRGHist=[];
+  popPerGen=[];
+  FERPerGen=[];
+  childPerGen=[];
 }
 
 var input= {
@@ -2054,6 +2007,14 @@ Animal.prototype.decay=function() {
 		}
     globalNetNRG+=this.netNRG;
     netLifespan+=this.age;
+    if(this.gen>=popPerGen.length){
+      popPerGen.push(0);
+      FERPerGen.push(0);
+      childPerGen.push(0);
+    }
+    popPerGen[this.gen]++;
+    FERPerGen[this.gen]+=(this.posFNRG/this.netFNRG);
+    childPerGen[this.gen]+=this.children.length;
 
 		deadanimals.push(dead);
 		for(var i=0, cL=this.children.length; i<cL; i++) {
@@ -2096,7 +2057,7 @@ Animal.prototype.decay=function() {
     if(this.netFNRG!=0){
       globalFNRG+=(this.posFNRG/this.netFNRG)/LIVEPOP; // Add living animals ratio of pos/net FNRG
     }
-    netAge+=this.age/LIVEPOP;
+    aveAge+=this.age/LIVEPOP;
     aveChildren+=(this.children.length)/LIVEPOP;
 		if(this.loss>0) {
 			this.deterioration+=this.loss/10000;
