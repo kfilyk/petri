@@ -1,5 +1,5 @@
 # Petri
-Hello, this program is used for evolving successful neural-network "species" using genetic algorithms. Please note that this program is subject to grow in terms of its functionalities, and is still in early development.To further my own understanding, and to push the capabilities of this program, I am absolutely open to criticism and more than happy to accommodate collaboration. More than anything, this project serves to be exploratory in nature.
+Hello, this program is used for evolving successful neural-network "species" using genetic algorithms. Please note that it is subject to grow in terms of its functionalities, and is still in early development. To further my own understanding, and to push the capabilities of this program, I am absolutely open to criticism and more than happy to accommodate collaboration. More than anything, this project serves to be exploratory in nature. 
 
 # INSTRUCTIONS
 
