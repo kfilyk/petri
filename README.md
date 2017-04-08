@@ -61,9 +61,9 @@ SIZE: Current body diameter in pixels
 
 SMIN: Minimum body diameter in pixels
 
-ATK: Attack- range of (-1, 1). The rate at which the creature wishes to attack/heal (take energy/give energy), where -1 means heal and +1 means attack. The size of the resulting damage is dependent on the creature size; scales accordingly. For now, all attacks are considered a carnivorous action: attacking==eating. 
+ATK: Attack- range of (-1, 1). The rate at which the creature wishes to attack/heal (take energy/give energy), where -1 means heal and +1 means attack. The size of the resulting damage is dependent on the creature size; scales accordingly. For now, all attacks are considered a carnivorous action: attacking==eating
 
->>DMG: In damage; recieved
+> > DMG: In damage; recieved
 
 DMG>>: Out damage; caused
 
