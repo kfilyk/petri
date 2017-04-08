@@ -70,7 +70,7 @@ var time=0;
 var redResource=0;
 var blueResource=0;
 var greenResource=0;
-var globalFNRG=0;
+var aveFER=0;
 
 var aveChildren=0; //Ratio of number of children per parent
 var aveLifespan=0;
@@ -82,7 +82,6 @@ var maxAveLifespan=1;
 var maxAvePosNRG=1;
 var maxAveAge=1;
 var maxPopPerGen=1;
-var maxFERPerGen=1;
 var maxChildPerGen=1;
 
 var maxRedResource=0;
@@ -93,7 +92,7 @@ var minBlueResource=0;
 var minGreenResource=0;
 
 var aveAgeHist=[];
-var globalFNRGHist=[];
+var aveFERHist=[];
 var aveChildrenHist=[];
 var aveLifespanHist=[];
 var avePosNRGHist=[];
@@ -109,7 +108,7 @@ graphHolder[0]=0;
 graphHolder[1]=1;
 graphHolder[2]=2;
 graphHolder[3]=3;
-graphHolder[4]=5;
+graphHolder[4]=6;
 
 var regressMode=0;
 /*
@@ -253,7 +252,7 @@ var animan = {
 var statman = {
   update : function() {
     aveAge=aveAge/100;
-    globalFNRG=globalFNRG/100;
+    aveFER=aveFER/100;
     aveChildren=aveChildren/100;
     if(deadanimals.length>0){
       aveLifespan=netLifespan/deadanimals.length;
@@ -262,8 +261,8 @@ var statman = {
       aveLifespan=0;
       avePosNRG=0;
     }
-    globalFNRGHist.push(globalFNRG); //add up all the ratios and divide by the number of living creatures
-    globalFNRG=0;
+    aveFERHist.push(aveFER); //add up all the ratios and divide by the number of living creatures
+    aveFER=0;
     aveChildrenHist.push(aveChildren);
     if(aveChildren>maxAveChildren){
       maxAveChildren=aveChildren;
@@ -315,7 +314,7 @@ var console = {
 		ctx3.fillStyle="#FFFFFF";
 		ctx3.strokeStyle="#FFFFFF";
 		var posy=15;
-		ctx3.fillText("PETRI 1.15", 10, posy);
+		ctx3.fillText("PETRI 1.16", 10, posy);
 		ctx3.fillText("LIVE: ", 10, posy+=10);
 		ctx3.fillText("DEAD: ", 10, posy+=10);
 		ctx3.fillText("HIND: ", 10, posy+=10);
@@ -469,14 +468,17 @@ var console = {
 			}
       //GRAPHS
       ctx4.clearRect(0, 380, CONSOLEX, CONSOLEY-380); //Clear rect a little above, a little below
-
       var buttonX=10;
+      var lineX= CONSOLEX/(~~(time/100));
+      posy=600;
       ctx4.fillStyle="#FFFFFF";
+      ctx4.strokeStyle="#FFFFFF";
       for(var i=0;i<5; i++){
+
         ctx4.fillRect(buttonX,490,10,10);
         if(leftPressed){
           if(consoleMouse && mouseX>buttonX && mouseX<buttonX+10 && mouseY>490 && mouseY<500) {
-            if(graphHolder[i]<5){
+            if(graphHolder[i]<6){
               graphHolder[i]++;
             } else {
               graphHolder[i]=-1;
@@ -488,27 +490,15 @@ var console = {
             if(graphHolder[i]>-1){
               graphHolder[i]--;
             } else {
-              graphHolder[i]=5;
+              graphHolder[i]=6;
             }
             rightPressed=false;
           }
         }
+        buttonX+=20;
 
-        buttonX+=20;
-      }
-      buttonX=10;
-      ctx4.fillStyle="#323232";
-      for(var i=0;i<5; i++){
-        ctx4.fillText(graphHolder[i],buttonX+1, 499);
-        buttonX+=20;
-      }
-      var lineX= CONSOLEX/(~~(time/100));
-      posy=600;
-      ctx4.fillStyle="#FFFFFF";
-      ctx4.strokeStyle="#FFFFFF";
-      for(var i=0;i<5; i++){
         if(graphHolder[i]==0){
-          graph(lineX, posy, globalFNRGHist, "%POSFNRG: ", 1);
+          graph(lineX, posy, aveFERHist, "AVEFER: ", 1);
         } else if(graphHolder[i]==1){
           graph(lineX, posy, aveChildrenHist, "AVECHILDREN: ", 1);
         } else if(graphHolder[i]==2){
@@ -523,9 +513,19 @@ var console = {
             } else {
               genX=0;
             }
-            genGraph(genX, posy, FERPerGen, "FER: ", 1);
+            genGraph(genX, posy, FERPerGen, "FERPERGEN: ", 1); //Food energy ratio per gen
           }
         } else if(graphHolder[i]==5){
+          if(popPerGen.length>0){
+            var genX;
+            if(popPerGen.length>1){
+              genX = CONSOLEX/(popPerGen.length-1);
+            } else {
+              genX=0;
+            }
+            genGraph(genX, posy, childPerGen, "CPG: ", maxChildPerGen); //children per gen
+          }
+        } else if(graphHolder[i]==6){
           var showTime=-1;
           var showReso=0;
           ctx4.strokeStyle="#FF0000";
@@ -540,6 +540,12 @@ var console = {
           ctx4.strokeStyle="#FFFFFF";
         }
         posy+=100;
+      }
+      buttonX=10;
+      ctx4.fillStyle="#323232";
+      for(var i=0;i<5; i++){
+        ctx4.fillText(graphHolder[i],buttonX+1, 499);
+        buttonX+=20;
       }
     }
 
@@ -640,7 +646,7 @@ function resetStats(){
   time=0;
   netLifespan=0;
   globalNetNRG=0;
-  globalFNRG=0;
+  aveFER=0;
 
   aveChildren=0;
   aveLifespan=0;
@@ -649,11 +655,12 @@ function resetStats(){
   maxAveChildren=1;
   maxAveLifespan=1;
   maxAvePosNRG=1;
+  maxChildPerGen=1;
 
   aveChildrenHist=[];
   aveLifespanHist=[];
   avePosNRGHist=[];
-  globalFNRGHist=[];
+  aveFERHist=[];
   popPerGen=[];
   FERPerGen=[];
   childPerGen=[];
@@ -2015,6 +2022,9 @@ Animal.prototype.decay=function() {
     popPerGen[this.gen]++;
     FERPerGen[this.gen]+=(this.posFNRG/this.netFNRG);
     childPerGen[this.gen]+=this.children.length;
+    if(childPerGen[this.gen]/popPerGen[this.gen]>maxChildPerGen){
+      maxChildPerGen=childPerGen[this.gen]/popPerGen[this.gen];
+    }
 
 		deadanimals.push(dead);
 		for(var i=0, cL=this.children.length; i<cL; i++) {
@@ -2055,7 +2065,7 @@ Animal.prototype.decay=function() {
       this.posFNRG+=this.foodEnergy;
     }
     if(this.netFNRG!=0){
-      globalFNRG+=(this.posFNRG/this.netFNRG)/LIVEPOP; // Add living animals ratio of pos/net FNRG
+      aveFER+=(this.posFNRG/this.netFNRG)/LIVEPOP; // Add living animals ratio of pos/net FNRG
     }
     aveAge+=this.age/LIVEPOP;
     aveChildren+=(this.children.length)/LIVEPOP;
@@ -2530,11 +2540,11 @@ Animal.prototype.highlight=function() {
     }
     ctx4.fillText("ECH+: "+(round(this.maxECH*100)/100),posx,posy+=10);
     ctx4.fillText("ECH-: "+(round(this.minECH*100)/100),posx,posy+=10);
-    ctx4.fillText("FNRG+: "+(round(this.maxFNRG*100)/100),posx,posy+=10);
-    ctx4.fillText("FNRG-: "+(round(this.minFNRG*100)/100),posx,posy+=10);
+    ctx4.fillText("MAXFNRG: "+(round(this.maxFNRG*100)/100),posx,posy+=10);
+    ctx4.fillText("MINFNRG: "+(round(this.minFNRG*100)/100),posx,posy+=10);
     ctx4.fillText("NETFNRG: "+(round(this.netFNRG*100)/100),posx,posy+=10);
     ctx4.fillText("POSFNRG: "+(round(this.posFNRG*100)/100),posx,posy+=10);
-    ctx4.fillText("FNRG%: "+(round(this.posFNRG*100/this.netFNRG)/100),posx,posy+=10);
+    ctx4.fillText("FER: "+(round(this.posFNRG*100/this.netFNRG)/100),posx,posy+=10);
     posx+=100;
     posy=210;
     ctx4.fillText("MTILE: "+this.mouth.tile+" MPOS: "+this.mouth.mX+", "+this.mouth.mY, posx, posy+=10);
