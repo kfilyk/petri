@@ -5,19 +5,21 @@ To further my own understanding, and to push the capabilities of this program, I
 
 # INSTRUCTIONS
 
-1: Open the html file in Firefox or Google Chrome (runs faster than safari/IE). You may have to zoom out, by going to the Firefox menu and clicking View-> Zoom -> Zoom Out.
+1: Run the program by clicking on the html file. The program runs fastest when run on Firefox or Google Chrome. You may have to zoom out, by going to the display bar menu and selecting View -> Zoom Out.
 
 2: Click "NEW RANDOM 100" to generate a random assortment of creatures. Creatures "eat" the colors red, green, and blue, subtracting them from terrain tiles. Given enough time, creatures will evolve the ability to sense and respond to one another.
 
 3: Once a few species have taken off, wait a while (~30 min). Creatures will require time to form coherent movements. Stopping and starting, non-cyclic swimming patterns, and extension/rotation of eyes indicate that behaviour paths are forming.
 
-4: When the "NETCHILDREN" graph has stabilized with a value above 1 (Average of one child per current living creature),  you can turn on regress/propagate functions (in the console menu) to accelerate their evolution. Note that these functions are experimental, and will direct them towards having the greatest number of children. Start low, with "REGRESS </1 CHILDREN" and "PROPAGATE ON". Regress causes the genes of unsuccessful creatures (less children) to be taken away from the parents' gene pool. Propogate allows successful creatures (more children) to add their genes to the parents' gene pool. When the parent divides, the new creature inherits the average of those genes. If you'd like to turn these functions off and let creatures freely mutate, turn propagate off first, then wait ~5 min before turning regress off. 
+4: When the "AVECHILDREN" graph has stabilized with a value above 1 (Average of one child per current living creature),  you can turn on the REGRESS and PROPAGATE functions located in the console menu, in order to accelerate their evolution. Note that these functions are experimental- they make "having the greatest number of children" the "successful" direction of evolution. Start low, with "REGRESS < 1 CHILDREN" and "PROPAGATE ON". 
 
-5: Watch your memory- on my Macbook Pro 2016 using Firefox, The program runs for about 8 hours before the browser crashes. Fortunately, this is more than enough time to witness improvements in creature lifespan/decision making/interaction. When memory runs out eventually, your computer will be fine, but you'll have to close the browser and restart. I will be converting this project to C++ in the future, so to avoid this.
+5: Regress causes the genes of unsuccessful creatures (less children) to be subtracted from the parents' gene pool. Propogate allows successful creatures (more children) to add their genes to the parents' gene pool. When the parent divides, the new creature inherits the average of those genes. If you'd like to turn these functions off and let creatures freely mutate, turn propagate off first, then wait ~5 min before turning regress off. 
 
-6: Clicking on a living creature in the terrarium or a creatures' name in the highscores will bring up its statics in its main stat card, to the right of the terrarium. Stats are explained below. Clicking the "X" at the top of the stat card will exit the stat card. To view the real-time operations being performed by its brain, click the "B" at the top of the stat card. To browse the creatures descendants, click the "F". To view gene-mutation rates in regards to the creatures physical attributes, click "M". In the brain, weight/bias stats can be viewed by left-clicking any neuron. weight/bias gene-mutation rates can be viewed by right-clicking any neuron.
+6: Watch your memory- on my Macbook Pro 2016 using Firefox, The program runs for about 8 hours before the browser crashes. Fortunately, this is more than enough time to witness improvements in creature lifespan/decision making/interaction. When memory runs out eventually, your computer will be fine, but you'll have to close the browser and restart. I will be converting this project to C++ in the future, so to avoid this.
 
-7: To reset the simulation, click "RESET". Functionality allowing creatures to be revived/modified/mutated is soon to come.
+7: Clicking on a living creature in the terrarium or a creatures' name in the highscores will bring up its statics in its main stat card, to the right of the terrarium. Stats are explained below. Clicking the "X" at the top of the stat card will exit the stat card. To view the real-time operations being performed by its brain, click the "B" at the top of the stat card. To browse the creatures descendants, click the "F". To view gene-mutation rates in regards to the creatures physical attributes, click "M". In the brain, weight/bias stats can be viewed by left-clicking any neuron. weight/bias gene-mutation rates can be viewed by right-clicking any neuron.
+
+8: To reset the simulation, click "RESET". Functionality allowing creatures to be revived/modified/mutated is soon to come.
 
 # STATS
 
