@@ -17,7 +17,7 @@ To further my own understanding, and to push the capabilities of this program, I
 
 6: Clicking on a living creature in the terrarium or a creatures' name in the highscores will bring up its statics in its main stat card, to the right of the terrarium. Stats are explained below. Clicking the "X" at the top of the stat card will exit the stat card. To view the real-time operations being performed by its brain, click the "B" at the top of the stat card. To browse the creatures descendants, click the "F". To view gene-mutation rates in regards to the creatures physical attributes, click "M". In the brain, weight/bias stats can be viewed by left-clicking any neuron. weight/bias gene-mutation rates can be viewed by right-clicking any neuron.
 
-7: To kill everything off, two options: click "RESET" for a painless death, or click "REGEN TILES ON" so it becomes "REGEN TILES OFF", and let them suffer slowly, you monster. Functionality allowing creatures to be revived/modified/mutated will be added eventually.
+7: To reset the simulation, click "RESET". Functionality allowing creatures to be revived/modified/mutated is soon to come.
 
 # STATS
 
