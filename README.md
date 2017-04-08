@@ -3,7 +3,7 @@ Hello, this program is used for evolving successful neural-network "species" usi
 
 # INSTRUCTIONS
 
-1: Run the program by clicking on the html file. The program runs fastest when run on Firefox or Google Chrome. You may have to zoom out, by going to the display bar menu and selecting View -> Zoom Out.
+1: Run the program by clicking on the html file. The program runs fastest when using Firefox or Google Chrome. You may have to zoom out, by going to the display bar menu and selecting View -> Zoom Out.
 
 2: Click "NEW RANDOM 100" to generate a random assortment of creatures. Creatures "eat" the colors red, green, and blue, subtracting them from terrain tiles. Given enough time, creatures will evolve the ability to sense and respond to one another.
 
