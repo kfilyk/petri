@@ -77,15 +77,15 @@ ECH+: Maximum (positive) energy change
 
 ECH-: Minimum (negative) energy change
 
-FNRG+: Maximum (positive) food energy
+MAXFNRG: Maximum (positive) food energy
 
-FNRG-: Minimum (negative) food energy
+MINFNRG: Minimum (negative) food energy
 
 NETFNRG: Absolute sum of positive and negative food energy accumulation over lifetime
 
 POSFNRG: Sum of positive food energy accumulation over lifetime
 
-FNRG%: (POSFNRG)/(NETFNRG)
+FER: Food Energy Ratio- (POSFNRG)/(NETFNRG)
 
 (COLUMN 3)
 
