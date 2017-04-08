@@ -11,7 +11,7 @@ To further my own understanding, and to push the capabilities of this program, I
 
 3: Once a few species have taken off, wait a while (~30 min). Creatures will require time to form coherent movements. Stopping and starting, non-cyclic swimming patterns, and extension/rotation of eyes indicate that behaviour paths are forming.
 
-4: When the "AVECHILDREN" graph has stabilized with a value above 1 (Average of one child per current living creature),  you can turn on the REGRESS and PROPAGATE functions located in the console menu, in order to accelerate their evolution. Note that these functions are experimental- they make "having the greatest number of children" the "successful" direction of evolution. Start low, with "REGRESS < 1 CHILDREN" and "PROPAGATE ON". 
+4: Whenever you'd like, you can turn on the REGRESS and PROPAGATE functions located in the console menu, in order to accelerate the evolution of the creatures. Note that these functions are experimental- they make "having the greatest number of children" the "successful" direction of evolution. Start low, with "REGRESS < 1 CHILDREN" and "PROPAGATE ON". 
 
 5: Regress causes the genes of unsuccessful creatures (less children) to be subtracted from the parents' gene pool. Propogate allows successful creatures (more children) to add their genes to the parents' gene pool. When the parent divides, the new creature inherits the average of those genes. If you'd like to turn these functions off and let creatures freely mutate, turn propagate off first, then wait ~5 min before turning regress off. 
 
