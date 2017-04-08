@@ -5,7 +5,7 @@ To further my own understanding, and to push the capabilities of this program, I
 
 # INSTRUCTIONS
 
-1: Right-click on the html file, and use Firefox as the browser to run the program (runs faster than safari/chrome/IE). You may have to zoom out a little, by going to the Firefox menu and clicking View-> Zoom -> Zoom Out.
+1: Open the html file in Firefox. (runs faster than safari/chrome/IE). You may have to zoom out, by going to the Firefox menu and clicking View-> Zoom -> Zoom Out.
 
 2: Click "NEW RANDOM 100" to generate a random assortment of creatures. Creatures "eat" the colors red, green, and blue, subtracting them from terrain tiles. Creatures may evolve the ability to sense and eat/interact with each other.
 
