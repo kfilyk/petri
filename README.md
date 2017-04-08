@@ -99,4 +99,4 @@ ROTRES: (Rotation response sensitivity to decision output)
 
 EYE: (Eye number) + (DISRES: Eye distance response sensitivity to decision output) + (DIRRES: Eye direction response sensitivity to decision output) + ("!!!": Detected creature)
 
-MUTA: Mutation rate- steers random body color mutation
+MUTA: Mutation rate- steers random body color mutation 
