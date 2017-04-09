@@ -1,23 +1,51 @@
 # Petri
-Hello, this program is used for evolving successful neural-network "species" using genetic algorithms. Please note that it is subject to grow in terms of its functionalities, and is still in early development. To further my own understanding, and to push the capabilities of this program, I am absolutely open to criticism and more than happy to accommodate collaboration. More than anything, this project serves to be exploratory in nature. 
+Hello, this program is used for evolving successful neural-network "species" using genetic algorithms. Please note that it is still in early development. To further my own understanding, and to push the capabilities of this program, I am absolutely open to criticism and more than happy to accommodate collaboration. More than anything, this project serves to be exploratory in nature. 
 
 # INSTRUCTIONS
 
 1: Run the program by clicking on the html file. The program runs fastest when using Firefox or Google Chrome. You may have to zoom out, by going to the display bar menu and selecting View -> Zoom Out.
 
-2: Click "NEW RANDOM 100" to generate a random assortment of creatures. Creatures "eat" the colors red, green, and blue, subtracting them from terrain tiles. Given enough time, creatures will evolve the ability to sense and respond to one another.
+2: Click "NEW RANDOM 100" to generate a random assortment of creatures. Tiles are initiallized with maximum colour values. Colour value  is synonymous with food. Creatures "eat" the colors red, green, and blue, subtracting them from terrain tiles. A "positive" tile will have colour, and give the creature energy. A "negative" tile will appear grey, and take energy away from the creature. Creatures will require time to form coherent behaviours and other movements. Stopping and starting, non-cyclic swimming patterns, and extension/rotation of eyes indicate that behaviour paths are forming. Given enough time, creatures will evolve the ability to sense and respond to one another.
 
-3: Once a few species have taken off, wait a while (~30 min). Creatures will require time to form coherent movements. Stopping and starting, non-cyclic swimming patterns, and extension/rotation of eyes indicate that behaviour paths are forming.
+3: Whenever you'd like, you can turn on the REGRESS and PROPAGATE functions located in the console menu, in order to accelerate the evolution of the creatures. Note that these functions are experimental- they make "having the greatest number of children" the "successful" direction of evolution. Start low, with "REGRESS < 1 CHILDREN" and "PROPAGATE ON". More info on these functions is coming.
 
-4: Whenever you'd like, you can turn on the REGRESS and PROPAGATE functions located in the console menu, in order to accelerate the evolution of the creatures. Note that these functions are experimental- they make "having the greatest number of children" the "successful" direction of evolution. Start low, with "REGRESS < 1 CHILDREN" and "PROPAGATE ON". 
+4: REGRESS causes the genes of unsuccessful creatures (with less children) to be subtracted from the parents' gene pool. PROPAGATE allows successful creatures (with more children) to add their genes to the parents' gene pool. When the parent divides, the new creature inherits the average of those genes. If you'd like to turn these functions off and let creatures freely mutate, turn propagate off first, then wait ~5 min before turning regress off. 
 
-5: Regress causes the genes of unsuccessful creatures (less children) to be subtracted from the parents' gene pool. Propogate allows successful creatures (more children) to add their genes to the parents' gene pool. When the parent divides, the new creature inherits the average of those genes. If you'd like to turn these functions off and let creatures freely mutate, turn propagate off first, then wait ~5 min before turning regress off. 
+5: Watch your memory- on my Macbook Pro 2016 using Firefox, The program runs for about 8 hours before the browser crashes. This is more than enough time to witness improvements in creature lifespan/decision making/interaction. When memory runs out eventually, your computer will be fine, but you'll have to close the browser and restart. I will be converting this project to C++ in the future, so to avoid this.
 
-6: Watch your memory- on my Macbook Pro 2016 using Firefox, The program runs for about 8 hours before the browser crashes. Fortunately, this is more than enough time to witness improvements in creature lifespan/decision making/interaction. When memory runs out eventually, your computer will be fine, but you'll have to close the browser and restart. I will be converting this project to C++ in the future, so to avoid this.
+6: Left-clicking on a living creature in the terrarium, or on a creatures' name in the highscore chart, will bring up its statics in an info-card, to the right of the terrarium. More detail on stats is in the "STATS section below.
 
-7: Clicking on a living creature in the terrarium or a creatures' name in the highscores will bring up its statics in its main stat card, to the right of the terrarium. Stats are explained below. Clicking the "X" at the top of the stat card will exit the stat card. To view the real-time operations being performed by its brain, click the "B" at the top of the stat card. To browse the creatures descendants, click the "F". To view gene-mutation rates in regards to the creatures physical attributes, click "M". In the brain, weight/bias stats can be viewed by left-clicking any neuron. weight/bias gene-mutation rates can be viewed by right-clicking any neuron.
+7: At the top of the info-card are a row of menu buttons:
 
-8: To reset the simulation, click "RESET". Functionality allowing creatures to be revived/modified/mutated is soon to come.
+Left-clicking the "X" will exit the info-card. 
+
+Left-clicking the "B" will display a map of the creatures' brain, including neuron connections and real-time operations. More detail on the the brain is in the "BRAIN" section below.
+
+Left-clicking the "F" will display the descendants of the creature. All related-creature names are left-clickable, and will pull up that creature's info-card.
+
+Left-clicking the "M" will display the gene-mutation rates in regards to the creatures physical attributes.
+
+8: Graphs are used in the console to represent rates of change over generations and over time. Data is recorded every 100 frames, when used to calculate rates of change over time. Data is recorded when creatures die, when used to calculate rates of change over generations.
+
+AVEFER: Average Food-Energy-Ratio- Depicts the average amount of positive food energy that currently living creatures have consumed, compared to the total food energy they have consumed.
+
+AVECHILDREN: Average Children: Depicts the average number of children that currently living creatures have had
+
+9: To reset the simulation, click "RESET". Functionality allowing creatures to be revived/modified/mutated is soon to come.
+
+# BRAIN
+
+Each creature has a brain consisting of 8 layers, with 42 neurons per layer. The first layer receives inputs from the creature's actions/environment. The last layer consists of creature outputs.
+
+Each neuron recieves an input signal in accordance to the softsign function:
+
+x/(1+abs(x))
+
+This function was used as opposed to the sigmoid or ReLU, because of its softer gradient between its range extremities (-1, 1). Furthermore, softsign is efficient in comparison to sigmoid, non-linear in comparison to ReLU, and allows positive and negative weights and biases to be used.
+
+Each neuron contains 84 weights and 42 biases. Initial weight and bias values are randomly selected using a box-muller distribution with variance=1 and mean=0, then divided in half. This allows for more flexiblility in mutation rate upon initialization. The 84 weights are initialized as two copies of the same initial weight value. One weight is used if the input value positive, and the other if the input is negative. These two weight values may diverge over several generations. They allow the output value to have two rates of change, depending on the sign of the input.
+ 
+Left-clicking any neuron brings up its weight and bias values. Right-clicking any neuron brings up its weight and bias gene-mutation rates.
 
 # STATS
 
