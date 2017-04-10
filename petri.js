@@ -239,13 +239,16 @@ var animan = {
 				}
 
 				if(leftPressed && terrainMouse) {
-					if((abs(animals[ai].x-mouseX)<20) && abs(animals[ai].y-mouseY)<20) {
+					if(abs(animals[ai].x-mouseX)<animals[ai].size && abs(animals[ai].y-mouseY)<animals[ai].size) {
 						if(highlighted!=null) {
 							if(display==2) {
 								display=1;
 							}
 						}
-						highlighted=ai;
+            if(highlighted!= ai) {
+              highlighted=ai;
+              leftPressed=false;
+            }
 					}
 				}
 			}
@@ -324,7 +327,7 @@ var console = {
 		ctx3.fillStyle="#FFFFFF";
 		ctx3.strokeStyle="#FFFFFF";
 		var posy=15;
-		ctx3.fillText("PETRI 1.16", 10, posy);
+		ctx3.fillText("PETRI 1.17", 10, posy);
 		ctx3.fillText("LIVE: ", 10, posy+=10);
 		ctx3.fillText("DEAD: ", 10, posy+=10);
 		ctx3.fillText("HIND: ", 10, posy+=10);
@@ -1386,10 +1389,13 @@ function Animal(x,y,index) {
 	}
 	this.mouth=new Mouth(this.dir, this.x, this.y);
 	this.foodEnergy=0;
+
 	this.maxFNRG=1;
 	this.minFNRG=-1;
+
   this.posFNRG=0;
   this.netFNRG=0;
+
 	this.attack=0;
 
 	this.brain=new Array(BRAINLAYERSCAP);
@@ -1425,8 +1431,10 @@ function Animal(x,y,index) {
 	this.energy=this.minSize*10000;
 	this.maxEnergy=this.energy;
 	this.eChange=0;
+
 	this.maxECH=1;
 	this.minECH=-1;
+
   this.netNRG=0;
 	this.loss=0;
 	this.dmgReceived=0;
@@ -1576,7 +1584,6 @@ Animal.prototype.move=function() {
   27/02/17: Need recoil vals for vel + rot?
   */
 
-
   this.eChange=0;
   this.eChange-=this.loss;
   this.dmgReceived+=this.loss;
@@ -1603,8 +1610,14 @@ Animal.prototype.move=function() {
     this.dir-=360;
   }
 
-  this.x+=round(this.vel*(Math.cos(this.dir*DEGTORAD))); //ROUNDED INTEGER
-  this.y+=round(this.vel*(Math.sin(this.dir*DEGTORAD))); //ROUNDED INTEGER
+  if(highlighted==this.index && leftPressed && terrainMouse && abs(this.x-mouseX)<20 && abs(this.y-mouseY)<20){
+    this.x=mouseX;
+    this.y=mouseY;
+  } else {
+    this.x+=round(this.vel*(Math.cos(this.dir*DEGTORAD))); //ROUNDED INTEGER
+    this.y+=round(this.vel*(Math.sin(this.dir*DEGTORAD))); //ROUNDED INTEGER
+  }
+
   if(this.x<0 || this.x>=FIELDX) {
     if(this.x<0) {
       this.x=0;
@@ -1993,7 +2006,7 @@ Animal.prototype.decay=function() {
 			HIGHESTINDEX=i;
 		}
 		var dead = new Animal(this.x, this.y, deadanimals.length); // set a index to pos in dead array...
-		this.clone(dead);
+		this.copy(dead);
 
 		if(this.pidx!=null) { //animal needs to tell parent/children its dead... needs to know if parent is alive. If parent dead, pidx will be negative (-(pidx+1)).
 			if(this.pidx<0) { //if parent is dead, no worries
@@ -2019,13 +2032,13 @@ Animal.prototype.decay=function() {
             var ancestor = this.pidx;
             while(ancestor!=null){
               if(ancestor>=0){
-                this.softRegress(this.pidx, ancestor, 1);
+                this.regress(this.pidx, ancestor, 1);
                 if(ancestor==this.pidx){
                   animals[ancestor].genePool++;
                 }
                 ancestor = animals[ancestor].pidx;
               } else {
-                this.softRegress(this.pidx, ancestor, 1);
+                this.regress(this.pidx, ancestor, 1);
                 if(ancestor==this.pidx){
                   deadanimals[-(ancestor+1)].genePool++;
                 }
@@ -2039,13 +2052,13 @@ Animal.prototype.decay=function() {
           ancestor = this.pidx;
           while(ancestor!=null){
             if(ancestor>=0){
-              this.softRegress(this.pidx, ancestor, 1);
+              this.regress(this.pidx, ancestor, 1);
               if(ancestor==this.pidx){ // If ancestor wasnt parent, concentrate the mutation direction by reducing the gene pool...
                 animals[ancestor].genePool++;
               }
               ancestor = animals[ancestor].pidx;
             } else {
-              this.softRegress(this.pidx, ancestor, 1);
+              this.regress(this.pidx, ancestor, 1);
               if(ancestor==this.pidx){
                 deadanimals[-(ancestor+1)].genePool++;
               }
@@ -2162,24 +2175,24 @@ Animal.prototype.mutate=function(a) {
   a.velres=this.velres;
   a.rotres=this.rotres;
 
-/*
+  /*
   a.senmuts[0]=this.senmuts[0]/mux; //set child and parent mutation rates identical...
   a.senmuts[1]=this.senmuts[1]/mux;
   a.senmuts[0]=round(100*a.senmuts[0])/100;
   a.senmuts[1]=round(100*a.senmuts[1])/100;
-*/
+  */
 
   a.velres+=((this.senmuts[0]/mux)+(randn_bm()/100)); // child genes displaced incrementally... PARENTS DONT CHANGE
   a.rotres+=((this.senmuts[1]/mux)+(randn_bm()/100));
   a.velres=round(100*a.velres)/100;
   a.rotres=round(100*a.rotres)/100;
 
-/*
+  /*
   a.maxSizeGene=this.maxSizeGene/mux;
   a.minSizeGene=this.minSizeGene/mux;
   a.maxSizeGene=round(10*a.maxSizeGene)/10;
   a.minSizeGene=round(10*a.minSizeGene)/10;
-*/
+  */
 
   a.maxSize=this.maxSize;
   a.minSize=this.minSize;
@@ -2271,12 +2284,12 @@ Animal.prototype.mutate=function(a) {
   a.mouth.sense=this.mouth.sense;
   a.mouth.sense2=this.mouth.sense2;
 
-/*
+  /*
   a.mouth.mutrs[0]=this.mouth.mutrs[0]/mux;
   a.mouth.mutrs[1]=this.mouth.mutrs[1]/mux;
   a.mouth.mutrs[0]=round(10000*a.mouth.mutrs[0])/10000;
   a.mouth.mutrs[1]=round(10000*a.mouth.mutrs[1])/10000;
-*/
+  */
 
   a.mouth.dissen+=((this.mouth.mutrs[0]/mux)+(randn_bm()/1000));
   a.mouth.dirsen+=((this.mouth.mutrs[1]/mux)+(randn_bm()/1000));
@@ -2298,7 +2311,7 @@ Animal.prototype.mutate=function(a) {
         a.brain[i][j].weights[1][k]=this.brain[i][j].weights[1][k];
         a.brain[i][j].bias[k]=this.brain[i][j].bias[k];
 
-/*
+        /*
         a.brain[i][j].w1Genes[k]=this.brain[i][j].w1Genes[k]/mux;
         a.brain[i][j].w2Genes[k]=this.brain[i][j].w2Genes[k]/mux;
         a.brain[i][j].bGenes[k]=this.brain[i][j].bGenes[k]/mux;
@@ -2306,7 +2319,7 @@ Animal.prototype.mutate=function(a) {
         a.brain[i][j].w1Genes[k]=round(10000*a.brain[i][j].w1Genes[k])/10000;
         a.brain[i][j].w2Genes[k]=round(10000*a.brain[i][j].w2Genes[k])/10000;
         a.brain[i][j].bGenes[k]=round(10000*a.brain[i][j].bGenes[k])/10000;
-*/
+        */
 
         a.brain[i][j].weights[0][k]+=((this.brain[i][j].w1Genes[k]/mux)+(randn_bm()/1000));
         a.brain[i][j].weights[1][k]+=((this.brain[i][j].w2Genes[k]/mux)+(randn_bm()/1000));
@@ -2338,7 +2351,7 @@ Animal.prototype.mutate=function(a) {
       a.eyes[i].col=this.eyes[i].col;
       a.eyes[i].sense=this.eyes[i].sense;
 
-/*
+      /*
       a.eyes[i].mutrs[0]=this.eyes[i].mutrs[0]/mux;
       a.eyes[i].mutrs[1]=this.eyes[i].mutrs[1]/mux;
       a.eyes[i].mutrs[0]=round(10000*a.eyes[i].mutrs[0])/10000;
@@ -2361,7 +2374,7 @@ Animal.prototype.mutate=function(a) {
     a.muta=0;
   }
 }
-Animal.prototype.clone=function(a) {
+Animal.prototype.copy=function(a) {
   a.alive=false;
   a.gen=this.gen;
   a.x=this.x;
@@ -2405,14 +2418,10 @@ Animal.prototype.clone=function(a) {
   a.dmgReceived=this.dmgReceived;
   a.health=this.health;
   a.deterioration=this.deterioration;
-  a.maxFNRG=this.maxFNRG;
-  a.minFNRG=this.minFNRG;
   a.netFNRG=this.netFNRG;
   a.posFNRG=this.posFNRG;
 
   a.foodEnergy=this.foodEnergy;
-  a.maxECH=this.maxECH;
-  a.minECH=this.minECH;
   a.eChange=this.eChange;
   a.netNRG= this.netNRG;
 
@@ -2482,6 +2491,178 @@ Animal.prototype.clone=function(a) {
     a.outputs[i]=this.outputs[i];
   }
 }
+Animal.prototype.clone=function(a) {
+  var mux; //Starts at 1 to signify the current child
+  if(propagateMode==1 && this.genePool>0){
+    mux=this.genePool; // descendants DO NOT include animals own children: rather, counts GRANDCHILDREN (how successful each of its children have been at reproducing)
+  }else {
+    mux=1;
+  }
+
+  a.alive=true;
+  a.gen=this.gen+1;
+  a.x=this.x;
+  a.y=this.y;
+  a.parent=this.name+"-"+this.gen;
+  a.pidx=-(this.index+1);
+  a.cno=this.children.length;
+  a.parentAge=this.parentAge;
+  a.parentNetNRG=this.parentNetNRG;
+  a.name=this.name;
+  a.attack=this.attack;
+  a.tile=this.tile;
+  a.muta=this.muta;
+  a.maxSize=this.maxSize;
+  a.minSize=this.minSize;
+  a.midSize=this.midSize;
+  a.size=this.minSize;
+  a.energy=this.minSize*10000;
+  a.maxEnergy=this.energy;
+  a.vel=this.vel;
+  a.rot=this.rot;
+  a.dir=this.dir;
+  a.velres=this.velres;
+  a.rotres=this.rotres;
+  a.maxSizeGene=this.maxSizeGene/mux;
+  a.minSizeGene=this.minSizeGene/mux;
+  a.maxSizeGene=round(10*a.maxSizeGene)/10;
+  a.minSizeGene=round(10*a.minSizeGene)/10;
+
+  for(var i=0;i<2;i++) {
+    a.senmuts[i]=this.senmuts[i]/mux;
+  }
+  a.senmuts[0]=round(100*a.senmuts[0])/100;
+  a.senmuts[1]=round(100*a.senmuts[1])/100;
+
+  a.health=this.health;
+  a.foodEnergy=this.foodEnergy;
+  a.eChange=this.eChange;
+
+  for(var c=0; c<15; c++) {
+    a.colors[c]=this.colors[c];
+  }
+  for(var c=0; c<5; c++) {
+    a.hexes[c]=this.hexes[c];
+  }
+  a.domCol=this.domCol;
+
+  a.eyeNumber=this.eyeNumber;
+  for(var i=0; i<a.eyeNumber; i++) {
+    a.eyes[i]=new Eye(a.dir,a.x,a.y);
+    a.eyes[i].dissen=this.eyes[i].dissen;
+    a.eyes[i].dirsen=this.eyes[i].dirsen;
+    a.eyes[i].dir=this.eyes[i].dir;
+    a.eyes[i].stray=this.eyes[i].stray;
+    a.eyes[i].dis=this.eyes[i].dis;
+    a.eyes[i].eX=this.eyes[i].eX;
+    a.eyes[i].eY=this.eyes[i].eY;
+    a.eyes[i].col=this.eyes[i].col;
+    a.eyes[i].sense=this.eyes[i].sense;
+    for(var j=0;j<2;j++) {
+      a.eyes[i].mutrs[j]=this.eyes[i].mutrs[j]/mux;
+    }
+    a.eyes[i].mutrs[0]=round(10000*a.eyes[i].mutrs[0])/10000;
+    a.eyes[i].mutrs[1]=round(10000*a.eyes[i].mutrs[1])/10000;
+  }
+
+  a.mouth.dissen=this.mouth.dissen;
+  a.mouth.dirsen=this.mouth.dirsen;
+  a.mouth.dir=this.mouth.dir;
+  a.mouth.stray=this.mouth.stray;
+  a.mouth.dis=this.mouth.dis;
+  a.mouth.mX=this.mouth.mX;
+  a.mouth.mY=this.mouth.mY;
+  a.mouth.tile=this.mouth.tile;
+  a.mouth.col=this.mouth.col;
+  a.mouth.sense=this.mouth.sense;
+  a.mouth.sense2=this.mouth.sense2;
+  for(var i=0;i<2;i++) {
+    a.mouth.mutrs[i]=this.mouth.mutrs[i]/mux;
+  }
+  a.mouth.mutrs[0]=round(10000*a.mouth.mutrs[0])/10000;
+  a.mouth.mutrs[1]=round(10000*a.mouth.mutrs[1])/10000;
+
+  for(var i=0;i<MEMCAP;i++) {
+    a.memory[i]=this.memory[i];
+  }
+
+  for(var i=0; i<BRAINLAYERSCAP; i++) {
+    for(var j=0;j<BRAINSIZECAP;j++) {
+      a.brain[i][j].cost=this.brain[i][j].cost;
+      a.brain[i][j].is=this.brain[i][j].is;
+      for(var k=0;k<BRAINSIZECAP;k++) {
+        a.brain[i][j].weights[0][k]=this.brain[i][j].weights[0][k];
+        a.brain[i][j].weights[1][k]=this.brain[i][j].weights[1][k];
+        a.brain[i][j].bias[k]=this.brain[i][j].bias[k];
+        a.brain[i][j].w1Genes[k]=this.brain[i][j].w1Genes[k]/mux;
+        a.brain[i][j].w2Genes[k]=this.brain[i][j].w2Genes[k]/mux;
+        a.brain[i][j].bGenes[k]=this.brain[i][j].bGenes[k]/mux;
+
+        a.brain[i][j].w1Genes[k]=round(10000*a.brain[i][j].w1Genes[k])/10000;
+        a.brain[i][j].w2Genes[k]=round(10000*a.brain[i][j].w2Genes[k])/10000;
+        a.brain[i][j].bGenes[k]=round(10000*a.brain[i][j].bGenes[k])/10000;
+
+        a.brain[i][j].maxOut=this.brain[i][j].maxOut;
+        a.brain[i][j].minOut=this.brain[i][j].minOut;
+      }
+    }
+  }
+  a.weightDiff=this.weightDiff;
+  a.brainCost=this.brainCost;
+  for(var i=0;i<BRAINSIZECAP;i++) {
+    a.outputs[i]=this.outputs[i];
+  }
+}
+
+Animal.prototype.kill=function() {
+  if(this.alive){
+    this.energy=-1;
+  }
+}
+Animal.prototype.reincarnate=function() {
+  if(!this.alive){
+    if(LIVEPOP<POPCAP) {
+      var i=0;
+      while (animals[i]!=null) {
+        if(animals[i].top<SCORESCAP || animals[i].alive) {  //Alive clause effectively determines that animal isnt overwriting itself
+          i++;
+        } else {
+          break;
+        }
+      }
+      if(i>HIGHESTINDEX) {
+        HIGHESTINDEX=i;
+      }
+
+      var rein=new Animal(this.x,this.y,i);
+      this.clone(rein);
+      this.descendants++;
+      this.liveDesc++;
+      this.children.push(i);
+
+      animals[i]=null;
+      animals[i]=rein;
+
+      newest=i;
+      LIVEPOP++;
+      var ancestor=this.pidx;
+      while(ancestor!=null) {
+        if(ancestor>=0) {
+          animals[ancestor].descendants++;
+          animals[ancestor].liveDesc++;
+          animals[ancestor].genePool++;
+          ancestor=animals[ancestor].pidx;
+        } else {
+          deadanimals[-(ancestor+1)].descendants++;
+          deadanimals[-(ancestor+1)].liveDesc++;
+          deadanimals[-(ancestor+1)].genePool++;
+          ancestor=deadanimals[-(ancestor+1)].pidx;
+        }
+      }
+      highlighted= rein.index;
+    }
+  }
+}
 Animal.prototype.highlight=function() {
   if(this.alive==false) {
     this.draw();
@@ -2507,22 +2688,14 @@ Animal.prototype.highlight=function() {
   }
   ctx2.fillText(this.name+"-"+this.gen+(this.alive ? "A":"D")+this.children.length,this.x+(2*s), this.y-(2*s));
 
-  if(display==0) {
-    var posx=210;
-    var posy=210;
+  if(display==0) { // STAT DISPLAY
+
     ctx4.beginPath();
     ctx4.fillStyle=this.hexes[0];
     ctx4.fillRect(200,200,400,200);
-    ctx4.fillStyle= this.hexes[4];
-    ctx4.fillRect(200,200,10,10);
-    ctx4.fillRect(220,200,10,10);
-    ctx4.fillRect(240,200,10,10);
-    ctx4.fillRect(260,200,10,10);
-    ctx4.fillStyle= this.hexes[3];
-    ctx4.fillText("X",201,209);
-    ctx4.fillText("B",221,209);
-    ctx4.fillText("F",241,209);
-    ctx4.fillText("M",261,209);
+
+    var posx=210;
+    var posy=210;
     ctx4.fillStyle= "#FFFFFF";
     if(this.colors[0]>127 || this.colors[1]>127 || this.colors[2]>127) {
       ctx4.fillStyle= "#000000";
@@ -2616,6 +2789,21 @@ Animal.prototype.highlight=function() {
     }
     ctx4.fillText("MUTA: "+this.muta, posx, posy+=10);
 
+    ctx4.fillStyle= this.hexes[4];
+    ctx4.fillRect(200,200,10,10);
+    ctx4.fillRect(220,200,10,10);
+    ctx4.fillRect(240,200,10,10);
+    ctx4.fillRect(260,200,10,10);
+    ctx4.fillRect(280,200,10,10);
+    ctx4.fillRect(300,200,10,10);
+    ctx4.fillStyle= this.hexes[3];
+    ctx4.fillText("X",201,209);
+    ctx4.fillText("B",221,209);
+    ctx4.fillText("F",241,209);
+    ctx4.fillText("M",261,209);
+    ctx4.fillText("R",281,209);
+    ctx4.fillText("K",301,209);
+
     if(consoleMouse && leftPressed) {
       if(mouseX>200 && mouseX<210 && mouseY>200 && mouseY<210) { // Exit
         display=0;
@@ -2633,9 +2821,15 @@ Animal.prototype.highlight=function() {
       } else if(mouseX>260 && mouseX<270 && mouseY>200 && mouseY<210) { // Muts
         display=4;
         leftPressed=false;
+      } else if(mouseX>280 && mouseX<290 && mouseY>200 && mouseY<210) { // Reincarnate
+        this.reincarnate();
+        leftPressed=false;
+      } else if(mouseX>300 && mouseX<310 && mouseY>200 && mouseY<210) {
+        this.kill();
+        leftPressed=false;
       }
     }
-  } else if(display==1) {
+  } else if(display==1) { // BRAIN DISPLAY
     ctx3.beginPath();
     ctx3.fillStyle="#808080";
     ctx3.fillRect(0,0,CONSOLEX,CONSOLEY);
@@ -3167,7 +3361,7 @@ Animal.prototype.regress=function(index, scale) { // cI= child index, pI= parent
   pI.minSizeGene=(round(10*pI.minSizeGene)/10);
 }
 */
-Animal.prototype.softRegress=function(pidx, idx, scale) { // cI= child index, pI= parent index (if parent is alive)
+Animal.prototype.regress=function(pidx, idx, scale) { // cI= child index, pI= parent index (if parent is alive)
   var pI;
   var aI;
   if(pidx>=0){
@@ -3292,300 +3486,3 @@ Animal.prototype.resetGenes= function() {
   }
   this.genePool=this.liveDesc-a;
 }
-/*
-Animal.prototype.mutate=function(a) {
-  a.alive=true;
-  a.dir=this.dir;
-  a.gen=this.gen+1;
-  a.x=this.x;
-  a.y=this.y;
-  a.parent=this.name+"-"+this.gen;
-  a.pidx=this.index;
-  a.cno=this.children.length;
-  a.parentAge=this.age;
-  a.parentNetNRG=this.netNRG;
-
-  a.name=this.name;
-  a.muta=this.muta;
-
-  var mux; //Starts at 1 to signify the current child
-  if(propagateMode==1){
-    mux=this.genePool; // descendants DO NOT include animals own children: rather, counts how successful each of its children have been at reproducing
-  }else {
-    mux=1;
-  }
-
-  a.velres=this.velres;
-  a.rotres=this.rotres;
-
-  a.senmuts[0]=this.senmuts[0]/mux; //set child and parent mutation rates identical
-  a.senmuts[1]=this.senmuts[1]/mux;
-  a.senmuts[0]=round(100*a.senmuts[0])/100;
-  a.senmuts[1]=round(100*a.senmuts[1])/100;
-
-  a.velres+=(this.senmuts[0]/mux); // child attributes displaced incrementally...
-  a.rotres+=(this.senmuts[1]/mux);
-  a.velres=round(100*a.velres)/100;
-  a.rotres=round(100*a.rotres)/100;
-
-  var rbm;
-  for(var i=0;i<2;i++) {
-    rbm=randn_bm();
-    if(rbm>this.senmuts[i]){ // Use normal distribution to generate random numbers localized around 0....
-      this.senmuts[i]+=1/100; //parent genes are displaced...
-    } else if(rbm<this.senmuts[i]){
-      this.senmuts[i]-=1/100; //parent genes are displaced...
-    }
-    this.senmuts[i]=round(100*this.senmuts[i])/100;
-  }
-
-  a.maxSizeGene=this.maxSizeGene/mux;
-  a.minSizeGene=this.minSizeGene/mux;
-  a.maxSizeGene=round(10*a.maxSizeGene)/10;
-  a.minSizeGene=round(10*a.minSizeGene)/10;
-
-  a.maxSize=this.maxSize;
-  a.minSize=this.minSize;
-  a.maxSize+=round(this.maxSizeGene/mux);
-  if(a.maxSize>SIZECAP) {
-    a.maxSize=SIZECAP;
-  } else if(a.maxSize<2*a.minSize) {
-    a.maxSize=2*a.minSize;
-  }
-
-  a.minSize+=round(this.minSizeGene/mux);
-  if(a.minSize>=round(a.maxSize/2)) {
-    a.minSize=round((a.maxSize-1)/2);
-  }else if(a.minSize<5) {
-    a.minSize=5;
-  }
-  a.midSize=(a.maxSize-a.minSize)/2;
-  a.size=a.minSize;
-
-  rbm=randn_bm();
-  if(rbm>this.maxSizeGene){
-    this.maxSizeGene+=1/10;
-  } else if(rbm<this.maxSizeGene){
-    this.maxSizeGene-=1/10;
-  }
-  rbm=randn_bm();
-  if(rbm>this.minSizeGene){
-    this.minSizeGene+=1/10;
-  } else if(rbm<this.minSizeGene){
-    this.minSizeGene-=1/10;
-  }
-  this.maxSizeGene=round(10*this.maxSizeGene)/10;
-  this.minSizeGene=round(10*this.minSizeGene)/10;
-
-  a.energy=a.minSize*10000;
-  a.maxEnergy=a.energy;
-  a.vel=this.vel;
-  a.rot=this.rot;
-  a.attack=this.attack; // * this.size refers to original size before mitosis
-
-  var mA=a.muta;
-  var cx=0;
-  if(round(Math.random()*mA)==mA) {
-    if(round(Math.random()*(mA+1))==mA) {
-      if(round(Math.random()*(mA+2))==mA) {
-        if(round(Math.random()*(mA+3))==mA) {
-          a.name=ALPH.charAt(round(Math.random()*25))+a.name.charAt(1)+a.name.charAt(2)+a.name.charAt(3);
-          cx=8;
-        } else {
-          a.name=a.name.charAt(0)+ALPH.charAt(round(Math.random()*25))+a.name.charAt(2)+a.name.charAt(3);
-          cx=6;
-        }
-      } else {
-        a.name=a.name.charAt(0)+a.name.charAt(1)+ALPH.charAt(round(Math.random()*25))+a.name.charAt(3);
-        cx=4;
-      }
-    } else {
-      a.name=a.name.charAt(0)+a.name.charAt(1)+a.name.charAt(2)+ALPH.charAt(round(Math.random()*25));
-      cx=2;
-    }
-  }
-
-  for(var c=0; c<15; c++) {
-    if(c<3) {
-      a.colors[c]=this.colors[c];
-      a.colors[c]+=(round(Math.random()*2*cx*(10-mA))-(cx*(10-mA)));
-      if(a.colors[c]>255) {
-        a.colors[c]=255;
-      } else if(a.colors[c]<0) {
-        a.colors[c]=0;
-      }
-    } else if(c<6) {
-      a.colors[c]=(a.colors[c%3]-20);
-    } else if (c<9) {
-      a.colors[c]=(a.colors[c%3]+20);
-    } else if (c<12) {
-      a.colors[c]=(a.colors[c%3]-40);
-    } else {
-      a.colors[c]=(a.colors[c%3]+40);
-    }
-    if(a.colors[c]<0) {
-      a.colors[c]=0;
-    } else if(a.colors[c]>255) {
-      a.colors[c]=255;
-    }
-  }
-  for(var c=0; c<5; c++) {
-    a.hexes[c]=rgbToHex(a.colors[c*3],a.colors[(c*3)+1],a.colors[(c*3)+2]);
-  }
-  if(a.colors[0]>a.colors[2] && a.colors[0]>a.colors[1]) {
-    a.domCol=0;
-  } else if(a.colors[0]<a.colors[2] && a.colors[2]<a.colors[1]) {
-    a.domCol=1;
-  } else {
-    a.domCol=2;
-  }
-
-  a.mouth = new Mouth(a.dir, a.x, a.y);
-  a.mouth.dir=this.mouth.dir;
-  a.mouth.stray=this.mouth.stray;
-  a.mouth.dissen=this.mouth.dissen;
-  a.mouth.dirsen=this.mouth.dirsen;
-  a.mouth.col=this.mouth.col;
-  a.mouth.sense=this.mouth.sense;
-  a.mouth.sense2=this.mouth.sense2;
-
-  a.mouth.mutrs[0]=this.mouth.mutrs[0]/mux;
-  a.mouth.mutrs[1]=this.mouth.mutrs[1]/mux;
-  a.mouth.mutrs[0]=round(10000*a.mouth.mutrs[0])/10000;
-  a.mouth.mutrs[1]=round(10000*a.mouth.mutrs[1])/10000;
-
-  a.mouth.dissen+=this.mouth.mutrs[0]/mux;
-  a.mouth.dissen=round(10000*a.mouth.dissen)/10000;
-  a.mouth.dirsen+=this.mouth.mutrs[1]/mux;
-  a.mouth.dirsen=round(10000*a.mouth.dirsen)/10000;
-  rbm=randn_bm();
-  if(rbm>this.mouth.mutrs[0]){
-    this.mouth.mutrs[0]+=10/10000;
-  } else if(rbm<this.mouth.mutrs[0]){
-    this.mouth.mutrs[0]-=10/10000;
-  }
-
-  rbm=randn_bm();
-  if(rbm>this.mouth.mutrs[1]){
-    this.mouth.mutrs[1]+=10/10000;
-  } else if(rbm<this.mouth.mutrs[1]){
-    this.mouth.mutrs[1]-=10/10000;
-  }
-  this.mouth.mutrs[0]=round(10000*this.mouth.mutrs[0])/10000;
-  this.mouth.mutrs[1]=round(10000*this.mouth.mutrs[1])/10000;
-
-  for(var i=0;i<MEMCAP;i++) {
-    a.memory[i]=this.memory[i];
-  }
-
-  a.brainCost=0;
-  for(var i=0, bL=BRAINLAYERSCAP; i<bL; i++) {
-    for(var j=0, bS=BRAINSIZECAP; j<bS; j++) {
-      a.brain[i][j].cost=0;
-      a.brain[i][j].is=this.brain[i][j].is;
-
-      for(var k=0, bS2=BRAINSIZECAP; k<bS2; k++) {
-        a.brain[i][j].weights[0][k]=this.brain[i][j].weights[0][k];
-        a.brain[i][j].weights[1][k]=this.brain[i][j].weights[1][k];
-        a.brain[i][j].bias[k]=this.brain[i][j].bias[k];
-
-        a.brain[i][j].w1Genes[k]=this.brain[i][j].w1Genes[k]/mux;
-        a.brain[i][j].w2Genes[k]=this.brain[i][j].w2Genes[k]/mux;
-        a.brain[i][j].bGenes[k]=this.brain[i][j].bGenes[k]/mux;
-
-        a.brain[i][j].w1Genes[k]=round(10000* a.brain[i][j].w1Genes[k])/10000;
-        a.brain[i][j].w2Genes[k]=round(10000* a.brain[i][j].w2Genes[k])/10000;
-        a.brain[i][j].bGenes[k]=round(10000* a.brain[i][j].bGenes[k])/10000;
-
-        a.brain[i][j].weights[0][k]+=this.brain[i][j].w1Genes[k]/mux;
-        a.brain[i][j].weights[1][k]+=this.brain[i][j].w2Genes[k]/mux;
-        a.brain[i][j].bias[k]+=this.brain[i][j].bGenes[k]/mux;
-
-        a.brain[i][j].weights[0][k]=round(10000*a.brain[i][j].weights[0][k])/10000;
-        a.brain[i][j].weights[1][k]=round(10000*a.brain[i][j].weights[1][k])/10000;
-        a.brain[i][j].bias[k]=round(10000*a.brain[i][j].bias[k])/10000;
-
-        rbm=randn_bm();
-        if(rbm>this.brain[i][j].w1Genes[k]){
-          this.brain[i][j].w1Genes[k]+=10/10000;
-        } else if(rbm<this.brain[i][j].w1Genes[k]){
-          this.brain[i][j].w1Genes[k]-=10/10000;
-        }
-        rbm=randn_bm();
-        if(rbm>this.brain[i][j].w2Genes[k]){
-          this.brain[i][j].w2Genes[k]+=10/10000;
-        } else if(rbm<this.brain[i][j].w2Genes[k]){
-          this.brain[i][j].w2Genes[k]-=10/10000;
-        }
-        rbm=randn_bm();
-        if(rbm>this.brain[i][j].bGenes[k]){
-          this.brain[i][j].bGenes[k]+=10/10000;
-        } else if(rbm<this.brain[i][j].bGenes[k]){
-          this.brain[i][j].bGenes[k]-=10/10000;
-        }
-
-        this.brain[i][j].w1Genes[k]=round(10000*this.brain[i][j].w1Genes[k])/10000;
-        this.brain[i][j].w2Genes[k]=round(10000*this.brain[i][j].w2Genes[k])/10000;
-        this.brain[i][j].bGenes[k]=round(10000*this.brain[i][j].bGenes[k])/10000;
-
-        a.brain[i][j].cost+=(abs(a.brain[i][j].weights[0][k])+abs(a.brain[i][j].weights[1][k])+abs(a.brain[i][j].bias[k]));
-      }
-      a.brainCost+=a.brain[i][j].cost;
-    }
-  }
-
-  a.eyeNumber=this.eyeNumber;
-  for(var i=0;i<BRAINSIZECAP;i++) {
-    a.outputs[i]=this.outputs[i];
-  }
-  a.brainCost/=(BRAINSIZECAP*BRAINLAYERSCAP*3);//3 attributes
-
-  for(var i=0, eC=EYECAP; i<eC; i++) {
-    if(i<a.eyeNumber && this.eyes[i]!=null) {
-      a.eyes[i]=new Eye(a.dir,a.x,a.y);
-      a.eyes[i].dir=this.eyes[i].dir;
-      a.eyes[i].stray=this.eyes[i].stray;
-      a.eyes[i].dissen=this.eyes[i].dissen;
-      a.eyes[i].dirsen=this.eyes[i].dirsen;
-      a.eyes[i].col=this.eyes[i].col;
-      a.eyes[i].sense=this.eyes[i].sense;
-
-      a.eyes[i].mutrs[0]=this.eyes[i].mutrs[0]/mux;
-      a.eyes[i].mutrs[1]=this.eyes[i].mutrs[1]/mux;
-      a.eyes[i].mutrs[0]=round(10000*a.eyes[i].mutrs[0])/10000;
-      a.eyes[i].mutrs[1]=round(10000*a.eyes[i].mutrs[1])/10000;
-
-      a.eyes[i].dissen+=this.eyes[i].mutrs[0]/mux; //Child attributes displaced by parent muts...
-      a.eyes[i].dissen=round(10000*a.eyes[i].dissen)/10000;
-      a.eyes[i].dirsen+=this.eyes[i].mutrs[1]/mux;
-      a.eyes[i].dirsen=round(10000*a.eyes[i].dirsen)/10000;
-
-      rbm=randn_bm();
-      if(rbm>this.eyes[i].mutrs[0]){
-        this.eyes[i].mutrs[0]+=10/10000;
-      } else if(rbm<this.eyes[i].mutrs[0]){
-        this.eyes[i].mutrs[0]-=10/10000;
-      }
-
-      rbm=randn_bm();
-      if(rbm>this.eyes[i].mutrs[1]){
-        this.eyes[i].mutrs[1]+=10/10000;
-      } else if(rbm<this.eyes[i].mutrs[1]){
-        this.eyes[i].mutrs[1]-=10/10000;
-      }
-
-      this.eyes[i].mutrs[0]=round(10000*this.eyes[i].mutrs[0])/10000;
-      this.eyes[i].mutrs[1]=round(10000*this.eyes[i].mutrs[1])/10000;
-    }
-  }
-
-  if(round(Math.random()*mA)==mA) {
-    a.muta+=(round(Math.random()*2)-1);
-  }
-  if(a.muta>MUTCAP) {
-    a.muta=MUTCAP;
-  } else if (a.muta<0){
-    a.muta=0;
-  }
-}
-*/
