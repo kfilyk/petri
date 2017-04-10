@@ -59,7 +59,9 @@ PAR: (4 characters representing parent name) + "-" + (generation number) + (livi
 
 CNO: Child number- index in parents' children array
 
-GENO: (Number of descendant creature mutations included in genome)/(Number of descendants)
+DESC: (Number of living descendants)/(Number of descendants)
+
+GENO: Number of successful descendants (Descendants who were successful in having a certain number of children will have their mutations included in the genome of the parent)
 
 NRG: Life energy of creature. Negative number implies dead
 
