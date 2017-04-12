@@ -1,0 +1,55 @@
+CHANGELOG
+
+1.18:
+(11/4/17)
+- Cleaned up graph buttons
+- Fixed HUGE error where input values (already between (-1, 1)) are squashed used softsign function in input layer, resulting in misrepresentation of input information for creatures. Fix resulted in an improved frame rate, improved survival, faster learning rate… etc. Noob mistake.
+- regressMode now has 5 modes: 0 (off), n<4 (children<n), 4 (cno<4)
+
+1.17:
+(10/4/17)
+- Added “KILL” and “REINCARNATE” functions for creatures, with buttons located at the top of their info cards. A creature must die before they may be reincarnated. A “clone” of the parent creature is created and spawns at the location where the original died.
+- Added function where a creature can be picked up and moved, if the creature is highlighted.
+
+1.16:
+(9/4/17)
+- Implemented stat name changes; switching to abbreviations ("FER"=="Food Energy Ratio", "CPG"=="Child Per Gen")
+- Discerned variables "genePool" and "liveDesc"- genePool denotes number of descendants contributing to parents' genes, liveDesc refers to number of currently living descendants for that creature.
+- Added “resetGenes” and “resetAllGenes” functions. Reset gene mutation rates to 0. “resetAllGenes” is applied to all creatures, when regressMode is changed.
+
+1.15:
+(7/4/17)
+- Added modifiable graph parameters, statistics representing differences among generations.
+- Softened regress function to spread mutation changes more accurately. Resulted in higher survival rates for children born to genes which have undergone multiple propagation & regression steps.
+- Deleted alpha value
+
+1.13:
+(3/4/17)
+- Improved inheritance of successful gene mutations
+- Implemented a balanced algorithm to find mutation rates for child animals by averaging over parents/family successful traits & differences
+- Switched object functions to prototype -> saves memory
+- Implemented "alpha" variable, used to modify the shape of the softsign function for each neuron
+
+1.09:
+(26/3/17)
+- Back-propagation of unsuccessful mutations ripples through all living petri ancestors
+- Fixed bug where borders signaled -100% color, -0 food energy, causing improper decision-making in populations due to this invalid environment parameter relationship
+- Implemented forward propagation of successful mutations carried by children to parent
+
+1.07:
+(24/3/17)
+- Cleaned up 1.06 code. No new features. Last version of project using constants as weights, as 1.08 will use multiplicative weights.
+
+
+1.05:
+(20/3/17)
+Memory input values now fully dependent on memory output value fluctuation.
+Sensory input values now fully dependent on sensory output value fluctuation.
+Attack input values now fully dependent on attack output value fluctuation.
+Memory mutation increments scaled down by factor of 10.
+
+
+
+
+
+

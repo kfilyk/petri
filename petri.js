@@ -114,19 +114,7 @@ graphHolder[3]=4;
 graphHolder[4]=7;
 
 var regressMode=0;
-/*
-1.15:
-5/4/17: IS REGRESS BEING DONE WRONG? Currently, I am finding difference between ANY ANCESTOR and the unsuccessful descendant,
-  then subtracting that difference from the gene pool. Instead, try finding difference between unsuccessful descendant and the
-  PARENT of that descendant, then subtracting THAT instead... Meanwhile, propagate function works rediculously TOO well...
-*/
 var propagateMode=0;
-
-/*
-FASTEST COMBOS:
-2. RM=3/FM=1
-1. RM=4/FM=2
-*/
 
 function init() {
 	canvas4.addEventListener("mouseover", function (e) {
@@ -165,16 +153,6 @@ function init() {
 	requestAnimationFrame(cycle);
 }
 
-/*
-0.23
-11/2/17: WTF is the best way to balance score?? rn its foodEnergy/age but it could still change
-0.29:
-29/2/17: Best score = how long animal has been alive for... Possibly implement score which stacks when parent dies (this.score = par.score+this.score)? Growth rate could get out of hand...
-1.08:
-23/3/17:
-  - Use 3 or more score types: lifespan, energy gained, number of children.
-
-*/
 function cycle() {
 	input.update();
 	tileman.update();
@@ -321,13 +299,13 @@ var statman = {
 
 var console = {
 	setup : function() {
-		ctx4.clearRect(0,0,CONSOLEX,CONSOLEY);
+		//ctx4.clearRect(0,0,CONSOLEX,CONSOLEY);
 		ctx3.fillStyle=rgbToHex(50,50,50);
 		ctx3.fillRect(0,0,CONSOLEX,CONSOLEY);
 		ctx3.fillStyle="#FFFFFF";
 		ctx3.strokeStyle="#FFFFFF";
 		var posy=15;
-		ctx3.fillText("PETRI 1.17", 10, posy);
+		ctx3.fillText("PETRI 1.18", 10, posy);
 		ctx3.fillText("LIVE: ", 10, posy+=10);
 		ctx3.fillText("DEAD: ", 10, posy+=10);
 		ctx3.fillText("HIND: ", 10, posy+=10);
@@ -377,7 +355,7 @@ var console = {
 
     if(regressMode==0) {
       ctx3.fillText("REGRESS OFF",posx2+5,posy+=20);
-    } else if(regressMode<6){
+    } else if(regressMode<4){
       ctx3.fillText("REGRESS <"+regressMode+" CHILDREN",posx2+5,posy+=20);
     } else {
       ctx3.fillText("REGRESS < CNO",posx2+5,posy+=20);
@@ -392,8 +370,8 @@ var console = {
     posy=20;
 	},
 	update : function() {
+    ctx4.clearRect(0, 0, CONSOLEX, CONSOLEY);
 		if(display!=1 && display!=2) {
-			ctx4.clearRect(0, 0, 150, 400);
 			var posx=50;
 			var posy=15;
 			ctx4.fillStyle="#FFFFFF";
@@ -480,17 +458,15 @@ var console = {
 				}
 			}
       //GRAPHS
-      ctx4.clearRect(0, 380, CONSOLEX, CONSOLEY-380); //Clear rect a little above, a little below
-      var buttonX=10;
-      var lineX= CONSOLEX/(~~(time/100));
-      posy=600;
-      ctx4.fillStyle="#FFFFFF";
-      ctx4.strokeStyle="#FFFFFF";
-      for(var i=0;i<5; i++){
 
-        ctx4.fillRect(buttonX,490,10,10);
+      var buttonX=450;
+      ctx4.fillStyle="#FFFFFF";
+      for(var i=0;i<5; i++){
+        ctx4.beginPath();
+        ctx4.arc(buttonX,175,6,0,TWOPI);
+        ctx4.fill();
         if(leftPressed){
-          if(consoleMouse && mouseX>buttonX && mouseX<buttonX+10 && mouseY>490 && mouseY<500) {
+          if(consoleMouse && abs(mouseX-buttonX)<6 && abs(mouseY-175)<6) {
             if(graphHolder[i]<7){
               graphHolder[i]++;
             } else {
@@ -499,7 +475,7 @@ var console = {
             leftPressed=false;
           }
         } else if(rightPressed){
-          if(consoleMouse && mouseX>buttonX && mouseX<buttonX+10 && mouseY>490 && mouseY<500) {
+          if(consoleMouse && abs(mouseX-buttonX)<6 && abs(mouseY-175)<6) {
             if(graphHolder[i]>-1){
               graphHolder[i]--;
             } else {
@@ -508,8 +484,20 @@ var console = {
             rightPressed=false;
           }
         }
-        buttonX+=20;
+        buttonX+=32;
+      }
+      buttonX=450;
+      ctx4.fillStyle="#323232";
+      for(var i=0;i<5; i++){
+        ctx4.fillText(graphHolder[i], buttonX-3, 178);
+        buttonX+=32;
+      }
 
+      var lineX= CONSOLEX/(~~(time/100));
+      posy=600;
+      ctx4.fillStyle="#FFFFFF";
+      ctx4.strokeStyle="#FFFFFF";
+      for(var i=0;i<5; i++){
         if(graphHolder[i]==0){
           graph(lineX, posy, aveFERHist, "AVEFER: ", 1);
         } else if(graphHolder[i]==1){
@@ -556,12 +544,6 @@ var console = {
           ctx4.strokeStyle="#FFFFFF";
         }
         posy+=100;
-      }
-      buttonX=10;
-      ctx4.fillStyle="#323232";
-      for(var i=0;i<5; i++){
-        ctx4.fillText(graphHolder[i],buttonX+1, 499);
-        buttonX+=20;
       }
     }
 
@@ -795,7 +777,7 @@ var input= {
 						console.setup();
 						leftPressed=false;
 					} else if((mouseY>130)&&(mouseY<140)) { // BACKPROP MODE
-            if(regressMode==6) {
+            if(regressMode==4) {
               regressMode=0;
             } else {
               regressMode++;
@@ -804,10 +786,10 @@ var input= {
 						console.setup();
 						leftPressed=false;
 					} else if((mouseY>150)&&(mouseY<160)) { // FORTHPROP MODE
-						if(propagateMode==0) {
-							propagateMode=1;
-						} else if(propagateMode==1){
-              propagateMode=0;
+						if(propagateMode==1) {
+							propagateMode=0;
+						} else {
+              propagateMode++;
             }
 						console.setup();
 						leftPressed=false;
@@ -1049,34 +1031,6 @@ function round(x) {
 function abs(x) {
 	return (x>0 ? x:-x);
 }
-/*
-0.29:
-29/2/17: Implementing gradient descent via a "back-propagation" is possible- not going to be scientifically
-accurate definition, just an experimental attempt at creating a recurrent mutation tweaker that follows a similar idea.
-Have to be careful that I do not influence evolution by accidentally creating bias for creatures with high longevity...
-TBC in 0.30:
-1. For every mutable trait, establish a "learning rate" LR that is small in proportion to the trait.
-	Example: For minSize, a good learning rate would be +-0.1, such that each mutant minSize value increments by that amount.
-2. Initial (random) creatures will be created with an LR array of size n=number of mutable traits.
-	Initial LR values will be set to a +- "unit value" for that trait (+-0.1 for minSize, +-1 for color, etc...).
-	Children are born with identical LRs to the parent (for now).
-3. Every child will contribute to the parents mutation rates, such that the death/success of each child pushes/pulls
-	on the LRs of the parent. When a child dies, the LR of the parent changes incrementally in the direction
-	opposite to the trait difference between the parent and child. Example: Suppose a child C has a minSize of 7.5 (~8) and
-	the parent P has a minSize of 7.2 (~7). Suppose the LR of the parent is 0.3. If C dies, C causes the LR of P to
-	decrease by 0.1. Then the failure of C has influenced all new children of P, such that the minSize grows less quickly
-	for all future children of P (will not approach 8). The LR of P for minSize is now 0.2 (decreases by 0.1, the unit value).
-	Then children born to P will have a minSize of 7.4 (~7) and a LR of 0.2 (same as the parent).
-4. For now, only children deaths influence parent LRs. Parents have no influence on children LRs upon death. Success rate/
-	highscore has no influence on LR either. Parent LRs only change in response to child deaths when the parent is ALIVE.
-	"Success" then becomes implicative- the creatures who reproduce will be the ones who succeed, because their
-	lineages will be the only ones around (Unless they all randomly start off craving the sweet cradle of death).
-	This is what I am HOPING FOR- i've seen this somewhat in previous versions, but no way of telling what will happen next .
-	Hypothetically, success should steer in the direction of longevity, and backprop will steer in the direction of
-	self-perfecting form- if a petri is seldom to reproduce, then it has no offspring capable of directing the
-	survivability of further offspring -> lineage dies. Inevitably, parent dies, due to changing environment/
-	success of other lineages/being eaten. Remaining population consists of petris/lineages who adapted...
-*/
 
 function randn_bm() { //random box-muller: generate normal distribution
     var u = 1 - Math.random(); // Subtraction to flip [0, 1) to (0, 1].
@@ -1089,17 +1043,7 @@ function randn_one() {
 }
 
 function Tile(x,y,num) {
-  /*
-  0.20:
-  5/2/17: Tried tiles with regen rate of 0.2 instead of 0.1 = animals with less eyes survive/propagate more easily initially...?
-  5/2/17: No, i guess not..
-  6/2/17: Tile Col Range:
-  	R= [-30,150]
-  	G= [-30,200]
-  	B= [-30,100]
-  6/2/17: No more math.random() call every time "regenerate" is called. Replaced with standard regenRate for every tile.
 
-  */
 	this.x=x;
 	this.y=y;
 	this.num=num;
@@ -1145,56 +1089,6 @@ Tile.prototype.regenerate=function() {
 }
 
 function Neuron() {
-  /*
-  0.20:
-  5/2/17: Minimized the range of the bias, weights1, and weights2: allows for more flexibility in neuron decision mutation, strengthens over generations.
-  	Bias vals can go as low as "round((Math.random()*10)-5)/100" without problems; weights vals "round((Math.random()*40)-20)/100".
-  0.22:
-  10/2/17: Discovered 32 bit float vals= +3 FPS. however my recent choice to draw all creature mouths+eyes oncanvas = -3 FPS. Oh well.
-  0.23:
-  11/2/17: Increased weights, decreased bias -> greater variation/range in output signals -> greater adaptability/flexible reasoning potential? But still keep it low as possible.
-  11/2/17: No, thats so wrong. Biases are as flexible as weights.
-  19/2/17: OutSignal has been modded to be 2* softsign, such that when x==1, y==1. Just trying it.
-  19/2/17: That was interesting... but terrible. Way too oversensitive. Back to softsign... for now.
-  19/2/17: JK... trying 2*(x^3)/(x^2)....
-  19/2/17: ... That might be way better... too early to tell. Previous softsign did not remotely allow animals to access highest settings of output functions... new activation function changes that at least.
-  0.25:
-  20/2/17: Another possibility:((2x)^3)/(1+(3x)^2) = 8(x^3)/(1+9(x^2))
-
-  	this.outSignal=function(ni) {
-  		var x=(this.is+this.bias[ni]);
-  		return x/(100+(x>=0 ? x:-x));
-  	}
-  	this.outSignal=function(ni) {
-  		var x=((this.is+this.bias[ni])/100);
-  		return 2*((1/(1+Math.exp(-x)))-0.5);
-  	}
-  	this.outSignal=function(ni) {
-  		var x=((this.is+this.bias[ni])/100);
-  		return (8*x*x*x)/(1+(9*x*x));
-  	}
-  7/3/17: In order to speed up mutations (while also not causing chaos), create variable neumut, with range [0.0 -> 1.0] (increments in tenths).
-    this variable determines how much mutrate values change per generation (+-neumut), and is directed via backprop
-  17/3/17: Neumut sucks. Need to use more accurate method to predict descent.
-  17/3/17: No more I can do on Javascript; too slow- need to proceed from using linear values to multiplicative or softsign function, if possible.
-    Time to humble myself and write in c++. Also, If initial input values are positive/negative/extreme,
-    shouldnt we simply manipulate the init inputs at each layer, rather than generating new numbers at each layer? Should switch to a
-    multiclass function instead of random int values.
-  1.07:
-  22/3/17: Possibly move range into float values??
-  1.08:
-  22/3/17: Switching to multiplication. Keep biases, w1, w2. Use negative values?
-  1.12:
-  31/3/17: Switched to multiplication. Lots of changes. Using abs function generally to compute values. Using box-muller distribution of
-    initial weights and bias values (normal dist. centered at 0).
-    Going to implement alpha values for all neurons such that the shape of the abs function is more flexible.
-    All in all, simulation is more viable than ever. Initial pop has a high survivability rate, I've managed to cut back on numerous
-    variables in an effort to simply properties, graphs have been put into use (super helpful), and ive learned about and switched to
-    using prototype functions for all objects (+3FPS, WAY better memory usage). Hopefully only one or two final changes to be made.
-
-  4/4/17: Changed my mind about using alpha value. Unneccesary added complexity. Since softsign approximates sigmoid, just use a
-    corresponding rational of weights/bias == plenty of flexibility.
-  */
   this.weights=new Array(2);
 	this.weights[0]=new Float64Array(BRAINSIZECAP);
 	this.weights[1]=new Float64Array(BRAINSIZECAP);
@@ -1226,6 +1120,9 @@ Neuron.prototype.outWeight=function(idx) { // if this.is>=0 return this.is*weigh
 }
 Neuron.prototype.softSign=function(is) {
   return is/(1+(is>=0 ? is:-is));
+}
+Neuron.prototype.inSig=function(idx) {
+  return this.bias[idx]+this.is*this.weights[(this.is>=0 ? 0:1)][idx];
 }
 
 function Eye(d,x,y) {
@@ -1265,14 +1162,6 @@ Eye.prototype.setXY=function(x,y) {
 }
 
 function Mouth(d,x,y) {
-  /*
-  0.20:
-  5/2/17: Tile Col Range:
-  	R= [-30,150]
-  	G= [-30,200]
-  	B= [-30,100]
-  	Such that for R, -60 centers on average, range between [-30, 150] (180 total)
-  */
 	this.dis=0;
 	this.dissen=0;
 	this.dirsen=0;
@@ -1311,11 +1200,7 @@ Mouth.prototype.setXY=function(x,y) {
 }
 
 function Animal(x,y,index) {
-  /*
-  0.20:
-  5/2/17: Color Types: 0=red, 1=green, 2=blue
-  28/2/17: Score based on success of lineage
-  */
+
 	this.index=index;
 	this.alive=true;
 	this.x=x;
@@ -1482,37 +1367,7 @@ Animal.prototype.draw=function(){
 	}
 }
 Animal.prototype.think=function() {
-  /*
-  0.29:
-  28/2/17: Clamped values from outputs 3 & 2 (eating col/type, respectively)
-  29/2/17: Idea: Allow mouth(s), eyes to detect similarity in names of other animals:
-  	(AAAA <-> AAAA) = 1
-  	(AAAA <-> AAAB) = 0.8
-  	(AAAA <-> AABB) = 0.4
-  	(AAAA <-> ABBB) = -0.2
-  	(AAAA <-> BBBB) = -1
-  	(AAAA <-> BBBA) = -0.8
-  	(AAAA <-> BBAA) = -0.4
-  	(AAAA <-> BAAA) = 0.2
-  	...
-  	Letters in a name have influence of 0.4, 0.3, 0.2, 0.1 respectively.
-  	It will take eyeNumber+mouthNumber (currently 6) neurons to implement... maybe wait a while...
-
-    for (var i = 0; i < someObject.anArray.length ; i++) {
-        if (someObject.anArray[i].point.x > someObject.anArray.point.y) {
-           someFunction( someObject.anArray[i].point );
-        }
-    }
-
-    var pointArray = someObject.anArray, thisPoint=null;
-    for (var i = 0; i < pointArray.length ; i++) {
-        thisPoint = anArray[i];
-        if ( thisPoint.x > thisPoint.y ) {
-           someFunction( thisPoint) ;
-        }
-    }
-
-  */
+  //INPUT LAYER
   var inp=0;
   if(this.vel>=0){
     this.brain[0][inp++].is=this.vel/this.maxVel;
@@ -1557,9 +1412,11 @@ Animal.prototype.think=function() {
     this.brain[0][(4*j)+inp+3].is=this.eyes[j].dis/(10*this.maxSize);
   }
   inp+=(4*this.eyeNumber);
+
+  //Input vals are already between (-1, 1): do not need to be squashed using softsign. Use inSig function on first layer -> second
   for(var i=0, temp=0, bS=BRAINSIZECAP; i<bS; i++) {
     for(var j=0; j<inp; j++) {
-      temp+=this.brain[0][j].outWeight(i);
+      temp+=this.brain[0][j].inSig(i);
     }
     this.brain[1][i].is=temp;
     temp=0;
@@ -1578,12 +1435,6 @@ Animal.prototype.think=function() {
   }
 }
 Animal.prototype.move=function() {
-  /*
-  0.28
-  22/02/17: Created mutable "sens" values: sensitivity values for used for neural responsiveness to input stimulus
-  27/02/17: Need recoil vals for vel + rot?
-  */
-
   this.eChange=0;
   this.eChange-=this.loss;
   this.dmgReceived+=this.loss;
@@ -1704,13 +1555,6 @@ Animal.prototype.move=function() {
   }
 }
 Animal.prototype.interact=function() {
-  /*
-  0.20:
-  7/2/17: Difficulty to obtain food decreased; animals dont lose huge energy if eating wrong color. Otherwise no diversity/mutation/happiness
-  10/2/17: Future Goals: 1. Make them hate each other 2. Make them eat each other
-  20/2/17: No food if not carnivore? Probs makes sense. No free rides. However, try to help animals with carnivorous
-  habits- chasing, etc- dont make it brutal for carnivores to survive- they will be the smartest creatures.
-  */
   var s1=this.size;
   this.foodEnergy=0;
 
@@ -1962,24 +1806,7 @@ Animal.prototype.grow=function() {
   }
 }
 Animal.prototype.decay=function() {
-  /*
-  0.24
-  11/2/17: Okay, so if you keep yourself alive a long time, thats awesome. You get points for a long lifespan.
-  You ALSO gain points if you eat a lot of food. Makes sense. use echange/age??
-  0.25
-  13/2/17: Nope. Tried using age score, incrementing every frame, added +1 if foodEnergy>0 per frame. Pretty good,
-  	but after the cycle bloom success of intelligent eating habits loses out to straight herbivore (too much food).
-  	Going to try to counter balance this with -1 if foodEnergy<0.
-  13/2/17: RESOUNDING SUCCESS! Score inc. per frame +-1 if foodEnergy<>0. Generates *intelligent* population
-  	by gen ~25.
-  13/2/17: Cell damage rate is a ratio of (foodEnergyloss)/(minSize energy). In 0.26, test implementation
-  	of foodenergy/(size energy)- better imitation of nature, where large creatures possess incrementally
-  	more superior DNA repair mechanisms/longer lifespans. Reducing cell damage for larger size also takes
-  	away from survival stress of large creatures in simulation, and nudges in that direction.
-  16/3/17: Scrap all that. Now using backpropogation to control mutation rates/gradient descent of attributes.
-  21/3/17: If a child does not attain a number of children greater or equal to the parents,
-    where child.score<=child.cno (cno==index of child in parents' child array), then backpropogation affects parent.
-  */
+
 	if(this.energy<=0) {
 		this.alive=false;
 		LIVEPOP--;
@@ -2026,7 +1853,7 @@ Animal.prototype.decay=function() {
         }
       }
 
-      if(regressMode==6){  // CNO
+      if(regressMode==4){  // CNO
         if(this.cno!=null){
           if(this.children.length<(this.cno+1)){
             var ancestor = this.pidx;
@@ -2164,6 +1991,247 @@ Animal.prototype.mutate=function(a) {
   a.parentNetNRG=this.netNRG;
   a.name=this.name;
   a.muta=this.muta;
+
+  var mux; //Starts at 1 to signify the current child
+  if(propagateMode==1 && this.genePool>0){
+    mux=this.genePool; // descendants DO NOT include animals own children: rather, counts GRANDCHILDREN (how successful each of its children have been at reproducing)
+  }else {
+    mux=1;
+  }
+
+  a.velres=this.velres;
+  a.rotres=this.rotres;
+
+  /*
+  a.senmuts[0]=this.senmuts[0]/mux; //set child and parent mutation rates identical...
+  a.senmuts[1]=this.senmuts[1]/mux;
+  a.senmuts[0]=round(100*a.senmuts[0])/100;
+  a.senmuts[1]=round(100*a.senmuts[1])/100;
+  */
+
+  a.velres+=((this.senmuts[0]/mux)+(randn_bm()/100)); // child genes displaced incrementally... PARENTS DONT CHANGE
+  a.rotres+=((this.senmuts[1]/mux)+(randn_bm()/100));
+  a.velres=round(100*a.velres)/100;
+  a.rotres=round(100*a.rotres)/100;
+
+  /*
+  a.maxSizeGene=this.maxSizeGene/mux;
+  a.minSizeGene=this.minSizeGene/mux;
+  a.maxSizeGene=round(10*a.maxSizeGene)/10;
+  a.minSizeGene=round(10*a.minSizeGene)/10;
+  */
+
+  a.maxSize=this.maxSize;
+  a.minSize=this.minSize;
+  a.maxSize+=round((this.maxSizeGene/mux)+randn_bm());
+  if(a.maxSize>SIZECAP) {
+    a.maxSize=SIZECAP;
+  } else if(a.maxSize<2*a.minSize) {
+    a.maxSize=2*a.minSize;
+  }
+
+  a.minSize+=round((this.minSizeGene/mux)+randn_bm());
+  if(a.minSize>=round(a.maxSize/2)) {
+    a.minSize=round((a.maxSize-1)/2);
+  }else if(a.minSize<5) {
+    a.minSize=5;
+  }
+  a.midSize=(a.maxSize-a.minSize)/2;
+  a.size=a.minSize;
+
+  a.energy=a.minSize*10000;
+  a.maxEnergy=a.energy;
+  a.vel=this.vel;
+  a.rot=this.rot;
+  a.attack=this.attack;
+
+  var mA=a.muta;
+  var cx=0;
+  if(round(Math.random()*mA)==mA) {
+    if(round(Math.random()*(mA+1))==mA) {
+      if(round(Math.random()*(mA+2))==mA) {
+        if(round(Math.random()*(mA+3))==mA) {
+          a.name=ALPH.charAt(round(Math.random()*25))+a.name.charAt(1)+a.name.charAt(2)+a.name.charAt(3);
+          cx=8;
+        } else {
+          a.name=a.name.charAt(0)+ALPH.charAt(round(Math.random()*25))+a.name.charAt(2)+a.name.charAt(3);
+          cx=6;
+        }
+      } else {
+        a.name=a.name.charAt(0)+a.name.charAt(1)+ALPH.charAt(round(Math.random()*25))+a.name.charAt(3);
+        cx=4;
+      }
+    } else {
+      a.name=a.name.charAt(0)+a.name.charAt(1)+a.name.charAt(2)+ALPH.charAt(round(Math.random()*25));
+      cx=2;
+    }
+  }
+
+  for(var c=0; c<15; c++) {
+    if(c<3) {
+      a.colors[c]=this.colors[c];
+      a.colors[c]+=(round(Math.random()*2*cx*(10-mA))-(cx*(10-mA)));
+      if(a.colors[c]>255) {
+        a.colors[c]=255;
+      } else if(a.colors[c]<0) {
+        a.colors[c]=0;
+      }
+    } else if(c<6) {
+      a.colors[c]=(a.colors[c%3]-20);
+    } else if (c<9) {
+      a.colors[c]=(a.colors[c%3]+20);
+    } else if (c<12) {
+      a.colors[c]=(a.colors[c%3]-40);
+    } else {
+      a.colors[c]=(a.colors[c%3]+40);
+    }
+    if(a.colors[c]<0) {
+      a.colors[c]=0;
+    } else if(a.colors[c]>255) {
+      a.colors[c]=255;
+    }
+  }
+  for(var c=0; c<5; c++) {
+    a.hexes[c]=rgbToHex(a.colors[c*3],a.colors[(c*3)+1],a.colors[(c*3)+2]);
+  }
+  if(a.colors[0]>a.colors[2] && a.colors[0]>a.colors[1]) {
+    a.domCol=0;
+  } else if(a.colors[0]<a.colors[2] && a.colors[2]<a.colors[1]) {
+    a.domCol=1;
+  } else {
+    a.domCol=2;
+  }
+
+  a.mouth = new Mouth(a.dir, a.x, a.y);
+  a.mouth.dir=this.mouth.dir;
+  a.mouth.stray=this.mouth.stray;
+  a.mouth.dissen=this.mouth.dissen;
+  a.mouth.dirsen=this.mouth.dirsen;
+  a.mouth.col=this.mouth.col;
+  a.mouth.sense=this.mouth.sense;
+  a.mouth.sense2=this.mouth.sense2;
+
+  /*
+  a.mouth.mutrs[0]=this.mouth.mutrs[0]/mux;
+  a.mouth.mutrs[1]=this.mouth.mutrs[1]/mux;
+  a.mouth.mutrs[0]=round(10000*a.mouth.mutrs[0])/10000;
+  a.mouth.mutrs[1]=round(10000*a.mouth.mutrs[1])/10000;
+  */
+
+  a.mouth.dissen+=((this.mouth.mutrs[0]/mux)+(randn_bm()/1000));
+  a.mouth.dirsen+=((this.mouth.mutrs[1]/mux)+(randn_bm()/1000));
+  a.mouth.dissen=round(10000*a.mouth.dissen)/10000;
+  a.mouth.dirsen=round(10000*a.mouth.dirsen)/10000;
+
+  for(var i=0;i<MEMCAP;i++) {
+    a.memory[i]=this.memory[i];
+  }
+
+  a.brainCost=0;
+  for(var i=0, bL=BRAINLAYERSCAP; i<bL; i++) {
+    for(var j=0, bS=BRAINSIZECAP; j<bS; j++) {
+      a.brain[i][j].cost=0;
+      a.brain[i][j].is=this.brain[i][j].is;
+
+      for(var k=0, bS2=BRAINSIZECAP; k<bS2; k++) {
+        a.brain[i][j].weights[0][k]=this.brain[i][j].weights[0][k];
+        a.brain[i][j].weights[1][k]=this.brain[i][j].weights[1][k];
+        a.brain[i][j].bias[k]=this.brain[i][j].bias[k];
+
+        /*
+        a.brain[i][j].w1Genes[k]=this.brain[i][j].w1Genes[k]/mux;
+        a.brain[i][j].w2Genes[k]=this.brain[i][j].w2Genes[k]/mux;
+        a.brain[i][j].bGenes[k]=this.brain[i][j].bGenes[k]/mux;
+
+        a.brain[i][j].w1Genes[k]=round(10000*a.brain[i][j].w1Genes[k])/10000;
+        a.brain[i][j].w2Genes[k]=round(10000*a.brain[i][j].w2Genes[k])/10000;
+        a.brain[i][j].bGenes[k]=round(10000*a.brain[i][j].bGenes[k])/10000;
+        */
+
+        a.brain[i][j].weights[0][k]+=((this.brain[i][j].w1Genes[k]/mux)+(randn_bm()/1000));
+        a.brain[i][j].weights[1][k]+=((this.brain[i][j].w2Genes[k]/mux)+(randn_bm()/1000));
+        a.brain[i][j].bias[k]+=((this.brain[i][j].bGenes[k]/mux)+(randn_bm()/1000));
+
+        a.brain[i][j].weights[0][k]=round(10000*a.brain[i][j].weights[0][k])/10000;
+        a.brain[i][j].weights[1][k]=round(10000*a.brain[i][j].weights[1][k])/10000;
+        a.brain[i][j].bias[k]=round(10000*a.brain[i][j].bias[k])/10000;
+        a.weightDiff+= abs(a.brain[i][j].weights[0][k]-a.brain[i][j].weights[1][k]);
+        a.brain[i][j].cost+=(abs(a.brain[i][j].weights[0][k])+abs(a.brain[i][j].weights[1][k])+abs(a.brain[i][j].bias[k]));
+      }
+      a.brainCost+=a.brain[i][j].cost;
+    }
+  }
+
+  a.eyeNumber=this.eyeNumber;
+  for(var i=0;i<BRAINSIZECAP;i++) {
+    a.outputs[i]=this.outputs[i];
+  }
+  a.brainCost/=(BRAINSIZECAP*BRAINLAYERSCAP*3);//3 attributes
+
+  for(var i=0, eC=EYECAP; i<eC; i++) {
+    if(i<a.eyeNumber && this.eyes[i]!=null) {
+      a.eyes[i]=new Eye(a.dir,a.x,a.y);
+      a.eyes[i].dir=this.eyes[i].dir;
+      a.eyes[i].stray=this.eyes[i].stray;
+      a.eyes[i].dissen=this.eyes[i].dissen;
+      a.eyes[i].dirsen=this.eyes[i].dirsen;
+      a.eyes[i].col=this.eyes[i].col;
+      a.eyes[i].sense=this.eyes[i].sense;
+
+      /*
+      a.eyes[i].mutrs[0]=this.eyes[i].mutrs[0]/mux;
+      a.eyes[i].mutrs[1]=this.eyes[i].mutrs[1]/mux;
+      a.eyes[i].mutrs[0]=round(10000*a.eyes[i].mutrs[0])/10000;
+      a.eyes[i].mutrs[1]=round(10000*a.eyes[i].mutrs[1])/10000;
+      */
+
+      a.eyes[i].dissen+=((this.eyes[i].mutrs[0]/mux)+(randn_bm()/1000));
+      a.eyes[i].dirsen+=((this.eyes[i].mutrs[1]/mux)+(randn_bm()/1000));
+      a.eyes[i].dissen=round(10000*a.eyes[i].dissen)/10000;
+      a.eyes[i].dirsen=round(10000*a.eyes[i].dirsen)/10000;
+    }
+  }
+
+  if(round(Math.random()*mA)==mA) {
+    a.muta+=(round(Math.random()*2)-1);
+  }
+  if(a.muta>MUTCAP) {
+    a.muta=MUTCAP;
+  } else if (a.muta<0){
+    a.muta=0;
+  }
+}
+Animal.prototype.ancgrad=function(a) {
+  a.alive=true;
+  a.dir=this.dir;
+  a.gen=this.gen+1;
+  a.x=this.x;
+  a.y=this.y;
+  a.parent=this.name+"-"+this.gen;
+  a.pidx=this.index;
+  a.cno=this.children.length;
+  a.parentAge=this.age;
+  a.parentNetNRG=this.netNRG;
+  a.name=this.name;
+  a.muta=this.muta;
+
+/*
+  var anc;
+  var aidx=this.pidx;
+  while(aidx!=null){
+    if(aidx>=0){
+      aidx=animals[aidx].pidx;
+    } else {
+      aidx=deadanimals[-(aidx+1)].pidx;
+    }
+  }
+  if(aidx==null){
+    anc=0;
+  } else {
+
+  }
+*/
+
 
   var mux; //Starts at 1 to signify the current child
   if(propagateMode==1 && this.genePool>0){
@@ -2613,7 +2681,6 @@ Animal.prototype.clone=function(a) {
     a.outputs[i]=this.outputs[i];
   }
 }
-
 Animal.prototype.kill=function() {
   if(this.alive){
     this.energy=-1;
@@ -2810,7 +2877,7 @@ Animal.prototype.highlight=function() {
         highlighted=null;
         ctx3.fillStyle="#323232";
         ctx3.fillRect(200, 200, 400, 200);
-        ctx4.clearRect(200, 200, 400, 200);
+        //ctx4.clearRect(200, 200, 400, 200);
         leftPressed=false;
       } else if(mouseX>220 && mouseX<230 && mouseY>200 && mouseY<210) { // Brain
         display=1;
@@ -3024,7 +3091,7 @@ Animal.prototype.highlight=function() {
     var posy=30;
     var spcx=60;
     var spcy=22;
-    ctx4.clearRect(0,0,CONSOLEX,CONSOLEY);
+    //ctx4.clearRect(0,0,CONSOLEX,CONSOLEY);
 
     ctx4.fillStyle= "#FFFFFF";
     if(this.colors[0]>127 || this.colors[1]>127 || this.colors[2]>127) {
@@ -3310,57 +3377,7 @@ Animal.prototype.highlight=function() {
     }
   }
 }
-/*
-Animal.prototype.regress=function(index, scale) { // cI= child index, pI= parent index (if parent is alive)
-  var pI;
-  if(index>=0){
-    pI = animals[index];
-  } else {
-    pI = deadanimals[-(index+1)];
-  }
-  for(var i=0, bL=BRAINLAYERSCAP; i<bL; i++) {
-    for(var j=0, bS=BRAINSIZECAP; j<bS; j++) {
-      for(var k=0, bS2=BRAINSIZECAP; k<bS2; k++) {
-        pI.brain[i][j].w1Genes[k]+=((pI.brain[i][j].weights[0][k]-this.brain[i][j].weights[0][k])/scale); //scale is bigger than 1 if more children than parent had-> regress to 0 LESS
-        pI.brain[i][j].w2Genes[k]+=((pI.brain[i][j].weights[1][k]-this.brain[i][j].weights[1][k])/scale);
-        pI.brain[i][j].bGenes[k]+=((pI.brain[i][j].bias[k]-this.brain[i][j].bias[k])/scale);
 
-        pI.brain[i][j].w1Genes[k]=(round(10000*pI.brain[i][j].w1Genes[k])/10000);
-        pI.brain[i][j].w2Genes[k]=(round(10000*pI.brain[i][j].w2Genes[k])/10000);
-        pI.brain[i][j].bGenes[k]=(round(10000*pI.brain[i][j].bGenes[k])/10000);
-      }
-    }
-  }
-
-  pI.mouth.mutrs[0]+=((pI.mouth.dissen-this.mouth.dissen)/scale);
-  pI.mouth.mutrs[1]+=((pI.mouth.dirsen-this.mouth.dirsen)/scale);
-
-  pI.mouth.mutrs[0]=(round(10000*pI.mouth.mutrs[0])/10000);
-  pI.mouth.mutrs[1]=(round(10000*pI.mouth.mutrs[1])/10000);
-
-  for(var i=0; i<EYECAP; i++) {
-    if(this.eyes[i]!= null && pI.eyes[i]!= null) {
-      pI.eyes[i].mutrs[0]+=((pI.eyes[i].dissen-this.eyes[i].dissen)/scale);
-      pI.eyes[i].mutrs[1]+=((pI.eyes[i].dirsen-this.eyes[i].dirsen)/scale);
-
-      pI.eyes[i].mutrs[0]=(round(10000*pI.eyes[i].mutrs[0])/10000);
-      pI.eyes[i].mutrs[1]=(round(10000*pI.eyes[i].mutrs[1])/10000);
-    }
-  }
-
-  pI.senmuts[0]+=((pI.velres-this.velres)/scale);
-  pI.senmuts[1]+=((pI.rotres-this.rotres)/scale);
-
-  pI.senmuts[0]=(round(100*pI.senmuts[0])/100);
-  pI.senmuts[1]=(round(100*pI.senmuts[1])/100);
-
-  pI.maxSizeGene+=((pI.maxSize-this.maxSize)/scale);
-  pI.minSizeGene+=((pI.minSize-this.minSize)/scale);
-
-  pI.maxSizeGene=(round(10*pI.maxSizeGene)/10);
-  pI.minSizeGene=(round(10*pI.minSizeGene)/10);
-}
-*/
 Animal.prototype.regress=function(pidx, idx, scale) { // cI= child index, pI= parent index (if parent is alive)
   var pI;
   var aI;
