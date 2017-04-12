@@ -7,13 +7,13 @@ Hello, this program is used for evolving successful neural-network "species" usi
 
 2: Click "NEW RANDOM 100" to generate a random assortment of creatures. Tiles are initiallized with maximum colour values. Colour value  is synonymous with food. Creatures "eat" the colors red, green, and blue, subtracting them from terrain tiles. A "positive" tile will have colour, and give the creature energy. A "negative" tile will appear grey, and take energy away from the creature. Creatures will require time to form coherent behaviours and other movements. Stopping and starting, non-cyclic swimming patterns, and extension/rotation of eyes indicate that behaviour paths are forming. Given enough time, creatures will evolve the ability to sense and respond to one another.
 
-3: Whenever you'd like, you can turn on the REGRESS and PROPAGATE functions located in the console menu, in order to accelerate the evolution of the creatures. Note that these functions are experimental- they make "having the greatest number of children" the "successful" direction of evolution. Start low, with "REGRESS < 1 CHILDREN" and "PROPAGATE ON". More info on these functions is coming.
+3: Whenever you'd like, you can turn on the PROPAGATE function in the console menu, to *subtly* accelerate the evolution of the creatures. Note that this function is experimental, and makes "having the greatest number of children" the "successful" direction of evolution. REGRESS is similarly experimental, subtracting "unsuccessful" mutations from the gene pool. However, I've had trouble implementing it properly, and will update it in the future. If REGRESS is used, it is recommended to keep at "REGRESS < 1 CHILDREN". More info on these functions is coming. 
 
-4: REGRESS causes the genes of unsuccessful creatures (with less children) to be subtracted from the parents' gene pool. PROPAGATE allows successful creatures (with more children) to add their genes to the parents' gene pool. When the parent divides, the new creature inherits the average of those genes. If you'd like to turn these functions off and let creatures freely mutate, turn propagate off first, then wait ~5 min before turning regress off. 
+4: REGRESS causes the genes of unsuccessful creatures (with less children) to be subtracted from the parents' gene pool. PROPAGATE allows successful creatures (with more children) to add their genes to the parents' gene pool. When the parent divides, the new creature inherits the average of the parent genes. In this way, the rate/direction of gene change is "propagated" in a "successful" direction. Letting the creatures freely mutate is also viable, and turning the functions off can be done by left-clicking the buttons until they are "REGRESS OFF" and "PROPAGATE OFF". 
 
 5: Watch your memory- on my Macbook Pro 2016 using Firefox, The program runs for about 8 hours before the browser crashes. This is more than enough time to witness improvements in creature lifespan/decision making/interaction. When memory runs out eventually, your computer will be fine, but you'll have to close the browser and restart. I will be converting this project to C++ in the future, so to avoid this.
 
-6: Left-clicking on a living creature in the terrarium, or on a creatures' name in the highscore chart, will bring up its statics in an info-card, to the right of the terrarium. More detail on stats is in the "STATS section below.
+6: Left-clicking on a living creature in the terrarium, or on a creatures' name in the highscore chart, will bring up its statics in an info-card, to the right of the terrarium. More detail on stats is in the STATS section below.
 
 7: At the top of the info-card are a row of menu buttons:
 
@@ -37,15 +37,13 @@ AVECHILDREN: Average Children: Depicts the average number of children that curre
 
 Each creature has a brain consisting of 8 layers, with 42 neurons per layer. The first layer receives inputs from the creature's actions/environment. The last layer consists of creature outputs.
 
-Each neuron recieves an input signal in accordance to the softsign function:
+Aside from the input layer, neurons recieve an input signal squashed by softsign function:
 
 x/(1+abs(x))
 
-This function was used as opposed to the sigmoid or ReLU, because of its softer gradient between its range extremities (-1, 1). Furthermore, softsign is efficient in comparison to sigmoid, non-linear in comparison to ReLU, and allows positive and negative weights and biases to be used.
+This function was used as opposed to the sigmoid or ReLU, because of its softer rate of change and range extremities (-1, 1). Softsign is computationally more efficient compared to sigmoid, and non-linear compared to ReLU.
 
-Each neuron contains 84 weights and 42 biases. Initial weight and bias values are randomly selected using a box-muller distribution with variance=1 and mean=0, then divided in half. This allows for more flexiblility in mutation rate upon initialization. The 84 weights are initialized as two copies of the same initial weight value. One weight is used if the input value positive, and the other if the input is negative. These two weight values may diverge over several generations. They allow the output value to have two rates of change, depending on the sign of the input.
- 
-Left-clicking any neuron brings up its weight and bias values. Right-clicking any neuron brings up its weight and bias gene-mutation rates.
+Each neuron contains 42 weights and 42 biases. Initial weight values are randomly selected using a box-muller normal distribution with variance=1 and mean=0, then divided in half. Initial biases are set to 0. In theory, using smaller weights/biases allow gene mutations to have a greater impact on new species. Over several generations, signal pathways strengthen as a result of increasing weight, causing gene mutations to have a diluted effect. Left-clicking any neuron brings up its weight and bias values. Right-clicking any neuron brings up its weight and bias gene-mutation rates.
 
 # STATS
 
@@ -59,9 +57,9 @@ PAR: (4 characters representing parent name) + "-" + (generation number) + (livi
 
 CNO: Child number- index in parents' children array
 
-DESC: (Number of living descendants)/(Number of descendants)
+DESC: (living descendants)/(total descendants)
 
-GENO: Number of successful descendants (Descendants who were successful in having a certain number of children will have their mutations included in the genome of the parent)
+GENO: Number of successful descendants (Have a "successful" number of children, their mutations contribute to the genome of the parent)
 
 NRG: Life energy of creature. Negative number implies dead
 
@@ -69,7 +67,7 @@ NETNRG: Total positive energy accumulated
 
 TOP: Position in highscores chart
 
-B$: Brain Cost- the absolute sum of all weights and biases in all neurons in the creature brain, averaged over the number of neurons. B$ is a constant, subtracted from creatures energy change at each frame
+B$: Brain Cost- the absolute sum of all weights and biases in all neurons in the creature brain, averaged over the number of neurons. B$ is subtracted from creatures energy at each frame
 
 POS: (center x position in pixels), (center y position in pixels)
 
@@ -91,7 +89,7 @@ SIZE: Current body diameter in pixels
 
 SMIN: Minimum body diameter in pixels
 
-ATK: Attack- range of (-1, 1). The rate at which the creature wishes to attack/heal (take energy/give energy), where -1 means heal and +1 means attack. The size of the resulting damage is dependent on the creature size; scales accordingly. For now, all attacks are considered a carnivorous action: attacking==eating
+ATK: Attack- range of (-1, 1). The rate at which the creature wishes to attack/heal (take energy/give energy), where -1 means heal and +1 means attack. The size of the resulting damage is dependent on the creature size; scales accordingly. For now, all attacks are considered a carnivorous action: attacking==eating. ATK+++ == >0.75. ATK++ == > 0.5. ATK+ == > 0.25. ATK--- == <=-0.75. ATK-- == <=-0.5. ATK- == <=-0.25. 
 
 (IN)DMG: In damage; recieved
 
