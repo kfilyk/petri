@@ -1,16 +1,22 @@
 NOTES
 
+1.19:
+12/4/17: 
+Realized that regress is too broad in its effect- creatures who die by happenstance tip evolution in opposite direction. Unfair if that creature was born on toxic terrain/eaten by parent. Propagate works properly, though. Will keep regress function, but not recommend. How
+New idea for graph ”AVEFER/RESO” (avefer / (curr_reso/max_reso)) - meant to scale with creature fitness/ability to pick out bad tiles. Also add a new line to reso graph representing total reso.
+
+How to fix regress? Maybe accumulate regressed (changed) values over time, store in original ancestor. Example: If 50 unsuccessful creatures die, then “regressPool”==50; if gene regressions are {-0.03, -0.01, … (50 more)} then the direction leading to worse performance is roughly estimated. Might be viable.
+
 1.18:
-11/4/17: Thinking about testing a new learning strategy.
-  1: Given l layers in network, layers 1 to (l-1) are initialized such that they output the input vector after each layer, exactly.
-  Over several iterations, unique weights/biases mutate in the uniform layers, allowing complex decision
-  paths to grow as the number of variations between uniform layers increase.
-  2: Keep track of the stability of certain neurons, by analyzing how flexible the rates of change are for their weights and biases.
-  Suppose a child creature of some parent dies. If some neuron gene G in the parent has a high Rate Of Mutation,
-  assume that the ROM is linked to the poor outcome of the child, since one of its weight values has been changed.
-  Then it makes sense (?) to reduce the ROM of G in the parent -> G-related weight value in future children remains the same.
-  3: Keep track of the variability of each gene over the scope of the lineage.
-  4: ...
+11/4/17: 
+Thinking about testing a new learning strategy.
+1: 
+Given l layers in network, layers 1 to (l-1) are initialized such that they output the input vector after each layer, exactly. Over several iterations, unique weights/biases mutate in the uniform layers, allowing complex decision paths to grow as the number of variations between uniform layers increase.
+2: 
+Keep track of the stability of certain neurons, by analyzing how flexible the rates of change are for their weights and biases. Suppose a child creature of some parent dies. If some neuron gene G in the parent has a high Rate Of Mutation, assume that the ROM is linked to the poor outcome of the child, since one of its weight values has been changed. Then it makes sense (?) to reduce the ROM of G in the parent -> G-related weight value in future children remains the same.
+3: 
+Keep track of the variability of each gene over the scope of the lineage.
+4: ...
 
 
   HOW TO GET SAME INPUT AFTER EACH LAYER:
@@ -31,32 +37,33 @@ NOTES
 
 
 1.15:
-5/4/17: IS REGRESS BEING DONE WRONG? Currently, I am finding difference between ANY ANCESTOR and the unsuccessful descendant,
-  then subtracting that difference from the gene pool. Instead, try finding difference between unsuccessful descendant and the
-  PARENT of that descendant, then subtracting THAT instead... Meanwhile, propagate function works rediculously TOO well...
+5/4/17: 
+IS REGRESS BEING DONE WRONG? Currently, I am finding difference between ANY ANCESTOR and the unsuccessful descendant, then subtracting that difference from the gene pool. Instead, try finding difference between unsuccessful descendant and the PARENT of that descendant, then subtracting THAT instead... Meanwhile, propagate function works rediculously TOO well...
 
 1.08:
-23/3/17: Use 3 or more score types: lifespan, energy gained, number of children.
+23/3/17: 
+Use 3 or more score types: lifespan, energy gained, number of children.
 
 1.07:
-22/3/17: Possibly move range into float values??
+22/3/17: 
+Possibly move range into float values??
 
 1.08:
-22/3/17: Switching to multiplication. Keep biases, w1, w2. Use negative values?
+22/3/17: 
+Switching to multiplication. Keep biases, w1, w2. Use negative values?
+
 1.12:
-31/3/17: Switched to multiplication. Lots of changes. Using abs function generally to compute values. Using box-muller distribution of
-  initial weights and bias values (normal dist. centered at 0).
-  Going to implement alpha values for all neurons such that the shape of the abs function is more flexible.
-  All in all, simulation is more viable than ever. Initial pop has a high survivability rate, I've managed to cut back on numerous
-  variables in an effort to simply properties, graphs have been put into use (super helpful), and ive learned about and switched to
-  using prototype functions for all objects (+3FPS, WAY better memory usage). Hopefully only one or two final changes to be made.
-4/4/17: Changed my mind about using alpha value. Unneccesary added complexity. Since softsign approximates sigmoid, just use a
-  corresponding rational of weights/bias == plenty of flexibility.
+31/3/17: 
+Switched to multiplication. Lots of changes. Using abs function generally to compute values. Using box-muller distribution of initial weights and bias values (normal dist. centered at 0). Going to implement alpha values for all neurons such that the shape of the abs function is more flexible. All in all, simulation is more viable than ever. Initial pop has a high survivability rate, I've managed to cut back on numerous variables in an effort to simply properties, graphs have been put into use (super helpful), and ive learned about and switched to using prototype functions for all objects (+3FPS, WAY better memory usage). Hopefully only one or two final changes to be made.
+4/4/17: 
+Changed my mind about using alpha value. Unneccesary added complexity. Since softsign approximates sigmoid, just use a corresponding rational of weights/bias == plenty of flexibility.
 
 /*
 0.29:
-28/2/17: Clamped values from outputs 3 & 2 (eating col/type, respectively)
-29/2/17: Idea: Allow mouth(s), eyes to detect similarity in names of other animals:
+28/2/17: 
+Clamped values from outputs 3 & 2 (eating col/type, respectively)
+29/2/17: 
+Idea: Allow mouth(s), eyes to detect similarity in names of other animals:
 	(AAAA <-> AAAA) = 1
 	(AAAA <-> AAAB) = 0.8
 	(AAAA <-> AABB) = 0.4
@@ -66,8 +73,7 @@ NOTES
 	(AAAA <-> BBAA) = -0.4
 	(AAAA <-> BAAA) = 0.2
 	...
-	Letters in a name have influence of 0.4, 0.3, 0.2, 0.1 respectively.
-	It will take eyeNumber+mouthNumber (currently 6) neurons to implement... maybe wait a while...
+Letters in a name have influence of 0.4, 0.3, 0.2, 0.1 respectively. It will take eyeNumber+mouthNumber (currently 6) neurons to implement... maybe wait a while...
 
   for (var i = 0; i < someObject.anArray.length ; i++) {
       if (someObject.anArray[i].point.x > someObject.anArray.point.y) {
@@ -87,7 +93,8 @@ NOTES
 
 
 0.29:
-29/2/17: Best score = how long animal has been alive for... Possibly implement score which stacks when parent dies (this.score = par.score+this.score)? Growth rate could get out of hand...
+29/2/17: 
+Best score = how long animal has been alive for... Possibly implement score which stacks when parent dies (this.score = par.score+this.score)? Growth rate could get out of hand...
 
 0.29:
 29/2/17: Implementing gradient descent via a "back-propagation" is possible- not going to be scientifically

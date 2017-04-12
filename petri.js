@@ -299,13 +299,12 @@ var statman = {
 
 var console = {
 	setup : function() {
-		//ctx4.clearRect(0,0,CONSOLEX,CONSOLEY);
 		ctx3.fillStyle=rgbToHex(50,50,50);
 		ctx3.fillRect(0,0,CONSOLEX,CONSOLEY);
 		ctx3.fillStyle="#FFFFFF";
 		ctx3.strokeStyle="#FFFFFF";
 		var posy=15;
-		ctx3.fillText("PETRI 1.18", 10, posy);
+		ctx3.fillText("PETRI 1.19", 10, posy);
 		ctx3.fillText("LIVE: ", 10, posy+=10);
 		ctx3.fillText("DEAD: ", 10, posy+=10);
 		ctx3.fillText("HIND: ", 10, posy+=10);
@@ -463,11 +462,11 @@ var console = {
       ctx4.fillStyle="#FFFFFF";
       for(var i=0;i<5; i++){
         ctx4.beginPath();
-        ctx4.arc(buttonX,175,6,0,TWOPI);
+        ctx4.arc(buttonX,175,7,0,TWOPI);
         ctx4.fill();
         if(leftPressed){
           if(consoleMouse && abs(mouseX-buttonX)<6 && abs(mouseY-175)<6) {
-            if(graphHolder[i]<7){
+            if(graphHolder[i]<8){
               graphHolder[i]++;
             } else {
               graphHolder[i]=-1;
@@ -479,7 +478,7 @@ var console = {
             if(graphHolder[i]>-1){
               graphHolder[i]--;
             } else {
-              graphHolder[i]=7;
+              graphHolder[i]=8;
             }
             rightPressed=false;
           }
@@ -499,13 +498,13 @@ var console = {
       ctx4.strokeStyle="#FFFFFF";
       for(var i=0;i<5; i++){
         if(graphHolder[i]==0){
-          graph(lineX, posy, aveFERHist, "AVEFER: ", 1);
+          graph(lineX, posy, aveFERHist, "FER/LIVE: ", 1);
         } else if(graphHolder[i]==1){
-          graph(lineX, posy, aveChildrenHist, "AVECHILDREN: ", maxAveChildren);
+          graph(lineX, posy, aveChildrenHist, "CHILD/LIVE: ", maxAveChildren);
         } else if(graphHolder[i]==2){
-          graph(lineX, posy, aveLifespanHist, "AVELIFESPAN: ", maxAveLifespan);
+          graph(lineX, posy, aveLifespanHist, "LIFESPAN/POP: ", maxAveLifespan);
         } else if(graphHolder[i]==3){
-          graph(lineX, posy, avePosNRGHist, "AVEPOSNRG: ", maxAvePosNRG);
+          graph(lineX, posy, avePosNRGHist, "POSNRG/POP: ", maxAvePosNRG);
         } else if(graphHolder[i]==4){
           graph(lineX, posy, popHist, "POP: ", maxPop);
 
@@ -517,7 +516,7 @@ var console = {
             } else {
               genX=0;
             }
-            genGraph(genX, posy, FERPerGen, "FERPERGEN: ", 1); //Food energy ratio per gen
+            genGraph(genX, posy, FERPerGen, "FER/GEN: ", 1); //Food energy ratio per gen
           }
         } else if(graphHolder[i]==6){
           if(popPerGen.length>0){
@@ -527,9 +526,19 @@ var console = {
             } else {
               genX=0;
             }
-            genGraph(genX, posy, childPerGen, "CPG: ", maxChildPerGen); //children per gen
+            genGraph(genX, posy, childPerGen, "CHILD/GEN: ", maxChildPerGen);
           }
         } else if(graphHolder[i]==7){
+          if(popPerGen.length>0){
+            var genX;
+            if(popPerGen.length>1){
+              genX = CONSOLEX/(popPerGen.length-1);
+            } else {
+              genX=0;
+            }
+            popGenGraph(genX, posy, popPerGen, "POP/GEN: ", maxPopPerGen);
+          }
+        } else if(graphHolder[i]==8){
           var showTime=-1;
           var showReso=0;
           ctx4.strokeStyle="#FF0000";
@@ -636,6 +645,33 @@ function genGraph(lx, y, g, txt, max) {
   }
   if(show==0){
     ctx4.fillText(txt+round(100*g[g.length-1]/popPerGen[g.length-1])/100, 10, y-90);
+    ctx4.fillText("GEN "+(g.length-1), 10, y-80);
+  }
+  ctx4.stroke();
+}
+function popGenGraph(lx, y, g, txt, max) {
+  var initY;
+  var endY;
+  var show=0;
+  var posx=0;
+  ctx4.beginPath();
+  for(var i=0; i<g.length-1; i++){ // Will begin once array has length of at least 2. Initial length==1. Wait until length 2
+    initY= round(100*g[i]/max);
+    endY=round(100*g[i+1]/max);
+    ctx4.moveTo(posx,y-initY);
+    ctx4.strokeRect((posx-1), (y-initY-1),2,2);
+    ctx4.lineTo(posx+lx,y-endY);
+    if(consoleMouse && abs(mouseX-posx)<10 && abs(mouseY-(y-initY))<10){
+      if(show==0) {
+        ctx4.fillText(txt+round(100*g[i])/100, 10, y-90);
+        ctx4.fillText("GEN "+i, 10, y-80);
+        show=1;
+      }
+    }
+    posx+=lx;
+  }
+  if(show==0){
+    ctx4.fillText(txt+round(100*g[g.length-1])/100, 10, y-90);
     ctx4.fillText("GEN "+(g.length-1), 10, y-80);
   }
   ctx4.stroke();
@@ -1089,12 +1125,9 @@ Tile.prototype.regenerate=function() {
 }
 
 function Neuron() {
-  this.weights=new Array(2);
-	this.weights[0]=new Float64Array(BRAINSIZECAP);
-	this.weights[1]=new Float64Array(BRAINSIZECAP);
+	this.weights=new Float64Array(BRAINSIZECAP);
 	this.bias=new Float64Array(BRAINSIZECAP);
-	this.w1Genes=new Array(BRAINSIZECAP);
-	this.w2Genes=new Array(BRAINSIZECAP);
+	this.wGenes=new Array(BRAINSIZECAP);
 	this.bGenes=new Array(BRAINSIZECAP);
   this.maxOut=0.5; // IN RELATION TO STARTING VALUES
   this.minOut=-0.5;
@@ -1104,25 +1137,25 @@ function Neuron() {
 	for(var i=0;i<BRAINSIZECAP;i++) {
 		this.bias[i]=0;
 		var c=round(5000*randn_bm())/10000; //Half range of norm. dist.
-		this.weights[0][i]=c;
-    this.weights[1][i]=c;
-		this.cost+=abs(c);
+		this.weights[i]=c;
 		this.cost+=abs(c);
 
     //Set mutation rates to 0;
-		this.w1Genes[i]=0;
-		this.w2Genes[i]=0;
+		this.wGenes[i]=0;
 		this.bGenes[i]=0;
 	}
 }
 Neuron.prototype.outWeight=function(idx) { // if this.is>=0 return this.is*weights[0]
-  return this.bias[idx]+this.softSign(this.is)*this.weights[(this.is>=0 ? 0:1)][idx];
+  return this.bias[idx]+this.softSign(this.is)*this.weights[idx];
 }
 Neuron.prototype.softSign=function(is) {
   return is/(1+(is>=0 ? is:-is));
 }
 Neuron.prototype.inSig=function(idx) {
-  return this.bias[idx]+this.is*this.weights[(this.is>=0 ? 0:1)][idx];
+  return this.bias[idx]+this.is*this.weights[idx];
+}
+Neuron.prototype.outSig=function() {
+  return this.softSign(this.is);
 }
 
 function Eye(d,x,y) {
@@ -1207,7 +1240,7 @@ function Animal(x,y,index) {
 	this.y=y;
 	this.tile=null;
 	this.minSize=5;
-	this.maxSize=2*this.minSize;
+	this.maxSize=10;
 	this.size=this.minSize;
 	this.midSize=(this.maxSize-this.minSize)/2;
 	this.health=0;
@@ -1292,17 +1325,14 @@ function Animal(x,y,index) {
 			this.brainCost+=this.brain[i][j].cost;
       if(i==BRAINLAYERSCAP-1){
         for(var k=0, bS=BRAINSIZECAP; k<bS; k++) {
-          this.brain[i][j].weights[0][k]=1;
-          this.brain[i][j].weights[1][k]=1;
+          this.brain[i][j].weights[k]=0;
         }
         this.brainCost-=this.brain[i][j].cost;
-        this.brain[i][j].cost=2*BRAINSIZECAP;
-        this.brainCost+=this.brain[i][j].cost;
+        this.brain[i][j].cost=0;
       }
 		}
 	}
-  this.weightDiff=0;
-	this.brainCost/=(BRAINSIZECAP*BRAINLAYERSCAP*3);
+	this.brainCost/=(BRAINSIZECAP*BRAINLAYERSCAP);
 
 	this.memory=new Array(MEMCAP);
 	for(var i=0;i<MEMCAP;i++) {
@@ -1431,7 +1461,7 @@ Animal.prototype.think=function() {
     }
   }
   for(var i=0, bL=BRAINLAYERSCAP-1, bS=BRAINSIZECAP; i<bS; i++) {
-    this.outputs[i]=this.brain[bL][i].outWeight(i);
+    this.outputs[i]=this.brain[bL][i].outSig();
   }
 }
 Animal.prototype.move=function() {
@@ -1897,17 +1927,21 @@ Animal.prototype.decay=function() {
 		}
     globalNetNRG+=this.netNRG;
     netLifespan+=this.age;
-    if(this.gen>=popPerGen.length){
+    while(this.gen>=popPerGen.length){
       popPerGen.push(0);
       FERPerGen.push(0);
       childPerGen.push(0);
     }
     popPerGen[this.gen]++;
+    if(popPerGen[this.gen]>maxPopPerGen){
+      maxPopPerGen=popPerGen[this.gen];
+    }
     FERPerGen[this.gen]+=(this.posFNRG/this.netFNRG);
     childPerGen[this.gen]+=this.children.length;
     if(childPerGen[this.gen]/popPerGen[this.gen]>maxChildPerGen){
       maxChildPerGen=childPerGen[this.gen]/popPerGen[this.gen];
     }
+
 
 		deadanimals.push(dead);
 		for(var i=0, cL=this.children.length; i<cL; i++) {
@@ -2023,19 +2057,24 @@ Animal.prototype.mutate=function(a) {
 
   a.maxSize=this.maxSize;
   a.minSize=this.minSize;
-  a.maxSize+=round((this.maxSizeGene/mux)+randn_bm());
+  a.maxSize+=((this.maxSizeGene/mux)+(randn_bm()/10));
+  a.maxSize=round(10*a.maxSize)/10;
   if(a.maxSize>SIZECAP) {
     a.maxSize=SIZECAP;
-  } else if(a.maxSize<2*a.minSize) {
+  } else if(a.maxSize<round(20*a.minSize)/10) {
     a.maxSize=2*a.minSize;
   }
+  a.maxSize=round(10*a.maxSize)/10;
 
-  a.minSize+=round((this.minSizeGene/mux)+randn_bm());
-  if(a.minSize>=round(a.maxSize/2)) {
-    a.minSize=round((a.maxSize-1)/2);
+  a.minSize+=((this.minSizeGene/mux)+(randn_bm()/10));
+  a.minSize=round(10*a.minSize)/10;
+  if(a.minSize>round(10*(a.maxSize-0.1)/2)/10) {
+    a.minSize=round(10*(a.maxSize-0.1)/2)/10;
   }else if(a.minSize<5) {
     a.minSize=5;
   }
+  a.minSize=round(10*a.minSize)/10;
+
   a.midSize=(a.maxSize-a.minSize)/2;
   a.size=a.minSize;
 
@@ -2134,29 +2173,22 @@ Animal.prototype.mutate=function(a) {
       a.brain[i][j].is=this.brain[i][j].is;
 
       for(var k=0, bS2=BRAINSIZECAP; k<bS2; k++) {
-        a.brain[i][j].weights[0][k]=this.brain[i][j].weights[0][k];
-        a.brain[i][j].weights[1][k]=this.brain[i][j].weights[1][k];
+        a.brain[i][j].weights[k]=this.brain[i][j].weights[k];
         a.brain[i][j].bias[k]=this.brain[i][j].bias[k];
 
         /*
-        a.brain[i][j].w1Genes[k]=this.brain[i][j].w1Genes[k]/mux;
-        a.brain[i][j].w2Genes[k]=this.brain[i][j].w2Genes[k]/mux;
+        a.brain[i][j].wGenes[k]=this.brain[i][j].wGenes[k]/mux;
         a.brain[i][j].bGenes[k]=this.brain[i][j].bGenes[k]/mux;
-
-        a.brain[i][j].w1Genes[k]=round(10000*a.brain[i][j].w1Genes[k])/10000;
-        a.brain[i][j].w2Genes[k]=round(10000*a.brain[i][j].w2Genes[k])/10000;
+        a.brain[i][j].wGenes[k]=round(10000*a.brain[i][j].wGenes[k])/10000;
         a.brain[i][j].bGenes[k]=round(10000*a.brain[i][j].bGenes[k])/10000;
         */
 
-        a.brain[i][j].weights[0][k]+=((this.brain[i][j].w1Genes[k]/mux)+(randn_bm()/1000));
-        a.brain[i][j].weights[1][k]+=((this.brain[i][j].w2Genes[k]/mux)+(randn_bm()/1000));
+        a.brain[i][j].weights[k]+=((this.brain[i][j].wGenes[k]/mux)+(randn_bm()/1000));
         a.brain[i][j].bias[k]+=((this.brain[i][j].bGenes[k]/mux)+(randn_bm()/1000));
 
-        a.brain[i][j].weights[0][k]=round(10000*a.brain[i][j].weights[0][k])/10000;
-        a.brain[i][j].weights[1][k]=round(10000*a.brain[i][j].weights[1][k])/10000;
+        a.brain[i][j].weights[k]=round(10000*a.brain[i][j].weights[k])/10000;
         a.brain[i][j].bias[k]=round(10000*a.brain[i][j].bias[k])/10000;
-        a.weightDiff+= abs(a.brain[i][j].weights[0][k]-a.brain[i][j].weights[1][k]);
-        a.brain[i][j].cost+=(abs(a.brain[i][j].weights[0][k])+abs(a.brain[i][j].weights[1][k])+abs(a.brain[i][j].bias[k]));
+        a.brain[i][j].cost+=(abs(a.brain[i][j].weights[k])+abs(a.brain[i][j].bias[k]));
       }
       a.brainCost+=a.brain[i][j].cost;
     }
@@ -2166,248 +2198,7 @@ Animal.prototype.mutate=function(a) {
   for(var i=0;i<BRAINSIZECAP;i++) {
     a.outputs[i]=this.outputs[i];
   }
-  a.brainCost/=(BRAINSIZECAP*BRAINLAYERSCAP*3);//3 attributes
-
-  for(var i=0, eC=EYECAP; i<eC; i++) {
-    if(i<a.eyeNumber && this.eyes[i]!=null) {
-      a.eyes[i]=new Eye(a.dir,a.x,a.y);
-      a.eyes[i].dir=this.eyes[i].dir;
-      a.eyes[i].stray=this.eyes[i].stray;
-      a.eyes[i].dissen=this.eyes[i].dissen;
-      a.eyes[i].dirsen=this.eyes[i].dirsen;
-      a.eyes[i].col=this.eyes[i].col;
-      a.eyes[i].sense=this.eyes[i].sense;
-
-      /*
-      a.eyes[i].mutrs[0]=this.eyes[i].mutrs[0]/mux;
-      a.eyes[i].mutrs[1]=this.eyes[i].mutrs[1]/mux;
-      a.eyes[i].mutrs[0]=round(10000*a.eyes[i].mutrs[0])/10000;
-      a.eyes[i].mutrs[1]=round(10000*a.eyes[i].mutrs[1])/10000;
-      */
-
-      a.eyes[i].dissen+=((this.eyes[i].mutrs[0]/mux)+(randn_bm()/1000));
-      a.eyes[i].dirsen+=((this.eyes[i].mutrs[1]/mux)+(randn_bm()/1000));
-      a.eyes[i].dissen=round(10000*a.eyes[i].dissen)/10000;
-      a.eyes[i].dirsen=round(10000*a.eyes[i].dirsen)/10000;
-    }
-  }
-
-  if(round(Math.random()*mA)==mA) {
-    a.muta+=(round(Math.random()*2)-1);
-  }
-  if(a.muta>MUTCAP) {
-    a.muta=MUTCAP;
-  } else if (a.muta<0){
-    a.muta=0;
-  }
-}
-Animal.prototype.ancgrad=function(a) {
-  a.alive=true;
-  a.dir=this.dir;
-  a.gen=this.gen+1;
-  a.x=this.x;
-  a.y=this.y;
-  a.parent=this.name+"-"+this.gen;
-  a.pidx=this.index;
-  a.cno=this.children.length;
-  a.parentAge=this.age;
-  a.parentNetNRG=this.netNRG;
-  a.name=this.name;
-  a.muta=this.muta;
-
-/*
-  var anc;
-  var aidx=this.pidx;
-  while(aidx!=null){
-    if(aidx>=0){
-      aidx=animals[aidx].pidx;
-    } else {
-      aidx=deadanimals[-(aidx+1)].pidx;
-    }
-  }
-  if(aidx==null){
-    anc=0;
-  } else {
-
-  }
-*/
-
-
-  var mux; //Starts at 1 to signify the current child
-  if(propagateMode==1 && this.genePool>0){
-    mux=this.genePool; // descendants DO NOT include animals own children: rather, counts GRANDCHILDREN (how successful each of its children have been at reproducing)
-  }else {
-    mux=1;
-  }
-
-  a.velres=this.velres;
-  a.rotres=this.rotres;
-
-  /*
-  a.senmuts[0]=this.senmuts[0]/mux; //set child and parent mutation rates identical...
-  a.senmuts[1]=this.senmuts[1]/mux;
-  a.senmuts[0]=round(100*a.senmuts[0])/100;
-  a.senmuts[1]=round(100*a.senmuts[1])/100;
-  */
-
-  a.velres+=((this.senmuts[0]/mux)+(randn_bm()/100)); // child genes displaced incrementally... PARENTS DONT CHANGE
-  a.rotres+=((this.senmuts[1]/mux)+(randn_bm()/100));
-  a.velres=round(100*a.velres)/100;
-  a.rotres=round(100*a.rotres)/100;
-
-  /*
-  a.maxSizeGene=this.maxSizeGene/mux;
-  a.minSizeGene=this.minSizeGene/mux;
-  a.maxSizeGene=round(10*a.maxSizeGene)/10;
-  a.minSizeGene=round(10*a.minSizeGene)/10;
-  */
-
-  a.maxSize=this.maxSize;
-  a.minSize=this.minSize;
-  a.maxSize+=round((this.maxSizeGene/mux)+randn_bm());
-  if(a.maxSize>SIZECAP) {
-    a.maxSize=SIZECAP;
-  } else if(a.maxSize<2*a.minSize) {
-    a.maxSize=2*a.minSize;
-  }
-
-  a.minSize+=round((this.minSizeGene/mux)+randn_bm());
-  if(a.minSize>=round(a.maxSize/2)) {
-    a.minSize=round((a.maxSize-1)/2);
-  }else if(a.minSize<5) {
-    a.minSize=5;
-  }
-  a.midSize=(a.maxSize-a.minSize)/2;
-  a.size=a.minSize;
-
-  a.energy=a.minSize*10000;
-  a.maxEnergy=a.energy;
-  a.vel=this.vel;
-  a.rot=this.rot;
-  a.attack=this.attack;
-
-  var mA=a.muta;
-  var cx=0;
-  if(round(Math.random()*mA)==mA) {
-    if(round(Math.random()*(mA+1))==mA) {
-      if(round(Math.random()*(mA+2))==mA) {
-        if(round(Math.random()*(mA+3))==mA) {
-          a.name=ALPH.charAt(round(Math.random()*25))+a.name.charAt(1)+a.name.charAt(2)+a.name.charAt(3);
-          cx=8;
-        } else {
-          a.name=a.name.charAt(0)+ALPH.charAt(round(Math.random()*25))+a.name.charAt(2)+a.name.charAt(3);
-          cx=6;
-        }
-      } else {
-        a.name=a.name.charAt(0)+a.name.charAt(1)+ALPH.charAt(round(Math.random()*25))+a.name.charAt(3);
-        cx=4;
-      }
-    } else {
-      a.name=a.name.charAt(0)+a.name.charAt(1)+a.name.charAt(2)+ALPH.charAt(round(Math.random()*25));
-      cx=2;
-    }
-  }
-
-  for(var c=0; c<15; c++) {
-    if(c<3) {
-      a.colors[c]=this.colors[c];
-      a.colors[c]+=(round(Math.random()*2*cx*(10-mA))-(cx*(10-mA)));
-      if(a.colors[c]>255) {
-        a.colors[c]=255;
-      } else if(a.colors[c]<0) {
-        a.colors[c]=0;
-      }
-    } else if(c<6) {
-      a.colors[c]=(a.colors[c%3]-20);
-    } else if (c<9) {
-      a.colors[c]=(a.colors[c%3]+20);
-    } else if (c<12) {
-      a.colors[c]=(a.colors[c%3]-40);
-    } else {
-      a.colors[c]=(a.colors[c%3]+40);
-    }
-    if(a.colors[c]<0) {
-      a.colors[c]=0;
-    } else if(a.colors[c]>255) {
-      a.colors[c]=255;
-    }
-  }
-  for(var c=0; c<5; c++) {
-    a.hexes[c]=rgbToHex(a.colors[c*3],a.colors[(c*3)+1],a.colors[(c*3)+2]);
-  }
-  if(a.colors[0]>a.colors[2] && a.colors[0]>a.colors[1]) {
-    a.domCol=0;
-  } else if(a.colors[0]<a.colors[2] && a.colors[2]<a.colors[1]) {
-    a.domCol=1;
-  } else {
-    a.domCol=2;
-  }
-
-  a.mouth = new Mouth(a.dir, a.x, a.y);
-  a.mouth.dir=this.mouth.dir;
-  a.mouth.stray=this.mouth.stray;
-  a.mouth.dissen=this.mouth.dissen;
-  a.mouth.dirsen=this.mouth.dirsen;
-  a.mouth.col=this.mouth.col;
-  a.mouth.sense=this.mouth.sense;
-  a.mouth.sense2=this.mouth.sense2;
-
-  /*
-  a.mouth.mutrs[0]=this.mouth.mutrs[0]/mux;
-  a.mouth.mutrs[1]=this.mouth.mutrs[1]/mux;
-  a.mouth.mutrs[0]=round(10000*a.mouth.mutrs[0])/10000;
-  a.mouth.mutrs[1]=round(10000*a.mouth.mutrs[1])/10000;
-  */
-
-  a.mouth.dissen+=((this.mouth.mutrs[0]/mux)+(randn_bm()/1000));
-  a.mouth.dirsen+=((this.mouth.mutrs[1]/mux)+(randn_bm()/1000));
-  a.mouth.dissen=round(10000*a.mouth.dissen)/10000;
-  a.mouth.dirsen=round(10000*a.mouth.dirsen)/10000;
-
-  for(var i=0;i<MEMCAP;i++) {
-    a.memory[i]=this.memory[i];
-  }
-
-  a.brainCost=0;
-  for(var i=0, bL=BRAINLAYERSCAP; i<bL; i++) {
-    for(var j=0, bS=BRAINSIZECAP; j<bS; j++) {
-      a.brain[i][j].cost=0;
-      a.brain[i][j].is=this.brain[i][j].is;
-
-      for(var k=0, bS2=BRAINSIZECAP; k<bS2; k++) {
-        a.brain[i][j].weights[0][k]=this.brain[i][j].weights[0][k];
-        a.brain[i][j].weights[1][k]=this.brain[i][j].weights[1][k];
-        a.brain[i][j].bias[k]=this.brain[i][j].bias[k];
-
-        /*
-        a.brain[i][j].w1Genes[k]=this.brain[i][j].w1Genes[k]/mux;
-        a.brain[i][j].w2Genes[k]=this.brain[i][j].w2Genes[k]/mux;
-        a.brain[i][j].bGenes[k]=this.brain[i][j].bGenes[k]/mux;
-
-        a.brain[i][j].w1Genes[k]=round(10000*a.brain[i][j].w1Genes[k])/10000;
-        a.brain[i][j].w2Genes[k]=round(10000*a.brain[i][j].w2Genes[k])/10000;
-        a.brain[i][j].bGenes[k]=round(10000*a.brain[i][j].bGenes[k])/10000;
-        */
-
-        a.brain[i][j].weights[0][k]+=((this.brain[i][j].w1Genes[k]/mux)+(randn_bm()/1000));
-        a.brain[i][j].weights[1][k]+=((this.brain[i][j].w2Genes[k]/mux)+(randn_bm()/1000));
-        a.brain[i][j].bias[k]+=((this.brain[i][j].bGenes[k]/mux)+(randn_bm()/1000));
-
-        a.brain[i][j].weights[0][k]=round(10000*a.brain[i][j].weights[0][k])/10000;
-        a.brain[i][j].weights[1][k]=round(10000*a.brain[i][j].weights[1][k])/10000;
-        a.brain[i][j].bias[k]=round(10000*a.brain[i][j].bias[k])/10000;
-        a.weightDiff+= abs(a.brain[i][j].weights[0][k]-a.brain[i][j].weights[1][k]);
-        a.brain[i][j].cost+=(abs(a.brain[i][j].weights[0][k])+abs(a.brain[i][j].weights[1][k])+abs(a.brain[i][j].bias[k]));
-      }
-      a.brainCost+=a.brain[i][j].cost;
-    }
-  }
-
-  a.eyeNumber=this.eyeNumber;
-  for(var i=0;i<BRAINSIZECAP;i++) {
-    a.outputs[i]=this.outputs[i];
-  }
-  a.brainCost/=(BRAINSIZECAP*BRAINLAYERSCAP*3);//3 attributes
+  a.brainCost/=(BRAINSIZECAP*BRAINLAYERSCAP);
 
   for(var i=0, eC=EYECAP; i<eC; i++) {
     if(i<a.eyeNumber && this.eyes[i]!=null) {
@@ -2542,27 +2333,24 @@ Animal.prototype.copy=function(a) {
       a.brain[i][j].cost=this.brain[i][j].cost;
       a.brain[i][j].is=this.brain[i][j].is;
       for(var k=0;k<BRAINSIZECAP;k++) {
-        a.brain[i][j].weights[0][k]=this.brain[i][j].weights[0][k];
-        a.brain[i][j].weights[1][k]=this.brain[i][j].weights[1][k];
+        a.brain[i][j].weights[k]=this.brain[i][j].weights[k];
         a.brain[i][j].bias[k]=this.brain[i][j].bias[k];
-        a.brain[i][j].w1Genes[k]=this.brain[i][j].w1Genes[k];
-        a.brain[i][j].w2Genes[k]=this.brain[i][j].w2Genes[k];
+        a.brain[i][j].wGenes[k]=this.brain[i][j].wGenes[k];
         a.brain[i][j].bGenes[k]=this.brain[i][j].bGenes[k];
         a.brain[i][j].maxOut=this.brain[i][j].maxOut;
         a.brain[i][j].minOut=this.brain[i][j].minOut;
       }
     }
   }
-  a.weightDiff=this.weightDiff;
   a.brainCost=this.brainCost;
   for(var i=0;i<BRAINSIZECAP;i++) {
     a.outputs[i]=this.outputs[i];
   }
 }
 Animal.prototype.clone=function(a) {
-  var mux; //Starts at 1 to signify the current child
+  var mux;
   if(propagateMode==1 && this.genePool>0){
-    mux=this.genePool; // descendants DO NOT include animals own children: rather, counts GRANDCHILDREN (how successful each of its children have been at reproducing)
+    mux=this.genePool;
   }else {
     mux=1;
   }
@@ -2580,10 +2368,37 @@ Animal.prototype.clone=function(a) {
   a.attack=this.attack;
   a.tile=this.tile;
   a.muta=this.muta;
+
   a.maxSize=this.maxSize;
   a.minSize=this.minSize;
-  a.midSize=this.midSize;
-  a.size=this.minSize;
+  a.maxSize+=(this.maxSizeGene/mux);
+  a.maxSize=round(10*a.maxSize)/10;
+  if(a.maxSize>SIZECAP) {
+    a.maxSize=SIZECAP;
+  } else if(a.maxSize<round(20*a.minSize)/10) {
+    a.maxSize=2*a.minSize;
+  }
+  a.maxSize=round(10*a.maxSize)/10;
+
+  a.minSize+=(this.minSizeGene/mux);
+  a.minSize=round(10*a.minSize)/10;
+  if(a.minSize>round(10*(a.maxSize-0.1)/2)/10) {
+    a.minSize=round(10*(a.maxSize-0.1)/2)/10;
+  }else if(a.minSize<5) {
+    a.minSize=5;
+  }
+  a.minSize=round(10*a.minSize)/10;
+
+  a.midSize=(a.maxSize-a.minSize)/2;
+  a.size=a.minSize;
+
+  /*
+  a.maxSizeGene=this.maxSizeGene/mux;
+  a.minSizeGene=this.minSizeGene/mux;
+  a.maxSizeGene=round(10*a.maxSizeGene)/10;
+  a.minSizeGene=round(10*a.minSizeGene)/10;
+  */
+
   a.energy=this.minSize*10000;
   a.maxEnergy=this.energy;
   a.vel=this.vel;
@@ -2591,16 +2406,18 @@ Animal.prototype.clone=function(a) {
   a.dir=this.dir;
   a.velres=this.velres;
   a.rotres=this.rotres;
-  a.maxSizeGene=this.maxSizeGene/mux;
-  a.minSizeGene=this.minSizeGene/mux;
-  a.maxSizeGene=round(10*a.maxSizeGene)/10;
-  a.minSizeGene=round(10*a.minSizeGene)/10;
+  a.velres+=(this.senmuts[0]/mux); // child genes displaced incrementally... PARENTS DONT CHANGE
+  a.rotres+=(this.senmuts[1]/mux);
+  a.velres=round(100*a.velres)/100;
+  a.rotres=round(100*a.rotres)/100;
 
+  /*
   for(var i=0;i<2;i++) {
     a.senmuts[i]=this.senmuts[i]/mux;
   }
   a.senmuts[0]=round(100*a.senmuts[0])/100;
   a.senmuts[1]=round(100*a.senmuts[1])/100;
+  */
 
   a.health=this.health;
   a.foodEnergy=this.foodEnergy;
@@ -2617,8 +2434,15 @@ Animal.prototype.clone=function(a) {
   a.eyeNumber=this.eyeNumber;
   for(var i=0; i<a.eyeNumber; i++) {
     a.eyes[i]=new Eye(a.dir,a.x,a.y);
+
     a.eyes[i].dissen=this.eyes[i].dissen;
     a.eyes[i].dirsen=this.eyes[i].dirsen;
+
+    a.eyes[i].dissen+=(this.eyes[i].mutrs[0]/mux);
+    a.eyes[i].dirsen+=(this.eyes[i].mutrs[1]/mux);
+    a.eyes[i].dissen=round(10000*a.eyes[i].dissen)/10000;
+    a.eyes[i].dirsen=round(10000*a.eyes[i].dirsen)/10000;
+
     a.eyes[i].dir=this.eyes[i].dir;
     a.eyes[i].stray=this.eyes[i].stray;
     a.eyes[i].dis=this.eyes[i].dis;
@@ -2626,15 +2450,23 @@ Animal.prototype.clone=function(a) {
     a.eyes[i].eY=this.eyes[i].eY;
     a.eyes[i].col=this.eyes[i].col;
     a.eyes[i].sense=this.eyes[i].sense;
+    /*
     for(var j=0;j<2;j++) {
       a.eyes[i].mutrs[j]=this.eyes[i].mutrs[j]/mux;
     }
     a.eyes[i].mutrs[0]=round(10000*a.eyes[i].mutrs[0])/10000;
     a.eyes[i].mutrs[1]=round(10000*a.eyes[i].mutrs[1])/10000;
+    */
   }
 
   a.mouth.dissen=this.mouth.dissen;
   a.mouth.dirsen=this.mouth.dirsen;
+
+  a.mouth.dissen+=(this.mouth.mutrs[0]/mux);
+  a.mouth.dirsen+=(this.mouth.mutrs[1]/mux);
+  a.mouth.dissen=round(10000*a.mouth.dissen)/10000;
+  a.mouth.dirsen=round(10000*a.mouth.dirsen)/10000;
+
   a.mouth.dir=this.mouth.dir;
   a.mouth.stray=this.mouth.stray;
   a.mouth.dis=this.mouth.dis;
@@ -2644,39 +2476,44 @@ Animal.prototype.clone=function(a) {
   a.mouth.col=this.mouth.col;
   a.mouth.sense=this.mouth.sense;
   a.mouth.sense2=this.mouth.sense2;
+  /*
   for(var i=0;i<2;i++) {
     a.mouth.mutrs[i]=this.mouth.mutrs[i]/mux;
   }
   a.mouth.mutrs[0]=round(10000*a.mouth.mutrs[0])/10000;
   a.mouth.mutrs[1]=round(10000*a.mouth.mutrs[1])/10000;
-
+  */
   for(var i=0;i<MEMCAP;i++) {
     a.memory[i]=this.memory[i];
   }
-
+  a.brainCost=0;
   for(var i=0; i<BRAINLAYERSCAP; i++) {
     for(var j=0;j<BRAINSIZECAP;j++) {
-      a.brain[i][j].cost=this.brain[i][j].cost;
+      a.brain[i][j].cost=0;
       a.brain[i][j].is=this.brain[i][j].is;
       for(var k=0;k<BRAINSIZECAP;k++) {
-        a.brain[i][j].weights[0][k]=this.brain[i][j].weights[0][k];
-        a.brain[i][j].weights[1][k]=this.brain[i][j].weights[1][k];
+
+        a.brain[i][j].weights[k]=this.brain[i][j].weights[k];
         a.brain[i][j].bias[k]=this.brain[i][j].bias[k];
-        a.brain[i][j].w1Genes[k]=this.brain[i][j].w1Genes[k]/mux;
-        a.brain[i][j].w2Genes[k]=this.brain[i][j].w2Genes[k]/mux;
+
+        a.brain[i][j].weights[k]+=(this.brain[i][j].wGenes[k]/mux);
+        a.brain[i][j].bias[k]+=(this.brain[i][j].bGenes[k]/mux);
+        a.brain[i][j].weights[k]=round(10000*a.brain[i][j].weights[k])/10000;
+        a.brain[i][j].bias[k]=round(10000*a.brain[i][j].bias[k])/10000;
+        a.brain[i][j].cost+=abs(a.brain[i][j].weights[k])+abs(a.brain[i][j].bias[k]);
+        /*
+        a.brain[i][j].wGenes[k]=this.brain[i][j].wGenes[k]/mux;
         a.brain[i][j].bGenes[k]=this.brain[i][j].bGenes[k]/mux;
-
-        a.brain[i][j].w1Genes[k]=round(10000*a.brain[i][j].w1Genes[k])/10000;
-        a.brain[i][j].w2Genes[k]=round(10000*a.brain[i][j].w2Genes[k])/10000;
+        a.brain[i][j].wGenes[k]=round(10000*a.brain[i][j].wGenes[k])/10000;
         a.brain[i][j].bGenes[k]=round(10000*a.brain[i][j].bGenes[k])/10000;
-
+        */
         a.brain[i][j].maxOut=this.brain[i][j].maxOut;
         a.brain[i][j].minOut=this.brain[i][j].minOut;
       }
+      a.brainCost+=a.brain[i][j].cost;
     }
   }
-  a.weightDiff=this.weightDiff;
-  a.brainCost=this.brainCost;
+  a.brainCost/=(BRAINSIZECAP*BRAINLAYERSCAP);
   for(var i=0;i<BRAINSIZECAP;i++) {
     a.outputs[i]=this.outputs[i];
   }
@@ -2815,14 +2652,36 @@ Animal.prototype.highlight=function() {
     ctx4.fillText("SIZE: "+(round(10*s)/10), posx, posy+=10);
     ctx4.fillText("SMIN: "+this.minSize, posx, posy+=10);
     posy+=10;
-    ctx4.fillText("ATK: "+(round(100*this.attack)/100),posx,posy+=10);
+    if(this.attack<-0.75) {
+      ctx4.fillText("ATK---",posx,posy+=10);
+    } else if(this.attack<-0.5) {
+      ctx4.fillText("ATK--",posx,posy+=10);
+    } else if(this.attack<-0.25) {
+      ctx4.fillText("ATK-",posx,posy+=10);
+    } else if(this.attack>=0.75) {
+      ctx4.fillText("ATK+++",posx,posy+=10);
+    } else if(this.attack>=0.50) {
+      ctx4.fillText("ATK++",posx,posy+=10);
+    } else if(this.attack>=0.25) {
+      ctx4.fillText("ATK+",posx,posy+=10);
+    } else {
+      posy+=10;
+    }
     ctx4.fillText(">>DMG: "+round(this.dmgReceived*100)/100,posx,posy+=10);
     ctx4.fillText("DMG>>: "+round(this.dmgCaused*100)/100,posx,posy+=10);
     ctx4.fillText("DTRI: "+round(10000*this.deterioration)/10000, posx,posy+=10);
     posy+=10;
-    if(this.outputs[2]<-0.33) {
+    if(this.outputs[2]<-0.75) {
+      ctx4.fillText("CARN++",posx,posy+=10);
+    } else if(this.outputs[2]<-0.5) {
+      ctx4.fillText("CARN+",posx,posy+=10);
+    } else if(this.outputs[2]<-0.25) {
       ctx4.fillText("CARN",posx,posy+=10);
-    } else if(this.outputs[2]>=0.33) {
+    } else if(this.outputs[2]>=0.75) {
+      ctx4.fillText("HERB++",posx,posy+=10);
+    } else if(this.outputs[2]>=0.50) {
+      ctx4.fillText("HERB+",posx,posy+=10);
+    } else if(this.outputs[2]>=0.25) {
       ctx4.fillText("HERB",posx,posy+=10);
     } else {
       posy+=10;
@@ -2877,7 +2736,6 @@ Animal.prototype.highlight=function() {
         highlighted=null;
         ctx3.fillStyle="#323232";
         ctx3.fillRect(200, 200, 400, 200);
-        //ctx4.clearRect(200, 200, 400, 200);
         leftPressed=false;
       } else if(mouseX>220 && mouseX<230 && mouseY>200 && mouseY<210) { // Brain
         display=1;
@@ -3091,7 +2949,6 @@ Animal.prototype.highlight=function() {
     var posy=30;
     var spcx=60;
     var spcy=22;
-    //ctx4.clearRect(0,0,CONSOLEX,CONSOLEY);
 
     ctx4.fillStyle= "#FFFFFF";
     if(this.colors[0]>127 || this.colors[1]>127 || this.colors[2]>127) {
@@ -3123,8 +2980,7 @@ Animal.prototype.highlight=function() {
     }
 
     ctx4.fillText("NRG: "+round(100*this.energy)/100, posx, posy+=10);
-    ctx4.fillText("B$: "+(round(this.brainCost*BRAINSIZECAP*BRAINLAYERSCAP*3)),posx,posy+=10);
-    ctx4.fillText("WD: "+(round(10000*this.weightDiff)/10000),posx,posy+=10);
+    ctx4.fillText("B$: "+(round(this.brainCost*BRAINSIZECAP*BRAINLAYERSCAP)),posx,posy+=10);
 
     posx=75;
     posy=101;
@@ -3346,12 +3202,10 @@ Animal.prototype.highlight=function() {
         ctx4.fillText("N:"+neuNum+", L:"+neuLay+" WEIGHTS",20,posy2);
         ctx4.fillText("$: "+round(neu.cost*10000)/10000,20,posy2+=10);
         ctx4.fillText("W1",20,posy2+=10);
-        ctx4.fillText("W2",60,posy2);
-        ctx4.fillText("B",100,posy2);
+        ctx4.fillText("B",80,posy2);
         for(var i=0, bS2=BRAINSIZECAP; i<bS2; i++) {
-          ctx4.fillText(neu.weights[0][i], 20, posy2+=10);
-          ctx4.fillText(neu.weights[1][i], 60, posy2);
-          ctx4.fillText(neu.bias[i], 100, posy2);
+          ctx4.fillText(neu.weights[i], 20, posy2+=10);
+          ctx4.fillText(neu.bias[i], 80, posy2);
         }
       } else {
         var posy2=30;
@@ -3360,12 +3214,10 @@ Animal.prototype.highlight=function() {
         ctx4.fillStyle="#323232";
         ctx4.fillText("N:"+neuNum+", L:"+neuLay+" MUTS",20,posy2);
         ctx4.fillText("W1",20,posy2+=10);
-        ctx4.fillText("W2",60,posy2);
-        ctx4.fillText("B",100,posy2);
+        ctx4.fillText("B",80,posy2);
         for(var i=0, bS2=BRAINSIZECAP; i<bS2; i++) {
-          ctx4.fillText(neu.w1Genes[i], 20, posy2+=10);
-          ctx4.fillText(neu.w2Genes[i], 60, posy2);
-          ctx4.fillText(neu.bGenes[i], 100, posy2);
+          ctx4.fillText(neu.wGenes[i], 20, posy2+=10);
+          ctx4.fillText(neu.bGenes[i], 80, posy2);
         }
       }
     }
@@ -3377,7 +3229,6 @@ Animal.prototype.highlight=function() {
     }
   }
 }
-
 Animal.prototype.regress=function(pidx, idx, scale) { // cI= child index, pI= parent index (if parent is alive)
   var pI;
   var aI;
@@ -3394,12 +3245,10 @@ Animal.prototype.regress=function(pidx, idx, scale) { // cI= child index, pI= pa
   for(var i=0, bL=BRAINLAYERSCAP; i<bL; i++) {
     for(var j=0, bS=BRAINSIZECAP; j<bS; j++) {
       for(var k=0, bS2=BRAINSIZECAP; k<bS2; k++) {
-        aI.brain[i][j].w1Genes[k]+=((pI.brain[i][j].weights[0][k]-this.brain[i][j].weights[0][k])/scale); //scale is bigger than 1 if more children than parent had-> regress to 0 LESS
-        aI.brain[i][j].w2Genes[k]+=((pI.brain[i][j].weights[1][k]-this.brain[i][j].weights[1][k])/scale);
+        aI.brain[i][j].wGenes[k]+=((pI.brain[i][j].weights[k]-this.brain[i][j].weights[k])/scale); //scale is bigger than 1 if more children than parent had-> regress to 0 LESS
         aI.brain[i][j].bGenes[k]+=((pI.brain[i][j].bias[k]-this.brain[i][j].bias[k])/scale);
 
-        aI.brain[i][j].w1Genes[k]=(round(10000*aI.brain[i][j].w1Genes[k])/10000);
-        aI.brain[i][j].w2Genes[k]=(round(10000*aI.brain[i][j].w2Genes[k])/10000);
+        aI.brain[i][j].wGenes[k]=(round(10000*aI.brain[i][j].wGenes[k])/10000);
         aI.brain[i][j].bGenes[k]=(round(10000*aI.brain[i][j].bGenes[k])/10000);
       }
     }
@@ -3441,11 +3290,9 @@ Animal.prototype.propagate=function(index) { // cI= child index, pI= parent inde
   for(var i=0, bL=BRAINLAYERSCAP; i<bL; i++) {
     for(var j=0, bS=BRAINSIZECAP; j<bS; j++) {
       for(var k=0, bS2=BRAINSIZECAP; k<bS2; k++) {
-        pI.brain[i][j].w1Genes[k]+=(this.brain[i][j].weights[0][k]-pI.brain[i][j].weights[0][k]);
-        pI.brain[i][j].w2Genes[k]+=(this.brain[i][j].weights[1][k]-pI.brain[i][j].weights[1][k]);
+        pI.brain[i][j].wGenes[k]+=(this.brain[i][j].weights[k]-pI.brain[i][j].weights[k]);
         pI.brain[i][j].bGenes[k]+=(this.brain[i][j].bias[k]-pI.brain[i][j].bias[k]);
-        pI.brain[i][j].w1Genes[k]=(round(10000*pI.brain[i][j].w1Genes[k])/10000);
-        pI.brain[i][j].w2Genes[k]=(round(10000*pI.brain[i][j].w2Genes[k])/10000);
+        pI.brain[i][j].wGenes[k]=(round(10000*pI.brain[i][j].wGenes[k])/10000);
         pI.brain[i][j].bGenes[k]=(round(10000*pI.brain[i][j].bGenes[k])/10000);
       }
     }
@@ -3472,8 +3319,8 @@ Animal.prototype.propagate=function(index) { // cI= child index, pI= parent inde
 
   pI.maxSizeGene+=(this.maxSize-pI.maxSize);
   pI.minSizeGene+=(this.minSize-pI.minSize);
-  pI.maxSizeGene=(round(10*pI.maxSizeGene)/10);
-  pI.minSizeGene=(round(10*pI.minSizeGene)/10);
+  pI.maxSizeGene=round(10*pI.maxSizeGene)/10;
+  pI.minSizeGene=round(10*pI.minSizeGene)/10;
 }
 Animal.prototype.resetGenes= function() {
   this.senmuts[0]=0;
@@ -3489,8 +3336,7 @@ Animal.prototype.resetGenes= function() {
   for(var j=0;j<BRAINLAYERSCAP;j++){
     for(var k=0;k<BRAINSIZECAP;k++){
       for(var l=0;l<BRAINSIZECAP;l++){
-        this.brain[j][k].w1Genes[l]=0;
-        this.brain[j][k].w2Genes[l]=0;
+        this.brain[j][k].wGenes[l]=0;
         this.brain[j][k].bGenes[l]=0;
       }
     }
