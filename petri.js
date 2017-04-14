@@ -304,7 +304,7 @@ var console = {
 		ctx3.fillStyle="#FFFFFF";
 		ctx3.strokeStyle="#FFFFFF";
 		var posy=15;
-		ctx3.fillText("PETRI 1.19", 10, posy);
+		ctx3.fillText("PETRI 1.20", 10, posy);
 		ctx3.fillText("LIVE: ", 10, posy+=10);
 		ctx3.fillText("DEAD: ", 10, posy+=10);
 		ctx3.fillText("HIND: ", 10, posy+=10);
@@ -1889,13 +1889,13 @@ Animal.prototype.decay=function() {
             var ancestor = this.pidx;
             while(ancestor!=null){
               if(ancestor>=0){
-                this.regress(this.pidx, ancestor, 1);
+                this.regress2(this.pidx, ancestor, 1);
                 if(ancestor==this.pidx){
                   animals[ancestor].genePool++;
                 }
                 ancestor = animals[ancestor].pidx;
               } else {
-                this.regress(this.pidx, ancestor, 1);
+                this.regress2(this.pidx, ancestor, 1);
                 if(ancestor==this.pidx){
                   deadanimals[-(ancestor+1)].genePool++;
                 }
@@ -1909,13 +1909,13 @@ Animal.prototype.decay=function() {
           ancestor = this.pidx;
           while(ancestor!=null){
             if(ancestor>=0){
-              this.regress(this.pidx, ancestor, 1);
+              this.regress2(this.pidx, ancestor, 1);
               if(ancestor==this.pidx){ // If ancestor wasnt parent, concentrate the mutation direction by reducing the gene pool...
                 animals[ancestor].genePool++;
               }
               ancestor = animals[ancestor].pidx;
             } else {
-              this.regress(this.pidx, ancestor, 1);
+              this.regress2(this.pidx, ancestor, 1);
               if(ancestor==this.pidx){
                 deadanimals[-(ancestor+1)].genePool++;
               }
@@ -2193,12 +2193,11 @@ Animal.prototype.mutate=function(a) {
       a.brainCost+=a.brain[i][j].cost;
     }
   }
-
+  a.brainCost/=(BRAINSIZECAP*BRAINLAYERSCAP);
   a.eyeNumber=this.eyeNumber;
   for(var i=0;i<BRAINSIZECAP;i++) {
     a.outputs[i]=this.outputs[i];
   }
-  a.brainCost/=(BRAINSIZECAP*BRAINLAYERSCAP);
 
   for(var i=0, eC=EYECAP; i<eC; i++) {
     if(i<a.eyeNumber && this.eyes[i]!=null) {
@@ -3229,6 +3228,81 @@ Animal.prototype.highlight=function() {
     }
   }
 }
+Animal.prototype.regress2=function(pidx, idx, scale) { // cI= child index, pI= parent index (if parent is alive)
+  var pI;
+  var aI;
+  var mux;
+  if(pidx>=0){
+    pI = animals[pidx];
+  } else {
+    pI = deadanimals[-(pidx+1)];
+  }
+  if(idx>=0){
+    aI = animals[idx];
+  } else {
+    aI = deadanimals[-(idx+1)];
+  }
+  if(propagateMode==1 && pI.genePool>0){
+    mux=pI.genePool; // descendants DO NOT include animals own children: rather, counts GRANDCHILDREN (how successful each of its children have been at reproducing)
+  }else {
+    mux=1;
+  }
+  for(var i=0, bL=BRAINLAYERSCAP; i<bL; i++) {
+    for(var j=0, bS=BRAINSIZECAP; j<bS; j++) {
+      for(var k=0, bS2=BRAINSIZECAP; k<bS2; k++) {
+        aI.brain[i][j].wGenes[k]+=((pI.brain[i][j].weights[k]+pI.brain[i][j].wGenes[k]/mux)-this.brain[i][j].weights[k])/scale; //scale is bigger than 1 if more children than parent had-> regress to 0 LESS
+        aI.brain[i][j].bGenes[k]+=((pI.brain[i][j].bias[k]+pI.brain[i][j].bGenes[k]/mux)-this.brain[i][j].bias[k])/scale;
+
+        aI.brain[i][j].wGenes[k]=round(10000*aI.brain[i][j].wGenes[k])/10000;
+        aI.brain[i][j].bGenes[k]=round(10000*aI.brain[i][j].bGenes[k])/10000;
+      }
+    }
+  }
+  /*
+  Suppose you have a parent weight w. Parent is successful, has a child who mutated and has a weight of w+1.
+  However, child is unsuccessful. So tell parent to mutate opposite. Parent gene g0, was originally 0, and is now fluxed:
+  g1 = w+g0-(w+1)
+  g1 = w+0-(w+1)
+  g1 = -1.
+  So gene was swung opposite, next child will have gene with weight w-1 or w.
+
+  Suppose parent has another child, with weight w-1. Again, child is unsuccessful. Tell parent to mutate opposite.
+  Parent gene g1 is fluxed:
+  g1 = w+(g1)-(w-1)
+  g1 = (w-1)-(w-1)
+  g1 = w-1-w+1
+  g1 = 0.
+  Gene was swung opposite again. Then weight value w is stable at 0.
+
+  */
+
+  aI.mouth.mutrs[0]+=(((pI.mouth.dissen+pI.mouth.mutrs[0]/mux)-this.mouth.dissen)/scale);
+  aI.mouth.mutrs[1]+=(((pI.mouth.dirsen+pI.mouth.mutrs[1]/mux)-this.mouth.dirsen)/scale);
+
+  aI.mouth.mutrs[0]=round(10000*aI.mouth.mutrs[0])/10000;
+  aI.mouth.mutrs[1]=round(10000*aI.mouth.mutrs[1])/10000;
+
+  for(var i=0; i<EYECAP; i++) {
+    aI.eyes[i].mutrs[0]+=(((pI.eyes[i].dissen+pI.eyes[i].mutrs[0]/mux)-this.eyes[i].dissen)/scale);
+    aI.eyes[i].mutrs[1]+=(((pI.eyes[i].dirsen+pI.eyes[i].mutrs[1]/mux)-this.eyes[i].dirsen)/scale);
+
+    aI.eyes[i].mutrs[0]=round(10000*aI.eyes[i].mutrs[0])/10000;
+    aI.eyes[i].mutrs[1]=round(10000*aI.eyes[i].mutrs[1])/10000;
+  }
+
+  aI.senmuts[0]+=((pI.velres+pI.senmuts[0]/mux)-this.velres)/scale;
+  aI.senmuts[1]+=((pI.rotres+pI.senmuts[1]/mux)-this.rotres)/scale;
+
+  aI.senmuts[0]=round(100*aI.senmuts[0])/100;
+  aI.senmuts[1]=round(100*aI.senmuts[1])/100;
+
+  aI.maxSizeGene+=((pI.maxSize+pI.maxSizeGene/mux)-this.maxSize)/scale;
+  aI.minSizeGene+=((pI.minSize+pI.minSizeGene/mux)-this.minSize)/scale;
+
+  aI.maxSizeGene=round(10*aI.maxSizeGene)/10;
+  aI.minSizeGene=round(10*aI.minSizeGene)/10;
+}
+/*
 Animal.prototype.regress=function(pidx, idx, scale) { // cI= child index, pI= parent index (if parent is alive)
   var pI;
   var aI;
@@ -3280,7 +3354,28 @@ Animal.prototype.regress=function(pidx, idx, scale) { // cI= child index, pI= pa
   aI.maxSizeGene=(round(10*aI.maxSizeGene)/10);
   aI.minSizeGene=(round(10*aI.minSizeGene)/10);
 }
+*/
 Animal.prototype.propagate=function(index) { // cI= child index, pI= parent index (if parent is alive)
+
+  /*
+  Suppose you have parent weight w, initial parent gene g0=0. Parent has child who mutates w+1, and is successful. Parent gene g0 is fluxed:
+  g1=g0+((w+1)-w)
+  g1=0+1.
+  g1=1.
+  Also, genePool++.
+  Suppose parent has new child, accumulates w+1 (random bm 0). Child successful. g is fluxed again:
+  g2=g1+((w+1)-w)
+  g2=1+1
+  g2=2.
+  Also, genePool++. Since genepool increments alongside ,
+
+  Children creatures do well when g stays at g+1... so keep it there.
+
+  0 1 2
+
+  (5+5+5+0+5)/4
+  */
+
   var pI;
   if(index>=0){
     pI=animals[index];

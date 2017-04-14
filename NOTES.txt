@@ -1,5 +1,9 @@
 NOTES
 
+1.20:
+14/4/17:
+Regress works now. I mostly understand. Graphs showing progress, at least in the initial run. Need to do more tests, but i’m happy my efforts have worked. Graphs helped so much.
+
 1.19:
 12/4/17: 
 Realized that regress is too broad in its effect- creatures who die by happenstance tip evolution in opposite direction. Unfair if that creature was born on toxic terrain/eaten by parent. Propagate works properly, though. Will keep regress function, but not recommend. How
