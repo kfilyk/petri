@@ -304,7 +304,7 @@ var console = {
 		ctx3.fillStyle="#FFFFFF";
 		ctx3.strokeStyle="#FFFFFF";
 		var posy=15;
-		ctx3.fillText("PETRI 1.20", 10, posy);
+		ctx3.fillText("PETRI 1.21", 10, posy);
 		ctx3.fillText("LIVE: ", 10, posy+=10);
 		ctx3.fillText("DEAD: ", 10, posy+=10);
 		ctx3.fillText("HIND: ", 10, posy+=10);
@@ -362,7 +362,9 @@ var console = {
     if(propagateMode==0) {
       ctx3.fillText("PROPAGATE OFF",posx2+5,posy+=20);
     } else if(propagateMode==1){
-      ctx3.fillText("PROPAGATE ON",posx2+5,posy+=20);
+      ctx3.fillText("PROPAGATE FULL",posx2+5,posy+=20);
+    } else if(propagateMode==1){
+      ctx3.fillText("PROPAGATE DIRECT",posx2+5,posy+=20);
     }
 
     posx2=280;
@@ -822,7 +824,7 @@ var input= {
 						console.setup();
 						leftPressed=false;
 					} else if((mouseY>150)&&(mouseY<160)) { // FORTHPROP MODE
-						if(propagateMode==1) {
+						if(propagateMode==2) {
 							propagateMode=0;
 						} else {
               propagateMode++;
@@ -1367,6 +1369,15 @@ function Animal(x,y,index) {
 }
 
 Animal.prototype.draw=function(){
+  ctx2.strokeStyle=this.hexes[2];
+	ctx2.fillStyle=this.hexes[4];
+	for(var i=0, eN=this.eyeNumber;i<eN;i++) {
+    ctx2.beginPath();
+    ctx2.arc(this.eyes[i].eX,this.eyes[i].eY, round(this.size/10), 0, TWOPI);
+		ctx2.stroke();
+		ctx2.fill();
+	}
+
   ctx2.strokeStyle= this.hexes[1];
 	ctx2.fillStyle= this.hexes[0];
 	ctx2.beginPath();
@@ -1380,15 +1391,6 @@ Animal.prototype.draw=function(){
 	ctx2.arc(this.mouth.mX,this.mouth.mY, round(this.size/4), 0, TWOPI);
 	ctx2.stroke();
 	ctx2.fill();
-
-	ctx2.strokeStyle=this.hexes[2];
-	ctx2.fillStyle=this.hexes[4];
-	for(var i=0, eN=this.eyeNumber;i<eN;i++) {
-    ctx2.beginPath();
-    ctx2.arc(this.eyes[i].eX,this.eyes[i].eY, round(this.size/10), 0, TWOPI);
-		ctx2.stroke();
-		ctx2.fill();
-	}
 
 
 	if(terrainMouse && mouseX>=this.x-50 && mouseX<this.x+50 && mouseY>=this.y-50 && mouseY<this.y+50 && highlighted!=this.index) {
@@ -1811,13 +1813,39 @@ Animal.prototype.grow=function() {
         }
         if(propagateMode==1) {
           var ancestor=this.pidx;
-          if(ancestor!=null) {
+          while(ancestor!=null) {
             if(ancestor>=0) {
               this.propagate(ancestor);
               ancestor=animals[ancestor].pidx;
             } else {
               this.propagate(ancestor);
               ancestor=deadanimals[-(ancestor+1)].pidx;
+            }
+          }
+        } else if(propagateMode==2){
+          var anc1=this.index;
+          var anc2=this.pidx;
+          while(anc2!=null){
+            if(anc1>=0){
+              if(anc2>=0) {
+                animals[anc1].propagate(anc2);
+                anc1=anc2;
+                anc2=animals[anc2].pidx;
+              } else {
+                animals[anc1].propagate(anc2);
+                anc1=anc2;
+                anc2=deadanimals[-(anc2+1)].pidx;
+              }
+            } else {
+              if(anc2>=0) {
+                deadanimals[-(anc1+1)].propagate(anc2);
+                anc1=anc2;
+                anc2=animals[anc2].pidx;
+              } else {
+                deadanimals[-(anc1+1)].propagate(anc2);
+                anc1=anc2;
+                anc2=deadanimals[-(anc2+1)].pidx;
+              }
             }
           }
         }
@@ -1882,7 +1910,37 @@ Animal.prototype.decay=function() {
           anc = deadanimals[-(anc+1)].pidx;
         }
       }
+      anc=this.pidx;
+      if(regressMode==4){  // CNO
+        if(this.cno!=null){
+          if(this.children.length<(this.cno+1)){
+            if(anc!=null){
+              if(anc>=0){
+                this.regress(this.pidx, anc, 1);
+                animals[anc].genePool++;
+              } else {
+                this.regress(this.pidx, anc, 1);
+                deadanimals[-(anc+1)].genePool++;
+              }
+            }
+          }
+        }
+      } else if(regressMode>0){
+        if(this.children.length<regressMode){
+          if(anc!=null){
+            if(anc>=0){
+              this.regress(this.pidx, anc, 1);
+              animals[anc].genePool++;
+            } else {
+              this.regress(this.pidx, anc, 1);
+              deadanimals[-(anc+1)].genePool++;
+            }
+          }
+        }
+      }
 
+
+      /*
       if(regressMode==4){  // CNO
         if(this.cno!=null){
           if(this.children.length<(this.cno+1)){
@@ -1924,6 +1982,7 @@ Animal.prototype.decay=function() {
           }
         }
       }
+      */
 		}
     globalNetNRG+=this.netNRG;
     netLifespan+=this.age;
@@ -2027,7 +2086,7 @@ Animal.prototype.mutate=function(a) {
   a.muta=this.muta;
 
   var mux; //Starts at 1 to signify the current child
-  if(propagateMode==1 && this.genePool>0){
+  if(propagateMode>0 && this.genePool>0){
     mux=this.genePool; // descendants DO NOT include animals own children: rather, counts GRANDCHILDREN (how successful each of its children have been at reproducing)
   }else {
     mux=1;
@@ -2348,7 +2407,7 @@ Animal.prototype.copy=function(a) {
 }
 Animal.prototype.clone=function(a) {
   var mux;
-  if(propagateMode==1 && this.genePool>0){
+  if(propagateMode>0 && this.genePool>0){
     mux=this.genePool;
   }else {
     mux=1;
@@ -3228,6 +3287,7 @@ Animal.prototype.highlight=function() {
     }
   }
 }
+/*
 Animal.prototype.regress2=function(pidx, idx, scale) { // cI= child index, pI= parent index (if parent is alive)
   var pI;
   var aI;
@@ -3242,7 +3302,7 @@ Animal.prototype.regress2=function(pidx, idx, scale) { // cI= child index, pI= p
   } else {
     aI = deadanimals[-(idx+1)];
   }
-  if(propagateMode==1 && pI.genePool>0){
+  if(propagateMode>0 && pI.genePool>0){
     mux=pI.genePool; // descendants DO NOT include animals own children: rather, counts GRANDCHILDREN (how successful each of its children have been at reproducing)
   }else {
     mux=1;
@@ -3273,8 +3333,7 @@ Animal.prototype.regress2=function(pidx, idx, scale) { // cI= child index, pI= p
   g1 = w-1-w+1
   g1 = 0.
   Gene was swung opposite again. Then weight value w is stable at 0.
-
-  */
+  * /
 
   aI.mouth.mutrs[0]+=(((pI.mouth.dissen+pI.mouth.mutrs[0]/mux)-this.mouth.dissen)/scale);
   aI.mouth.mutrs[1]+=(((pI.mouth.dirsen+pI.mouth.mutrs[1]/mux)-this.mouth.dirsen)/scale);
@@ -3302,7 +3361,8 @@ Animal.prototype.regress2=function(pidx, idx, scale) { // cI= child index, pI= p
   aI.maxSizeGene=round(10*aI.maxSizeGene)/10;
   aI.minSizeGene=round(10*aI.minSizeGene)/10;
 }
-/*
+*/
+
 Animal.prototype.regress=function(pidx, idx, scale) { // cI= child index, pI= parent index (if parent is alive)
   var pI;
   var aI;
@@ -3322,8 +3382,8 @@ Animal.prototype.regress=function(pidx, idx, scale) { // cI= child index, pI= pa
         aI.brain[i][j].wGenes[k]+=((pI.brain[i][j].weights[k]-this.brain[i][j].weights[k])/scale); //scale is bigger than 1 if more children than parent had-> regress to 0 LESS
         aI.brain[i][j].bGenes[k]+=((pI.brain[i][j].bias[k]-this.brain[i][j].bias[k])/scale);
 
-        aI.brain[i][j].wGenes[k]=(round(10000*aI.brain[i][j].wGenes[k])/10000);
-        aI.brain[i][j].bGenes[k]=(round(10000*aI.brain[i][j].bGenes[k])/10000);
+        aI.brain[i][j].wGenes[k]=round(10000*aI.brain[i][j].wGenes[k])/10000;
+        aI.brain[i][j].bGenes[k]=round(10000*aI.brain[i][j].bGenes[k])/10000;
       }
     }
   }
@@ -3354,7 +3414,7 @@ Animal.prototype.regress=function(pidx, idx, scale) { // cI= child index, pI= pa
   aI.maxSizeGene=(round(10*aI.maxSizeGene)/10);
   aI.minSizeGene=(round(10*aI.minSizeGene)/10);
 }
-*/
+
 Animal.prototype.propagate=function(index) { // cI= child index, pI= parent index (if parent is alive)
 
   /*
@@ -3367,7 +3427,17 @@ Animal.prototype.propagate=function(index) { // cI= child index, pI= parent inde
   g2=g1+((w+1)-w)
   g2=1+1
   g2=2.
-  Also, genePool++. Since genepool increments alongside ,
+  Also, genePool++.
+
+
+
+  A(C0/W0/G0)
+  A(C1/W0/G0), B(C0/W1/G0)
+  A(C1/W0/G1), B(C1/W1/G0), C(C0/W1/G0)
+  A
+
+
+
 
   Children creatures do well when g stays at g+1... so keep it there.
 
