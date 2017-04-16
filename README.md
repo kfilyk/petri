@@ -7,9 +7,9 @@ Hello, this program is used for evolving successful neural-network "species" usi
 
 2: Click "NEW RANDOM 100" to generate a random assortment of creatures. Tiles are initiallized with maximum colour values. Colour value  is synonymous with food. Creatures "eat" the colors red, green, and blue, subtracting them from terrain tiles. A "positive" tile will have colour, and give the creature energy. A "negative" tile will appear grey, and take energy away from the creature. Creatures will require time to form coherent behaviours and other movements. Stopping and starting, non-cyclic swimming patterns, and extension/rotation of eyes indicate that behaviour paths are forming. Given enough time, creatures will evolve the ability to sense and respond to one another.
 
-3: Whenever you'd like, you can turn on the PROPAGATE function in the console menu, to *subtly* accelerate the evolution of the creatures. Note that this function is experimental, and makes "having the greatest number of children" the "successful" direction of evolution. REGRESS is also experimental, and subtracts "unsuccessful" mutations from the gene pool. I've had trouble implementing it properly, and will update it in the future. I recommended using "REGRESS < 1 CHILDREN" with "PROPAGATE ON" during a run, then comparing it to having both functions off during a different run.  More info on these functions is coming. 
+3: Whenever you'd like, you can turn on the PROPAGATE function in the console menu, to *subtly* accelerate the evolution of the creatures. Note that this function is experimental, and makes "having the greatest number of children" the "successful" direction of evolution. the REGRESS still needs work, and I recommend not using it. REGRESS subtracts "unsuccessful" creatures from the gene pool. I will be updating it in the future. 
 
-4: REGRESS causes the genes of unsuccessful creatures (with less children) to be subtracted from the parents' gene pool. PROPAGATE allows successful creatures (with more children) to add their genes to the parents' gene pool. When the parent divides, the new creature inherits the average of the parent genes. In this way, the rate/direction of gene change is "propagated" in a "successful" direction. Letting the creatures freely mutate is also viable, and turning the functions off can be done by left-clicking the buttons until they are "REGRESS OFF" and "PROPAGATE OFF". 
+4: REGRESS causes the genes of unsuccessful creatures (less children) to be subtracted from their parents' gene pool. PROPAGATE FULL causes successful creatures (more children) to have their genes added to the gene pool of all ancestors in their lineage. When their parent reproduces, the new creature inherits the average of the genes in the parents' gene pool. You can turn the functions off by left-clicking the buttons until they are "REGRESS OFF" and "PROPAGATE OFF". 
 
 5: Watch your memory- on my Macbook Pro 2016 using Firefox, The program runs for about 8 hours before the browser crashes. This is more than enough time to witness improvements in creature lifespan/decision making/interaction. When memory runs out eventually, your computer will be fine, but you'll have to close the browser and restart. I will be converting this project to C++ in the future, so to avoid this.
 
@@ -24,6 +24,10 @@ Left-clicking the "B" will display a map of the creatures' brain, including neur
 Left-clicking the "F" will display the descendants of the creature. All related-creature names are left-clickable, and will pull up that creature's info-card.
 
 Left-clicking the "M" will display the gene-mutation rates in regards to the creatures physical attributes.
+
+Left-clicking the "R" will reincarnate a dead creature (clone them and add the "successful" gene mutations accumulated in the original).
+
+Left-clicking the "K" will kill the creature.
 
 8: Graphs are used in the console to represent rates of change over generations and over time. Data is recorded every 100 frames, when used to calculate rates of change over time. Data is recorded when creatures die, when used to calculate rates of change over generations.
 
