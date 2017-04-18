@@ -1,5 +1,10 @@
 CHANGELOG
 
+1.21:
+18/4/17:
+- Added scroll functionality so that mouse coordinates align to viewport properly.
+- Added moving CARN/HERB, EATR/G/B stats to highlight box.
+
 1.20:
 14/4/17:
 -fixed regress function, subtract “unsuccessful” changes from rate of change during parent gene mutation rate calculations. Need to further verify technique is really working, but using “PROPAGATE ON” and “REGRESS <1 CHILDREN” seems to have proven fruitful.

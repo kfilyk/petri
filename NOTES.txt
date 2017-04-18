@@ -1,5 +1,12 @@
 NOTES
 
+1.21:
+16/4/17:
+Regress doesnt work. Inherently flawed. Creatures die all the time, doesn’t say anything about potentially good mutations- doesn’t make direction of mutation clear at all. Adapting this function into something else might be useful: For every unsuccessful death, record the differences between each child gene and the parent/how many of each there were. So +0.03, -0.02, +0.06 mutations would be divided by 3 (0.023). Keep this number separate from Gene Mutation Rates (which already hold the propagated, positive mutations). 
+OR:
+https://www.youtube.com/watch?v=5NMxiOGL39M&t=1208s
+use bayesian inference to make predictive guesses about positive direction/negative direction? keep these probabilities separate and somehow link them relatively
+
 1.20:
 14/4/17:
 Regress works now. I mostly understand. Graphs showing progress, at least in the initial run. Need to do more tests, but i’m happy my efforts have worked. Graphs helped so much.

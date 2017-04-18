@@ -20,13 +20,11 @@ ctx3.font = "10px Arial";
 ctx4.font = "10px Arial";
 var w = canvas2.width;
 var h = canvas2.height;
-var prevX = 0;
-var prevY = 0;
 var mouseX = 0;
 var mouseY = 0;
 var dot_flag = false;
 var terrainMouse = false;
-var consoleMouse = false;
+var consMouse = false;
 var leftPressed = false;
 var rightPressed = false;
 var pause=false;
@@ -40,8 +38,8 @@ var TWOPI=6.283185;
 var DEGTORAD = 0.017453;
 var FIELDX=canvas2.width;
 var FIELDY=canvas2.height;
-var CONSOLEX=canvas3.width;
-var CONSOLEY=canvas3.height;
+var CONSX=canvas3.width;
+var CONSY=canvas3.height;
 var TILENUMBER=(FIELDX/25)*(FIELDY/25);
 var POPCAP=1500;
 var SCORESCAP=25;
@@ -118,38 +116,40 @@ var propagateMode=0;
 
 function init() {
 	canvas4.addEventListener("mouseover", function (e) {
-		findxy4('over', e)
+		findxy('over', e, canvas4, 1)
 	}, false);
 	canvas4.addEventListener("mousemove", function (e) {
-		findxy4('move', e)
+		findxy('move', e, canvas4, 1)
 	}, false);
 	canvas4.addEventListener("mousedown", function (e) {
-		findxy4('down', e)
+		findxy('down', e, canvas4, 1)
 	}, false);
 	canvas4.addEventListener("mouseup", function (e) {
-		findxy4('up', e)
+		findxy('up', e, canvas4, 1)
 	}, false);
 	canvas4.addEventListener("mouseout", function (e) {
-		findxy4('out', e)
+		findxy('out', e, canvas4, 1)
 	}, false);
 
 	canvas2.addEventListener("mouseover", function (e) {
-		findxy2('over', e)
+		findxy('over', e, canvas2, 0)
 	}, false);
 	canvas2.addEventListener("mousemove", function (e) {
-		findxy2('move', e)
+		findxy('move', e, canvas2, 0)
 	}, false);
 	canvas2.addEventListener("mousedown", function (e) {
-		findxy2('down', e)
+		findxy('down', e, canvas2, 0)
 	}, false);
 	canvas2.addEventListener("mouseup", function (e) {
-		findxy2('up', e)
+		findxy('up', e, canvas2, 0)
 	}, false);
 	canvas2.addEventListener("mouseout", function (e) {
-		findxy2('out', e)
+		findxy('out', e, canvas2, 0)
 	}, false);
+
+
 	tileman.generate();
-	console.setup();
+	cons.setup();
 	requestAnimationFrame(cycle);
 }
 
@@ -160,7 +160,7 @@ function cycle() {
   if(time%100==0){ // COLLECT EVERY 100 FRAMES
     statman.update();
   }
-  console.update();
+  cons.update();
   if(!pause){
     time++;
   }
@@ -297,10 +297,10 @@ var statman = {
   }
 }
 
-var console = {
+var cons = {
 	setup : function() {
 		ctx3.fillStyle=rgbToHex(50,50,50);
-		ctx3.fillRect(0,0,CONSOLEX,CONSOLEY);
+		ctx3.fillRect(0,0,CONSX,CONSY);
 		ctx3.fillStyle="#FFFFFF";
 		ctx3.strokeStyle="#FFFFFF";
 		var posy=15;
@@ -363,7 +363,7 @@ var console = {
       ctx3.fillText("PROPAGATE OFF",posx2+5,posy+=20);
     } else if(propagateMode==1){
       ctx3.fillText("PROPAGATE FULL",posx2+5,posy+=20);
-    } else if(propagateMode==1){
+    } else if(propagateMode==2){
       ctx3.fillText("PROPAGATE DIRECT",posx2+5,posy+=20);
     }
 
@@ -371,14 +371,14 @@ var console = {
     posy=20;
 	},
 	update : function() {
-    ctx4.clearRect(0, 0, CONSOLEX, CONSOLEY);
+    ctx4.clearRect(0, 0, CONSX, CONSY);
 		if(display!=1 && display!=2) {
 			var posx=50;
 			var posy=15;
 			ctx4.fillStyle="#FFFFFF";
 			ctx4.fillText(LIVEPOP, posx, posy+=10);
 			ctx4.fillText(deadanimals.length, posx, posy+=10);
-      if(consoleMouse && leftPressed) {
+      if(consMouse && leftPressed) {
         if(mouseX>10 && mouseX<120) {
           if(mouseY>posy-5 && mouseY<posy+5) {
             if(deadanimals.length>0){ // If deadanimals length = 1, then index ==0: send to highlighted as -(length)+1. 0-> -1, 1 -> -2, 2->-3
@@ -389,7 +389,7 @@ var console = {
         }
       }
 			ctx4.fillText(HIGHESTINDEX, posx, posy+=10);
-			if(consoleMouse && leftPressed) {
+			if(consMouse && leftPressed) {
 				if(mouseX>10 && mouseX<120) {
 					if(mouseY>posy-5 && mouseY<posy+5) {
 						highlighted=HIGHESTINDEX;
@@ -403,7 +403,7 @@ var console = {
 				} else {
 					ctx4.fillText(animals[newest].name+"-"+animals[newest].gen+"A"+animals[newest].children.length, posx, posy+=10);
 				}
-				if(consoleMouse && leftPressed) {
+				if(consMouse && leftPressed) {
 					if(mouseX>10 && mouseX<120) {
 						if(mouseY>posy-5 && mouseY<posy+5) {
 							highlighted=newest;
@@ -429,7 +429,7 @@ var console = {
               var a1=animals[scores[i]];
               ctx4.fillText(a1.name+"-"+a1.gen+"A"+a1.children.length, posx, posy+=10);
             }
-  					if(consoleMouse && leftPressed) {
+  					if(consMouse && leftPressed) {
   						if(mouseX>posx && mouseX<posx+90 && mouseY>posy-5 && mouseY<posy+5) {
   							if(display==2) {
   								display=1;
@@ -445,7 +445,7 @@ var console = {
               var a1=animals[scores[i]];
               ctx4.fillText(a1.name+"-"+a1.gen+"A"+a1.children.length+": "+round(a1.score), posx, posy+=10);
             }
-            if(consoleMouse && leftPressed) {
+            if(consMouse && leftPressed) {
               if(mouseX>posx && mouseX<posx+90 && mouseY>posy-5 && mouseY<posy+5) {
                 if(display==2) {
                   display=1;
@@ -467,7 +467,7 @@ var console = {
         ctx4.arc(buttonX,175,7,0,TWOPI);
         ctx4.fill();
         if(leftPressed){
-          if(consoleMouse && abs(mouseX-buttonX)<6 && abs(mouseY-175)<6) {
+          if(consMouse && abs(mouseX-buttonX)<6 && abs(mouseY-175)<6) {
             if(graphHolder[i]<8){
               graphHolder[i]++;
             } else {
@@ -476,7 +476,7 @@ var console = {
             leftPressed=false;
           }
         } else if(rightPressed){
-          if(consoleMouse && abs(mouseX-buttonX)<6 && abs(mouseY-175)<6) {
+          if(consMouse && abs(mouseX-buttonX)<6 && abs(mouseY-175)<6) {
             if(graphHolder[i]>-1){
               graphHolder[i]--;
             } else {
@@ -494,7 +494,7 @@ var console = {
         buttonX+=32;
       }
 
-      var lineX= CONSOLEX/(~~(time/100));
+      var lineX= CONSX/(~~(time/100));
       posy=600;
       ctx4.fillStyle="#FFFFFF";
       ctx4.strokeStyle="#FFFFFF";
@@ -514,7 +514,7 @@ var console = {
           if(popPerGen.length>0){
             var genX;
             if(popPerGen.length>1){
-              genX = CONSOLEX/(popPerGen.length-1);
+              genX = CONSX/(popPerGen.length-1);
             } else {
               genX=0;
             }
@@ -524,7 +524,7 @@ var console = {
           if(popPerGen.length>0){
             var genX;
             if(popPerGen.length>1){
-              genX = CONSOLEX/(popPerGen.length-1);
+              genX = CONSX/(popPerGen.length-1);
             } else {
               genX=0;
             }
@@ -534,7 +534,7 @@ var console = {
           if(popPerGen.length>0){
             var genX;
             if(popPerGen.length>1){
-              genX = CONSOLEX/(popPerGen.length-1);
+              genX = CONSX/(popPerGen.length-1);
             } else {
               genX=0;
             }
@@ -579,7 +579,7 @@ function graph(lx, y, g, txt, max) {
     ctx4.moveTo(posx,y-initY);
     ctx4.lineTo(posx+lx, y-endY);
 
-    if(consoleMouse && abs(mouseX-posx)<10 && abs(mouseY-(y-initY))<10){
+    if(consMouse && abs(mouseX-posx)<10 && abs(mouseY-(y-initY))<10){
       if(show==0) {
         ctx4.fillText(txt+(round(100*g[i])/100), 10, y-90);
         ctx4.fillText("TIME: "+(i*100), 10, y-80);
@@ -607,7 +607,7 @@ function resoGraph(lx, y, s, g, txt, min, max) {
     ctx4.moveTo(posx,y-initY);
     ctx4.lineTo(posx+lx,y-endY);
 
-    if(consoleMouse && abs(mouseX-posx)<10 && abs(mouseY-(y-initY))<10){
+    if(consMouse && abs(mouseX-posx)<10 && abs(mouseY-(y-initY))<10){
       if(show==0) {
         ctx4.fillText(txt+round(g[i]), 10, y-s);
         if(showTime=-1){
@@ -636,7 +636,7 @@ function genGraph(lx, y, g, txt, max) {
     ctx4.moveTo(posx,y-initY);
     ctx4.strokeRect((posx-1), (y-initY-1),2,2);
     ctx4.lineTo(posx+lx,y-endY);
-    if(consoleMouse && abs(mouseX-posx)<10 && abs(mouseY-(y-initY))<10){
+    if(consMouse && abs(mouseX-posx)<10 && abs(mouseY-(y-initY))<10){
       if(show==0) {
         ctx4.fillText(txt+round(100*(g[i]/popPerGen[i]))/100, 10, y-90);
         ctx4.fillText("GEN "+i, 10, y-80);
@@ -663,7 +663,7 @@ function popGenGraph(lx, y, g, txt, max) {
     ctx4.moveTo(posx,y-initY);
     ctx4.strokeRect((posx-1), (y-initY-1),2,2);
     ctx4.lineTo(posx+lx,y-endY);
-    if(consoleMouse && abs(mouseX-posx)<10 && abs(mouseY-(y-initY))<10){
+    if(consMouse && abs(mouseX-posx)<10 && abs(mouseY-(y-initY))<10){
       if(show==0) {
         ctx4.fillText(txt+round(100*g[i])/100, 10, y-90);
         ctx4.fillText("GEN "+i, 10, y-80);
@@ -726,7 +726,7 @@ var input= {
 				}
 				rightPressed=false;
 			}
-		} else if(consoleMouse) { //console mouse
+		} else if(consMouse) { //cons mouse
 			if(leftPressed) {
 
         //PAUSE
@@ -746,7 +746,7 @@ var input= {
 						}
 					}
 				}
-        // CONSOLE MENU
+        // CONS MENU
         if((mouseX>440)&&(mouseX<590) && display!=1 && display!=2) {
 					if((mouseY>10)&&(mouseY<20)) { // RESET
 						highlighted=null;
@@ -760,7 +760,7 @@ var input= {
 
             resetStats();
 
-						console.setup();
+						cons.setup();
 						tileman.generate();
 						LIVEPOP=0;
 						HIGHESTINDEX=-1;
@@ -775,7 +775,7 @@ var input= {
 
             resetStats();
 
-						console.setup();
+						cons.setup();
 						tileman.generate();
 						for(var i=0;i<100;i++) {
 							animals[i]=new Animal(round(Math.random()*FIELDX),round(Math.random()*FIELDY), i);
@@ -804,7 +804,7 @@ var input= {
 						if(foodAmount>4) {
 							foodAmount=1;
 						}
-						console.setup();
+						cons.setup();
 						leftPressed=false;
 					} else if((mouseY>110)&&(mouseY<120)) { // REGEN TILES
 						if(regenTiles==0) {
@@ -812,7 +812,7 @@ var input= {
 						} else {
 							regenTiles=0;
 						}
-						console.setup();
+						cons.setup();
 						leftPressed=false;
 					} else if((mouseY>130)&&(mouseY<140)) { // BACKPROP MODE
             if(regressMode==4) {
@@ -821,7 +821,7 @@ var input= {
               regressMode++;
             }
             resetAllGenes();
-						console.setup();
+						cons.setup();
 						leftPressed=false;
 					} else if((mouseY>150)&&(mouseY<160)) { // FORTHPROP MODE
 						if(propagateMode==2) {
@@ -829,7 +829,7 @@ var input= {
 						} else {
               propagateMode++;
             }
-						console.setup();
+						cons.setup();
 						leftPressed=false;
 					}
 				}
@@ -928,7 +928,7 @@ function resetScore() {
       }
 		}
   }
-  console.setup();
+  cons.setup();
 }
 
 function genHS() {
@@ -978,7 +978,7 @@ function genHS() {
 	scores=new Array(SCORESCAP);
 	LIVEPOP=100;
 	HIGHESTINDEX=99;
-	console.setup();
+	cons.setup();
 	tileman.generate();
 }
 
@@ -990,12 +990,16 @@ function namer() {
 	return n;
 }
 
-function findxy2(res, e) {
+function findxy(res, e, canv, m) {
 	if (res == 'down') {
-		prevX = mouseX;
-		prevY = mouseY;
-		mouseX = e.clientX - canvas2.offsetLeft;
-		mouseY = e.clientY - canvas2.offsetTop;
+    var rect = canv.getBoundingClientRect();
+    mouseX=(e.clientX - rect.left) / (rect.right - rect.left) * canv.width;
+    mouseY=(e.clientY - rect.top) / (rect.bottom - rect.top) * canv.height;
+    /*
+    mouseX = e.clientX - canvas2.offsetLeft;
+    mouseY = e.clientY - canvas2.offsetTop;
+    */
+
 		if(e.button === 0){
 			leftPressed = true;
 		} else if(e.button === 2){
@@ -1011,55 +1015,25 @@ function findxy2(res, e) {
 		}
 	}
 	if (res == 'move') {
-		prevX = mouseX;
-		prevY = mouseY;
-		mouseX = e.clientX - canvas2.offsetLeft;
-		mouseY = e.clientY - canvas2.offsetTop;
+    var rect = canv.getBoundingClientRect();
+    mouseX=(e.clientX - rect.left) / (rect.right - rect.left) * canv.width;
+    mouseY=(e.clientY - rect.top) / (rect.bottom - rect.top) * canv.height;
 	}
 	if (res == 'over') {
-		prevX = mouseX;
-		prevY = mouseY;
-		mouseX = e.clientX - canvas2.offsetLeft;
-		mouseY = e.clientY - canvas2.offsetTop;
+    var rect = canv.getBoundingClientRect();
+    mouseX=(e.clientX - rect.left) / (rect.right - rect.left) * canv.width;
+    mouseY=(e.clientY - rect.top) / (rect.bottom - rect.top) * canv.height;
+
 	}
-	terrainMouse=true;
-	consoleMouse=false;
+  if(m==0){
+    terrainMouse=true;
+    consMouse=false;
+  } else {
+    terrainMouse=false;
+    consMouse=true;
+  }
 }
-function findxy4(res, e) {
-	if (res == 'down') {
-		prevX = mouseX;
-		prevY = mouseY;
-		mouseX = e.clientX - canvas4.offsetLeft;
-		mouseY = e.clientY - canvas4.offsetTop;
-		if(e.button === 0){
-			leftPressed = true;
-		} else if(e.button === 2){
-			rightPressed = true;
-		}
-		dot_flag = true;
-	}
-	if (res == 'up' || res == "out") {
-		if(e.button === 0){
-			leftPressed = false;
-		} else if(e.button === 2){
-			rightPressed = false;
-		}
-	}
-	if (res == 'move') {
-		prevX = mouseX;
-		prevY = mouseY;
-		mouseX = e.clientX - canvas4.offsetLeft;
-		mouseY = e.clientY - canvas4.offsetTop;
-	}
-	if (res == 'over') {
-		prevX = mouseX;
-		prevY = mouseY;
-		mouseX = e.clientX - canvas4.offsetLeft;
-		mouseY = e.clientY - canvas4.offsetTop;
-	}
-	consoleMouse=true;
-	terrainMouse=false;
-}
+
 function rgbToHex(r,g,b) {
     return "#" + ((1 << 24)+(r << 16)+(g << 8)+b).toString(16).slice(1);
 }
@@ -2014,7 +1988,7 @@ Animal.prototype.decay=function() {
 		if(highlighted==this.index) {
 			highlighted=-(dead.index+1);
 			if(display!=1 && display!=2) {
-				console.setup();
+				cons.setup();
 			}
 		}
     if(this.index==newest){
@@ -2630,6 +2604,8 @@ Animal.prototype.highlight=function() {
     this.draw();
   }
   var s = this.size;
+
+  // DRAW HIGHLIGHT INFO
   ctx2.beginPath();
   ctx2.fillStyle="#FFFFFF";
   ctx2.strokeStyle="#FFFFFF";
@@ -2648,7 +2624,33 @@ Animal.prototype.highlight=function() {
       ctx2.stroke();
     }
   }
-  ctx2.fillText(this.name+"-"+this.gen+(this.alive ? "A":"D")+this.children.length,this.x+(2*s), this.y-(2*s));
+  var posx=this.x+(2*s)+2;
+  var posy=this.y-(2*s);
+  ctx2.fillText(this.name+"-"+this.gen+(this.alive ? "A":"D")+this.children.length,posx, posy);
+  posy+=10;
+  if(this.outputs[2]<-0.75) {
+    ctx2.fillText("CARN++",posx,posy);
+  } else if(this.outputs[2]<-0.5) {
+    ctx2.fillText("CARN+",posx,posy);
+  } else if(this.outputs[2]<-0.25) {
+    ctx2.fillText("CARN",posx,posy);
+  } else if(this.outputs[2]>=0.75) {
+    ctx2.fillText("HERB++",posx,posy);
+  } else if(this.outputs[2]>=0.50) {
+    ctx2.fillText("HERB+",posx,posy);
+  } else if(this.outputs[2]>=0.25) {
+    ctx2.fillText("HERB",posx,posy);
+  } else {
+
+  }
+  posy+=10;
+  if(this.outputs[3]<-0.33) {
+    ctx2.fillText("EATR",posx,posy);
+  } else if(this.outputs[3]>=0.33) {
+    ctx2.fillText("EATG",posx,posy);
+  } else {
+    ctx2.fillText("EATB",posx,posy);
+  }
 
   if(display==0) { // STAT DISPLAY
 
@@ -2656,8 +2658,8 @@ Animal.prototype.highlight=function() {
     ctx4.fillStyle=this.hexes[0];
     ctx4.fillRect(200,200,400,200);
 
-    var posx=210;
-    var posy=210;
+    posx=210;
+    posy=210;
     ctx4.fillStyle= "#FFFFFF";
     if(this.colors[0]>127 || this.colors[1]>127 || this.colors[2]>127) {
       ctx4.fillStyle= "#000000";
@@ -2675,7 +2677,7 @@ Animal.prototype.highlight=function() {
       }else {
         ctx4.fillText("PAR: "+this.parent+"A"+animals[this.pidx].children.length,posx, posy+=10);
       }
-      if(consoleMouse && leftPressed) {
+      if(consMouse && leftPressed) {
         if(mouseX>posx && mouseX<posx+80) {
           if(mouseY>posy-5 && mouseY<posy+5) {
             highlighted=this.pidx;
@@ -2788,7 +2790,7 @@ Animal.prototype.highlight=function() {
     ctx4.fillText("R",281,209);
     ctx4.fillText("K",301,209);
 
-    if(consoleMouse && leftPressed) {
+    if(consMouse && leftPressed) {
       if(mouseX>200 && mouseX<210 && mouseY>200 && mouseY<210) { // Exit
         display=0;
         highlighted=null;
@@ -2815,7 +2817,7 @@ Animal.prototype.highlight=function() {
   } else if(display==1) { // BRAIN DISPLAY
     ctx3.beginPath();
     ctx3.fillStyle="#808080";
-    ctx3.fillRect(0,0,CONSOLEX,CONSOLEY);
+    ctx3.fillRect(0,0,CONSX,CONSY);
     ctx3.fillStyle="#A0A0A0"
     ctx3.fillRect(0,0,10,10);
     ctx3.fillStyle="#606060"
@@ -2825,8 +2827,8 @@ Animal.prototype.highlight=function() {
     ctx3.fill();
     ctx3.fillStyle="#FFFFFF";
 
-    var posx=120;
-    var posy=30;
+    posx=120;
+    posy=30;
     var spcx=60;
     var spcy=22;
     for(var k=0, bL=BRAINLAYERSCAP; k<bL; k++) {
@@ -2877,8 +2879,8 @@ Animal.prototype.highlight=function() {
     }
     display=2;
   } else if(display==3) {
-    var posx=210;
-    var posy=210;
+    posx=210;
+    posy=210;
     ctx4.beginPath();
     ctx4.fillStyle=this.hexes[0];
     ctx4.fillRect(200,200,400,200);
@@ -2902,7 +2904,7 @@ Animal.prototype.highlight=function() {
       }else {
         ctx4.fillText("PAR: "+this.parent+"A"+animals[this.pidx].children.length,posx, posy+=10);
       }
-      if(consoleMouse && leftPressed) {
+      if(consMouse && leftPressed) {
         if(mouseX>posx && mouseX<posx+80) {
           if(mouseY>posy-5 && mouseY<posy+5) {
             highlighted=this.pidx;
@@ -2922,7 +2924,7 @@ Animal.prototype.highlight=function() {
       } else {
         ctx4.fillText(animals[this.children[i]].name+"-"+animals[this.children[i]].gen+"A"+animals[this.children[i]].children.length,posx, posy+=10);
       }
-      if(consoleMouse && leftPressed) {
+      if(consMouse && leftPressed) {
         if(mouseX>posx && mouseX<posx+80) {
           if(mouseY>posy-5 && mouseY<posy+5) {
             highlighted=this.children[i];
@@ -2933,15 +2935,15 @@ Animal.prototype.highlight=function() {
     }
 
 
-    if(consoleMouse && leftPressed) {
+    if(consMouse && leftPressed) {
       if(mouseX>200 && mouseX<210 && mouseY>200 && mouseY<210) {
         display=0;
         leftPressed=false;
       }
     }
   } else if(display==4) {
-    var posx=210;
-    var posy=210;
+    posx=210;
+    posy=210;
     ctx4.beginPath();
     ctx4.fillStyle=this.hexes[0];
     ctx4.fillRect(200,200,400,200);
@@ -2964,7 +2966,7 @@ Animal.prototype.highlight=function() {
       }else {
         ctx4.fillText("PAR: "+this.parent+"A"+animals[this.pidx].children.length,posx, posy+=10);
       }
-      if(consoleMouse && leftPressed) {
+      if(consMouse && leftPressed) {
         if(mouseX>posx && mouseX<posx+80) {
           if(mouseY>posy-5 && mouseY<posy+5) {
             highlighted=this.pidx;
@@ -2994,17 +2996,17 @@ Animal.prototype.highlight=function() {
       posy+=10;
     }
 
-    if(consoleMouse && leftPressed) {
+    if(consMouse && leftPressed) {
       if(mouseX>200 && mouseX<210 && mouseY>200 && mouseY<210) {
         display=0;
         leftPressed=false;
       }
     }
   }
-  //Leave display 2 separate from above else-ifs to ensure immediate console display switching between profiles
+  //Leave display 2 separate from above else-ifs to ensure immediate cons display switching between profiles
   if(display==2) {
-    var posx=120;
-    var posy=30;
+    posx=120;
+    posy=30;
     var spcx=60;
     var spcy=22;
 
@@ -3026,7 +3028,7 @@ Animal.prototype.highlight=function() {
       }else {
         ctx4.fillText("PAR: "+this.parent+"A"+animals[this.pidx].children.length,posx, posy+=10);
       }
-      if(consoleMouse && leftPressed) {
+      if(consMouse && leftPressed) {
         if(mouseX>posx && mouseX<posx+80) {
           if(mouseY>posy-5 && mouseY<posy+5) {
             highlighted=this.pidx;
@@ -3196,7 +3198,7 @@ Animal.prototype.highlight=function() {
       for(var j=0, bS=BRAINSIZECAP; j<bS; j++) {
         posy+=spcy;
 
-        if(consoleMouse && mouseX>posx-10 && mouseX<posx+10 && mouseY>posy-10 && mouseY<posy+10) {
+        if(consMouse && mouseX>posx-10 && mouseX<posx+10 && mouseY>posy-10 && mouseY<posy+10) {
 
           for(var i=0, bS2=BRAINSIZECAP; i<bS2; i++) {
             if(k<bL-1){
@@ -3237,10 +3239,10 @@ Animal.prototype.highlight=function() {
         } else if (k==bL-1) {
           ctx4.fillText(round(100*this.brain[k][j].is)/100, posx-10, posy-2);
           ctx4.fillText(round(100*this.outputs[j])/100, posx-10, posy+8);
-        } else if(consoleMouse && mouseX>posx-100 && mouseX<posx+100 && mouseY>posy-100 && mouseY<posy+100) {
+        } else if(consMouse && mouseX>posx-100 && mouseX<posx+100 && mouseY>posy-100 && mouseY<posy+100) {
           ctx4.fillText(round(100*this.brain[k][j].is)/100, posx-10, posy+3);
         }
-        if(consoleMouse && mouseX>posx-10 && mouseX<posx+10 && mouseY>posy-10 && mouseY<posy+10) {
+        if(consMouse && mouseX>posx-10 && mouseX<posx+10 && mouseY>posy-10 && mouseY<posy+10) {
           if(leftPressed || rightPressed) {
             neu=this.brain[k][j];
             neuNum=j;
@@ -3280,9 +3282,9 @@ Animal.prototype.highlight=function() {
       }
     }
 
-    if(consoleMouse && leftPressed && mouseX>0 && mouseX<10 && mouseY>0 && mouseY<10) {
+    if(consMouse && leftPressed && mouseX>0 && mouseX<10 && mouseY>0 && mouseY<10) {
       display=0;
-      console.setup();
+      cons.setup();
       leftPressed=false;
     }
   }
