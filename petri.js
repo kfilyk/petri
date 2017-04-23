@@ -1103,35 +1103,60 @@ Tile.prototype.regenerate=function() {
 function Neuron() {
 	this.weights=new Float64Array(BRAINSIZECAP);
 	this.bias=new Float64Array(BRAINSIZECAP);
+  this.lin=1; // "Linearizing" value
 	this.wGenes=new Array(BRAINSIZECAP);
 	this.bGenes=new Array(BRAINSIZECAP);
+  this.lGene=0;
+  for(var i=0;i<BRAINSIZECAP;i++) {
+    this.wGenes[i]=0;
+    this.bGenes[i]=0;
+  }
   this.maxOut=0.5; // IN RELATION TO STARTING VALUES
   this.minOut=-0.5;
-
 	this.is=0;
 	this.cost=0;
-	for(var i=0;i<BRAINSIZECAP;i++) {
+}
+Neuron.prototype.setHidden=function() { // if this.is>=0 return this.is*weights[0]
+  this.cost=0;
+  this.lin=1;
+  for(var i=0;i<BRAINSIZECAP;i++) {
 		this.bias[i]=0;
 		var c=round(5000*randn_bm())/10000; //Half range of norm. dist.
 		this.weights[i]=c;
 		this.cost+=abs(c);
-
-    //Set mutation rates to 0;
-		this.wGenes[i]=0;
-		this.bGenes[i]=0;
 	}
 }
+
+Neuron.prototype.setLink=function(idx) { // idx: index of prev. chained neuron. Weight of 1 ensures val. is passed without mod. lin of 0 mutes the abs function.
+  this.cost=0;
+  this.lin=0;
+  for(var i=0;i<BRAINSIZECAP;i++) {
+		this.bias[i]=0;
+		this.weights[i]=0;
+	}
+  this.weights[idx]=1;
+}
+
+Neuron.prototype.setOut=function() { // set to output neutron- weights 0, bias 0, lin 1.
+  this.cost=0;
+  this.lin=1;
+  for(var i=0;i<BRAINSIZECAP;i++) {
+		this.bias[i]=0;
+		this.weights[i]=0;
+	}
+}
+
 Neuron.prototype.outWeight=function(idx) { // if this.is>=0 return this.is*weights[0]
-  return this.bias[idx]+this.softSign(this.is)*this.weights[idx];
+  return this.bias[idx]+this.softSign(this.is, this.lin)*this.weights[idx];
 }
-Neuron.prototype.softSign=function(is) {
-  return is/(1+(is>=0 ? is:-is));
-}
-Neuron.prototype.inSig=function(idx) {
+Neuron.prototype.inSig=function(idx) { // used for the INPUT LAYER
   return this.bias[idx]+this.is*this.weights[idx];
 }
 Neuron.prototype.outSig=function() {
-  return this.softSign(this.is);
+  return this.softSign(this.is, 1);
+}
+Neuron.prototype.softSign=function(is, lin) {
+  return is/(1+lin*(is>=0 ? is:-is));
 }
 
 function Eye(d,x,y) {
@@ -1283,31 +1308,33 @@ function Animal(x,y,index) {
 	}
 	this.mouth=new Mouth(this.dir, this.x, this.y);
 	this.foodEnergy=0;
-
 	this.maxFNRG=1;
 	this.minFNRG=-1;
-
   this.posFNRG=0;
   this.netFNRG=0;
-
 	this.attack=0;
+
+  // Set up brain: At init, first 6 layers pass the input values through without modification. 7th later has random weights. 8th (output) has weights==0, biases==0.
 
 	this.brain=new Array(BRAINLAYERSCAP);
 	this.brainCost=0;
+
+  // set up weights for neurons in all layers excluding output layer.
 	for(var i=0; i<BRAINLAYERSCAP; i++) {
 		this.brain[i]=new Array(BRAINSIZECAP);
-		for(var j=0, bS=BRAINSIZECAP; j<bS; j++) {
-			this.brain[i][j] = new Neuron();
-			this.brainCost+=this.brain[i][j].cost;
-      if(i==BRAINLAYERSCAP-1){
-        for(var k=0, bS=BRAINSIZECAP; k<bS; k++) {
-          this.brain[i][j].weights[k]=0;
-        }
-        this.brainCost-=this.brain[i][j].cost;
-        this.brain[i][j].cost=0;
+    for(var j=0, bS=BRAINSIZECAP; j<bS; j++) {
+      this.brain[i][j] = new Neuron();
+      if(i<BRAINLAYERSCAP-2){
+        this.brain[i][j].setLink(j);
+      } else if(i==BRAINLAYERSCAP-2){
+        this.brain[i][j].setHidden();
+      } else { //outputs
+        this.brain[i][j].setOut();
       }
-		}
+      this.brainCost+=this.brain[i][j].cost;
+    }
 	}
+
 	this.brainCost/=(BRAINSIZECAP*BRAINLAYERSCAP);
 
 	this.memory=new Array(MEMCAP);
@@ -2201,7 +2228,7 @@ Animal.prototype.mutate=function(a) {
 
   a.brainCost=0;
   for(var i=0, bL=BRAINLAYERSCAP; i<bL; i++) {
-    for(var j=0, bS=BRAINSIZECAP; j<bS; j++) {
+    for(var j=0, bS=BRAINSIZECAP-1; j<bS; j++) { //dont mutate output layer
       a.brain[i][j].cost=0;
       a.brain[i][j].is=this.brain[i][j].is;
 
@@ -2223,6 +2250,10 @@ Animal.prototype.mutate=function(a) {
         a.brain[i][j].bias[k]=round(10000*a.brain[i][j].bias[k])/10000;
         a.brain[i][j].cost+=(abs(a.brain[i][j].weights[k])+abs(a.brain[i][j].bias[k]));
       }
+      a.brain[i][j].lin=this.brain[i][j].lin;
+      a.brain[i][j].lin+=((this.brain[i][j].lGene/mux)+(randn_bm()/10000));
+      a.brain[i][j].lin=round(10000*a.brain[i][j].lin)/10000;
+
       a.brainCost+=a.brain[i][j].cost;
     }
   }
@@ -2372,6 +2403,8 @@ Animal.prototype.copy=function(a) {
         a.brain[i][j].maxOut=this.brain[i][j].maxOut;
         a.brain[i][j].minOut=this.brain[i][j].minOut;
       }
+      a.brain[i][j].lin=this.brain[i][j].lin;
+      a.brain[i][j].lGene=this.brain[i][j].lGene;
     }
   }
   a.brainCost=this.brainCost;
@@ -2524,7 +2557,6 @@ Animal.prototype.clone=function(a) {
       a.brain[i][j].cost=0;
       a.brain[i][j].is=this.brain[i][j].is;
       for(var k=0;k<BRAINSIZECAP;k++) {
-
         a.brain[i][j].weights[k]=this.brain[i][j].weights[k];
         a.brain[i][j].bias[k]=this.brain[i][j].bias[k];
 
@@ -2542,6 +2574,11 @@ Animal.prototype.clone=function(a) {
         a.brain[i][j].maxOut=this.brain[i][j].maxOut;
         a.brain[i][j].minOut=this.brain[i][j].minOut;
       }
+
+      a.brain[i][j].lin=this.brain[i][j].lin;
+      a.brain[i][j].lin+=(this.brain[i][j].lGene/mux);
+      a.brain[i][j].lin=round(10000*a.brain[i][j].lin)/10000;
+
       a.brainCost+=a.brain[i][j].cost;
     }
   }
@@ -3257,10 +3294,11 @@ Animal.prototype.highlight=function() {
       if(leftPressed) {
         var posy2=30;
         ctx4.fillStyle="#FFFFFF";
-        ctx4.fillRect(10,10,130,470);
+        ctx4.fillRect(10,10,130,480);
         ctx4.fillStyle="#323232";
         ctx4.fillText("N:"+neuNum+", L:"+neuLay+" WEIGHTS",20,posy2);
-        ctx4.fillText("$: "+round(neu.cost*10000)/10000,20,posy2+=10);
+        ctx4.fillText("N$: "+round(neu.cost*10000)/10000,20,posy2+=10);
+        ctx4.fillText("LIN: "+neu.lin,20,posy2+=10);
         ctx4.fillText("W1",20,posy2+=10);
         ctx4.fillText("B",80,posy2);
         for(var i=0, bS2=BRAINSIZECAP; i<bS2; i++) {
@@ -3270,9 +3308,10 @@ Animal.prototype.highlight=function() {
       } else {
         var posy2=30;
         ctx4.fillStyle="#FFFFFF";
-        ctx4.fillRect(10,10,130,460);
+        ctx4.fillRect(10,10,130,470);
         ctx4.fillStyle="#323232";
-        ctx4.fillText("N:"+neuNum+", L:"+neuLay+" MUTS",20,posy2);
+        ctx4.fillText("N:"+neuNum+", L:"+neuLay+" GENES",20,posy2);
+        ctx4.fillText("LG: "+neu.lGene,20,posy2+=10);
         ctx4.fillText("W1",20,posy2+=10);
         ctx4.fillText("B",80,posy2);
         for(var i=0, bS2=BRAINSIZECAP; i<bS2; i++) {
@@ -3386,7 +3425,10 @@ Animal.prototype.regress=function(pidx, idx, scale) { // cI= child index, pI= pa
 
         aI.brain[i][j].wGenes[k]=round(10000*aI.brain[i][j].wGenes[k])/10000;
         aI.brain[i][j].bGenes[k]=round(10000*aI.brain[i][j].bGenes[k])/10000;
+
       }
+      aI.brain[i][j].lGene+=((pI.brain[i][j].lin-this.brain[i][j].lin)/scale);
+      aI.brain[i][j].lGene=round(10000*aI.brain[i][j].lGene)/10000;
     }
   }
 
@@ -3461,7 +3503,10 @@ Animal.prototype.propagate=function(index) { // cI= child index, pI= parent inde
         pI.brain[i][j].bGenes[k]+=(this.brain[i][j].bias[k]-pI.brain[i][j].bias[k]);
         pI.brain[i][j].wGenes[k]=(round(10000*pI.brain[i][j].wGenes[k])/10000);
         pI.brain[i][j].bGenes[k]=(round(10000*pI.brain[i][j].bGenes[k])/10000);
+
       }
+      pI.brain[i][j].lGene+=(this.brain[i][j].lin-pI.brain[i][j].lin);
+      pI.brain[i][j].lGene=(round(10000*pI.brain[i][j].lGene)/10000);
     }
   }
 
@@ -3506,6 +3551,7 @@ Animal.prototype.resetGenes= function() {
         this.brain[j][k].wGenes[l]=0;
         this.brain[j][k].bGenes[l]=0;
       }
+      this.brain[j][k].lGene=0;
     }
   }
   var a=0;

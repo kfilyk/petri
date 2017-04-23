@@ -1,8 +1,20 @@
 CHANGELOG
 
+1.22:
+22/4/17:
+- Implemented neuron initialization functions “setOutput”, “setLink”, and “setHidden”, such that “link” neurons perform “input chaining” and are initialized with linear activations, hidden neurons are randomly initialized with weights and a non-linear activation, and output neurons are initialized with zeros for weight values, and a 1 for its linearity value (softsign, static).
+
+- Implemented input “chaining”, where any input value into a network gets passed down 6 layers without modification. This is done using a “linearization” variable L set initially to 0, which lineates the softsign function such that it becomes:
+
+y = x/(1+(L*(abs(x)))
+
+such that when L=0, y=x.
+
+Furthermore, all weight values for any “link” neuron l_i_j, where i is the layer and j is the index, are set to 0- EXCEPT for the weight corresponding to neuron l_(i-1)_j, which is set to 1. Only the 7th layer is initialized with random (normally distributed) weight values, and with a lin value of 1. Neuron activation functions delineate and weight values grow over several generations (successful mutations).
+
 1.21:
 18/4/17:
-- Added scroll functionality so that mouse coordinates align to viewport properly.
+- Fixed scroll issues, so that mouse coordinates align to viewport properly, even with oversized canvas.
 - Added moving CARN/HERB, EATR/G/B stats to highlight box.
 
 1.20:
