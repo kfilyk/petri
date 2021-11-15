@@ -4,10 +4,7 @@ function Animal(x,y,index) {
 	this.x=x;
 	this.y=y;
 	this.tile=null;
-	this.minSize=5;
-	this.maxSize=10;
-	this.size=this.minSize;
-	this.midSize=(this.maxSize-this.minSize)/2;
+	this.size=STARTSIZE;
 	this.health=0;
 	this.gen=0;
   this.age=0;
@@ -46,24 +43,56 @@ function Animal(x,y,index) {
 	this.brain=new Array(BRAIN_SIZE);
 	this.brainCost=0;
 
-	for(var i=0; i<BRAIN_SIZE; i++) {
-    this.brain[i] = new Neuron();
-    if(i<6){
-      this.brain[i].initRandomWeights(BRAIN_INPUTS,BRAIN_INPUTS+8); // init first 6 ins w connections to first 7 outs
+  /*
+  basic brain inputs:
+
+  0. food
+  1. energy change
+
+  2. mouth red
+  3. mouth green
+  4. mouth blue
+  5. mouth sense
+
+  6. health
+  7. size
+  8. velocity
+
+  */
+
+  /*
+  brain outputs array:
+  output neurons exist between at indices 29-36, with potential to go from indices 29 - 50?
+  outputs[0] = velocity
+  outputs[1] = rotation
+  outputs[2] = herbivore/ carnivore
+  outputs[3] = interact red
+  outputs[4] = interact green
+  outputs[5] = interact blue
+  outputs[6] = have a kid
+
+  */
+
+	for(var i=0; i<BRAIN_SIZE; i++) { // fill brain with empty neurons
+    this.brain[i] = new Neuron(); // neuron will be created with number of weights equal to total size of brain?
+    if(i<9){ // for basic input neurons + mouth, excluding eyes
+      this.brain[i].initRandomWeights(0,BRAIN_INPUTS+8); // init first 9 inputs w connections to first 9 inputs + first 7 outputs
     }
-    if(i>=BRAIN_INPUTS && i<BRAIN_INPUTS+8){
-      this.brain[i].initRandomWeights(BRAIN_INPUTS,BRAIN_INPUTS+8); // init first 7 outs w connections to first 7 outs
+    if(i>=BRAIN_INPUTS && i<BRAIN_INPUTS+8){ // if neuron is output neuron, excluding eyes
+      this.brain[i].initRandomWeights(0,BRAIN_INPUTS+8); // init first (basic) 7 output neurons with connections to first 7 outputs, inputs
     }
     this.brainCost+=this.brain[i].cost;
 	}
 
 	this.brainCost/=BRAIN_SIZE;
+
+  // outputs array
 	this.outputs=new Array(BRAIN_OUTPUTS);
 	for(var i=0;i<BRAIN_OUTPUTS;i++) {
 		this.outputs[i]=0;
 	}
 
-	this.energy=this.minSize*10000;
+	this.energy=STARTSIZE*10000;
 	this.maxEnergy=this.energy;
 	this.energyChange=0;
 
@@ -71,7 +100,7 @@ function Animal(x,y,index) {
 	this.minEnergyChange=-1;
 
   this.gain=0;
-	this.interactionEnergy=0;
+	this.energyExchanged=0;
 	this.dmgReceived=0;
 	this.dmgCaused=0;
 	this.score=0;
@@ -80,7 +109,7 @@ function Animal(x,y,index) {
   this.lr=0;
 }
 Animal.prototype.draw=function(c){
-  c[0]=this.red/this.netFood*255;
+  c[0]=this.red/this.netFood*255; // colour the creature
   c[1]=this.green/this.netFood*255;
   c[2]=this.blue/this.netFood*255;
   c[3]=c[0]-20;
@@ -95,21 +124,26 @@ Animal.prototype.draw=function(c){
   c[12]=c[0]+40;
   c[13]=c[1]+40;
   c[14]=c[2]+40;
+
+  //draw eyes
   ctx2.strokeStyle=rgbToHex(c[6],c[7],c[8]);
   ctx2.fillStyle=rgbToHex(c[12],c[13],c[14]);
   for(var i=0; i<5; i++) {
     ctx2.beginPath();
-    ctx2.arc(this.eyes[i].x,this.eyes[i].y, this.size/10, 0, TWOPI);
+    ctx2.arc(this.eyes[i].x,this.eyes[i].y, this.size/10, 0, TWOPI); // eyes are 1/5 size of body
     ctx2.stroke();
     ctx2.fill();
   }
+
+  // draw body
   ctx2.strokeStyle= rgbToHex(c[3],c[4],c[5]);
   ctx2.fillStyle= rgbToHex(c[0],c[1],c[2]);
   ctx2.beginPath();
-  ctx2.arc(this.x, this.y, this.size/2, 0, TWOPI);
+  ctx2.arc(this.x, this.y, this.size/2, 0, TWOPI); //
   ctx2.stroke();
   ctx2.fill();
 
+  // draw mouth
 	ctx2.strokeStyle=rgbToHex(c[9],c[10],c[11]);
 	ctx2.fillStyle=rgbToHex(c[3],c[4],c[5]);
 	ctx2.beginPath();
@@ -124,25 +158,30 @@ Animal.prototype.draw=function(c){
 	}
 }
 
+// sense map + other animals in vicinity of mouth, eyes
 Animal.prototype.sense=function() {
 	this.age++;
 	this.energyChange=0;
-  this.energyChange-=this.interactionEnergy;
-  this.dmgReceived+=this.interactionEnergy;
-  this.interactionEnergy=0;
-  // reset mouth, eyes
+  this.energyChange+=this.energyExchanged; // subtract energy used while interaction with creatures
+  this.dmgReceived-=this.energyExchanged;  // how much damage has been taken by this creature
+  this.energyExchanged=0; // reset interaction energy for this iteration
+
+  // reset mouth, eyes seeing other animals
 	this.mouth.sees=-1; 
+  this.mouth.sense = 0; 
 	for(var i=0;i<5; i++) {
     this.eyes[i].sees=-1;
+    this.eyes[i].sense = 0;
   }
 
+  // if map boundary hit
 	if(this.x<0 || this.x>=FIELDX) {
 		if(this.x<0) {
 			this.x=0;
 		} else {
 			this.x=FIELDX-1;
 		}
-		this.outputs[0]=0;
+		this.outputs[0]=0; // set velocity to 0
 	}
 	if(this.y<0 || this.y>=FIELDY) {
 		if(this.y<0) {
@@ -150,10 +189,10 @@ Animal.prototype.sense=function() {
 		} else {
 			this.y=FIELDY-1;
 		}
-		this.outputs[0]=0;
+		this.outputs[0]=0; // set velocity to 0
 	}
 
-	//update current tile
+	//update current tile this creature is on
 	var ct=((~~(this.y/25)*40)+(~~(this.x/25)));
 	if(ct>=1600) {
 		this.tile=1599;
@@ -163,13 +202,13 @@ Animal.prototype.sense=function() {
 	this.tile=ct;
 
   var s1=this.size;
-  if(this.mouth.tile!=null) { // set visible current tile
+  if(this.mouth.tile!=null) { // set tile visible to mouth 
     this.mouth.r=tiles[this.mouth.tile].R/150;
     this.mouth.g=tiles[this.mouth.tile].G/200;
     this.mouth.b=tiles[this.mouth.tile].B/100;
   }
 
-  for(var i=0; i<5; i++) { // set visible current tile
+  for(var i=0; i<5; i++) { // set  tile  visible to eye
     if(this.eyes[i].tile!=null) {
       this.eyes[i].r=tiles[this.eyes[i].tile].R/150;
       this.eyes[i].g=tiles[this.eyes[i].tile].G/200;
@@ -184,19 +223,11 @@ Animal.prototype.sense=function() {
       if(this.mouth.sees==-1) {
         // if this creatures mouth intercepts bounding box of another creature body
         if( ((abs(this.mouth.x-animals[j].x) <=((animals[j].size/2)+(s1/4))) && (abs(this.mouth.y-animals[j].y)<=((animals[j].size/2)+(s1/4)))) || ((abs(this.mouth.x-animals[j].mouth.x)<=((animals[j].size/4)+(s1/4))) && (abs(this.mouth.y-animals[j].mouth.y)<=((animals[j].size/4)+(s1/4)))) ) {
-          this.mouth.r=((2*animals[j].red/animals[j].netFood)-1);
-          this.mouth.g=((2*animals[j].green/animals[j].netFood)-1);
-          this.mouth.b=((2*animals[j].blue/animals[j].netFood)-1);
-          this.mouth.sense=animals[j].outputs[2]*animals[j].size/SIZECAP;
-          this.mouth.sees=j; // could have a concurrency problem IFF the creature dies before eat sequence- could hurt a new creature which took the spot of the old one. Fix this  later
-          /*
-          if o[2]<0 and size large, will be very negative
-          if o[2]>0 and size large, will be very positive
-          if o[2]<0 and size small, will be ~0 negative
-          if o[2]>0 and size small, will be ~0 positive
-          */
-          //this.mouth.sense2=animals[j].health;
-
+          this.mouth.r=((2*animals[j].red/animals[j].netFood)-1); // get red colour of other creature
+          this.mouth.g=((2*animals[j].green/animals[j].netFood)-1); // get blue colour of other creature
+          this.mouth.b=((2*animals[j].blue/animals[j].netFood)-1); // get green colour of other creature
+          this.mouth.sense=animals[j].outputs[2]; // sense other creature's eating habit 
+          this.mouth.sees=j; // could have a concurrency problem IFF the creature dies before eat sequence- could hurt a new creature which took the spot of the old one. Fix this later
         }
       }
 
@@ -206,7 +237,7 @@ Animal.prototype.sense=function() {
             this.eyes[i].r=((2*animals[j].red/animals[j].netFood)-1);
             this.eyes[i].g=((2*animals[j].green/animals[j].netFood)-1);
             this.eyes[i].b=((2*animals[j].blue/animals[j].netFood)-1);
-            this.eyes[i].sense=animals[j].outputs[2]*animals[j].size/SIZECAP;
+            this.eyes[i].sense=animals[j].outputs[2];
             this.eyes[i].sees=j;
           }
         }
@@ -214,82 +245,33 @@ Animal.prototype.sense=function() {
     }
   }
 }
-Animal.prototype.think=function(b) {
 
-  // sensory inputs
-  b[0].in=this.food/(256*this.size);
-  if(this.energyChange>=0) {
-    b[1].in=this.energyChange/this.maxEnergyChange; // maybe should be average energy change
-  } else {
-    b[1].in=(-this.energyChange)/this.minEnergyChange;
-  }
-  b[2].in=this.mouth.r;
-  b[3].in=this.mouth.g;
-  b[4].in=this.mouth.b;
-  b[5].in=this.mouth.sense;
-  b[6].in=this.health;
-  b[7].in=((this.size-this.midSize)-this.minSize)/this.midSize;
-  b[8].in=this.outputs[0];
-  var i;
 
-  // compute eyes
-  var idx=9;
-  for(i=0; i<5; i++) {
-    b[(4*i)+idx].in=this.eyes[i].r;
-    b[(4*i)+idx+1].in=this.eyes[i].g;
-    b[(4*i)+idx+2].in=this.eyes[i].b;
-    b[(4*i)+idx+3].in=this.eyes[i].sense;
-  }
-
-	// first frame: imagine all other neurons recieving '0' as input, so all neuron input values are accounted for up to this point.
-
-  // calculate activation for all neurons
-  /*
-  for(i=0; i<BRAIN_SIZE; i++) {
-    b[i].calc(this.index, i);
-    b[i].o3=b[i].o2;
-    b[i].o2=b[i].o1;
-    b[i].o1=b[i].out;
-    b[i].i3=b[i].i2;
-    b[i].i2=b[i].i1;
-    b[i].i1=b[i].in;
-  }
-  */
-
-  for(i=BRAIN_INPUTS, input=0; i<BRAIN_SIZE; i++) {
-    for(var j=0; j<BRAIN_SIZE; j++){
-      input+=b[j].synapse(i); // Sum neuron weights with respect to neuron b[i]
-    }
-    b[i].in=input; // set activation of neuron
-    input=0;
-  }
-
-  for(i=0; i<BRAIN_OUTPUTS; i++) {
-    this.outputs[i]=b[i+BRAIN_INPUTS].out;
-  }
-}
+// dictates rules for animals consuming tiles or other creatures 
 Animal.prototype.eat=function() {
   var s1=this.size;
   this.food=0;
 
   if(this.outputs[2]<0) { // carnivorous
-    if(this.mouth.sees!=-1){ // sees an animal
-      j=this.mouth.sees;
+    if(this.mouth.sees!=-1){ // sees an animal - is this strictly an alive animal currently? hopefully
+      j=this.mouth.sees; // the animal seen
       if(animals[j].alive==true) {
-        var x = 128*s1*(-this.outputs[2]);
-        var r=(this.outputs[3]+1)/2; // eatr [-1, 1] -> [0, 1]
+        var x = 10*s1*(-this.outputs[2]); // this creatures size scaled by 10 so its not too tiny - x represents carnivorous intention with possible eating intensity from (0 to 100)
+        
+        var r=(this.outputs[3]+1)/2; // eatr [-1, 1] -> [0, 1] : red interactivity
         var g=(this.outputs[4]+1)/2; // eatg
         var b=(this.outputs[5]+1)/2; // eatb
         // creature estimates the other creature's colour, is rewarded based on precision
         //convert back to range [-1, 1], then scale
-        r=((1-abs(r-animals[j].red/animals[j].netFood))*2-1)*x;
-        g=((1-abs(g-animals[j].green/animals[j].netFood))*2-1)*x;
-        b=((1-abs(b-animals[j].blue/animals[j].netFood))*2-1)*x;
+
+        var r=((1-abs(r-animals[j].red/animals[j].netFood))*2-1) * x; // if other has 100% red and you guessed 100% red, then 0 difference between guessed and actual- perfect attack
+        var g=((1-abs(g-animals[j].green/animals[j].netFood))*2-1) * x; // if other has 0% green and you guess 100% green,
+        var b=((1-abs(b-animals[j].blue/animals[j].netFood))*2-1) * x;
         // if negative, actually gave the other animal food
-        if(r>0){ // positive gain
+        if(r>0){ // got food 
           this.netRed+=r;
           this.red+=r;
-        } else { //attempt
+        } else { // lost food
           this.netRed-=r;
         }
         if(g>0){
@@ -305,24 +287,26 @@ Animal.prototype.eat=function() {
           this.netBlue-=b;
         }
         this.food=r+g+b;
-        animals[j].interactionEnergy+=this.food; // energy exchanged with interacted creature
+        animals[j].energyExchanged -= this.food; // energy exchanged with interacted creature
         this.dmgCaused+=this.food;
       }
     }
-  }else { //herbivore
-    if(this.mouth.tile!=null) {
+  }else { //herbivore. note that if a creature eats from a tile that has negative food, it will be poisonous to the creature.
+    // 0 means no interaction, 1 means feeding, -1 means ???
+    if(this.mouth.tile!=null) { // if the mouth is actually over a tile
       var t = this.mouth.tile;
-      var r=s1*this.outputs[2]*this.outputs[3]; // size*herb*red
-      var g=s1*this.outputs[2]*this.outputs[4];
-      var b=s1*this.outputs[2]*this.outputs[5];
+      var r=s1*this.outputs[2]*this.outputs[3]; // size * herbaciousness * red interactivity - if outputs[3] is positive, then  eating red. if outputs[3] is negative, then approximating toxicity
+      var g=s1*this.outputs[2]*this.outputs[4]; // size * herbaciousness * green interactivity
+      var b=s1*this.outputs[2]*this.outputs[5]; // size * herbaciousness * blue interactivity
       tiles[t].update=true;
+
       if(r>0){ // eating red
-        r*=tiles[t].R;
+        r*=tiles[t].R; // eat of the tile a proportion equivalent to what the tile has
         if(r>0){ // tile fertile
           this.netRed+=r;
           this.red+=r;
           tiles[t].R-=r;
-        } else { // tile toxic
+        } else { // tile toxic - reward creature with energy for not eating toxic tile - when r < 0, implies creature is sensing 
           this.netRed-=r;
           tiles[t].R+=r;
         }
@@ -378,9 +362,66 @@ Animal.prototype.eat=function() {
     }
   }
 }
+
+Animal.prototype.think=function(b) {
+
+  // sensory inputs - each b[x] is an input neuron
+  b[0].in=this.food/(256*this.size); // how much food animal is consuming
+  if(this.energyChange>=0) { // how much this animal is systaining itself
+    b[1].in=this.energyChange/this.maxEnergyChange; // maybe should be average energy change
+  } else {
+    b[1].in=(-this.energyChange)/this.minEnergyChange;
+  }
+  b[2].in=this.mouth.r;
+  b[3].in=this.mouth.g;
+  b[4].in=this.mouth.b;
+  b[5].in=this.mouth.sense; // sense if another creature
+  b[6].in=this.health; // how much 'energy' creature has
+  b[7].in=this.size/10; // current size of creature
+  b[8].in=this.outputs[0]; // last velocity?
+
+  var i; // use i for eyes
+  // compute eyes
+  var idx=9;
+  for(i=0; i<5; i++) {
+    b[(4*i)+idx].in=this.eyes[i].r;
+    b[(4*i)+idx+1].in=this.eyes[i].g;
+    b[(4*i)+idx+2].in=this.eyes[i].b;
+    b[(4*i)+idx+3].in=this.eyes[i].sense;
+  }
+
+	// first frame: imagine all other neurons recieving '0' as input, so all neuron input values are accounted for up to this point.
+
+  // calculate activation for all neurons
+  /*
+  for(i=0; i<BRAIN_SIZE; i++) {
+    b[i].calc(this.index, i);
+    b[i].o3=b[i].o2;
+    b[i].o2=b[i].o1;
+    b[i].o1=b[i].out;
+    b[i].i3=b[i].i2;
+    b[i].i2=b[i].i1;
+    b[i].i1=b[i].in;
+  }
+*/
+
+  // for all input neurons, 
+  for(i=BRAIN_INPUTS, input=0; i<BRAIN_SIZE; i++) { 
+    for(var j=0; j<BRAIN_SIZE; j++){
+      input+=b[j].synapse(i); // Sum neuron weights with respect to neuron b[i]
+    }
+    b[i].in=input; // set activation of neuron
+    input=0;
+  }
+
+  for(i=0; i<BRAIN_OUTPUTS; i++) {
+    this.outputs[i]=b[i+BRAIN_INPUTS].out; // compute for all outputs?
+  }
+}
+
 Animal.prototype.move=function() {
-  this.velocity=this.outputs[0]*this.minSize;
-  this.rot=this.outputs[1]*this.minSize;
+  this.velocity=this.outputs[0]*(10/this.size);
+  this.rot=this.outputs[1]*(10/this.size);
   this.dir+=this.rot;
   if(this.dir<0) {
     this.dir+=360;
@@ -413,90 +454,79 @@ Animal.prototype.move=function() {
   }
 }
 Animal.prototype.grow=function() {
-  if(this.outputs[6]>=0.33) {
-    if(this.size>=2*this.minSize) {
-      if(LIVEPOP<POPCAP) {
-        var i=0;
-        while (animals[i]!=null) {
-          if(animals[i].top<SCORESCAP || animals[i].alive==true) {  //Alive clause effectively determines that animal isnt overwriting itself
-            i++;
-          } else {
-            break;
-          }
-        }
-        if(i>HIGHESTINDEX) {
-          HIGHESTINDEX=i;
-        }
-        var mutant=new Animal(this.x,this.y,i);
-        this.descendants++;
-        this.liveDescendants++;
-        this.mutate(mutant);
-        this.size-=this.minSize;
-        this.size=round(10*this.size)/10;
-        this.children.push(i);
-        animals[i]=null;
-        animals[i]=mutant;
-        newest=i;
-        LIVEPOP++;
+  if(this.energy < 100000) { // if size less than 10/ energy < 100000
+    this.size = Math.ceil(this.energy/1000)/10;  
+    /*
+    ex. if energy == 99001, round to size = 10
+    if energy = 50000, round to size = 5
+    if energy = 1, round to size = 0.1
+    */
 
-        var ancestor=this.parent_index;
-        while(ancestor!=null) {
-          if(ancestor>=0) {
-            animals[ancestor].descendants++;
-            animals[ancestor].liveDescendants++;
-            ancestor=animals[ancestor].parent_index;
-          } else {
-            graveyard[-(ancestor+1)].descendants++;
-            graveyard[-(ancestor+1)].liveDescendants++;
-            ancestor=graveyard[-(ancestor+1)].parent_index;
-          }
-        }
-
-        if(scoreType==0){
-          this.score=this.children.length;
-        }
-        while(mutant.gen>=PPG.length){
-          // if the is a 7th gen creature but only creatures up to gen 5 have died, create space for new gen
-          PPG.push(0);
-          FPG.push(0);
-          BPG.push(0);
-        }
-        PPG[mutant.gen]++;
-        if(PPG[mutant.gen]>maxPPG){
-          maxPPG=PPG[mutant.gen];
-        }
-        BPG[mutant.gen]+=mutant.brainCost;
-        if(BPG[mutant.gen]/PPG[mutant.gen]>maxBPG){
-          maxBPG=BPG[mutant.gen]/PPG[mutant.gen];
+  } else { // if full size has been reached
+    if(LIVEPOP<POPCAP) { // if there is room
+      var i=0;
+      while (animals[i]!=null) {
+        if(animals[i].top<SCORESCAP || animals[i].alive==true) {  //Alive clause effectively determines that animal isnt overwriting itself
+          i++;
+        } else {
+          break;
         }
       }
-    }
-  } else if(this.outputs[6]>-0.33) {
-    if(this.size<this.maxSize && this.energy/10000>(this.size+0.1)) {
-      this.size+=0.1;
-      this.size=round(10*this.size)/10;
-      this.energy-=1000;
+      if(i>HIGHESTINDEX) {
+        HIGHESTINDEX=i;
+      }
+      var mutant=new Animal(this.x,this.y,i); // create new animal
+      this.descendants++;
+      this.liveDescendants++;
+      this.mutate(mutant);
+      this.size-=5; // lose enouugh mass to create a new child
+      this.size = round(this.size/10)*10;
+      this.children.push(i);
+      animals[i]=null;
+      animals[i]=mutant;
+      newest=i;
+      LIVEPOP++;
+
+      var ancestor=this.parent_index;
+      while(ancestor!=null) {
+        if(ancestor>=0) {
+          animals[ancestor].descendants++;
+          animals[ancestor].liveDescendants++;
+          ancestor=animals[ancestor].parent_index;
+        } else {
+          graveyard[-(ancestor+1)].descendants++;
+          graveyard[-(ancestor+1)].liveDescendants++;
+          ancestor=graveyard[-(ancestor+1)].parent_index;
+        }
+      }
+
+      if(scoreType==0){
+        this.score=this.children.length;
+      }
+      while(mutant.gen>=PPG.length){
+        // if the is a 7th gen creature but only creatures up to gen 5 have died, create space for new gen
+        PPG.push(0);
+        FPG.push(0);
+        BPG.push(0);
+      }
+      PPG[mutant.gen]++;
+      if(PPG[mutant.gen]>maxPPG){
+        maxPPG=PPG[mutant.gen];
+      }
+      BPG[mutant.gen]+=mutant.brainCost;
+      if(BPG[mutant.gen]/PPG[mutant.gen]>maxBPG){
+        maxBPG=BPG[mutant.gen]/PPG[mutant.gen];
+      }
     }
   }
+
 }
 Animal.prototype.decay=function() {
-	if(this.energy<=0) {
+  this.energy= Math.round(10*this.energy)/10; 
+  console.log("FLAG!");
+	if(this.energy<=0.0) {
 		this.alive=false;
 		LIVEPOP--;
-
-		var c= this.tile;
-		tiles[c].R+=this.size;
-		if(tiles[c].R>255) {
-			tiles[c].R=255;
-		}
-		tiles[c].G+=this.size;
-		if(tiles[c].G>255) {
-			tiles[c].G=255;
-		}
-		tiles[c].B+=this.size;
-		if(tiles[c].B>255) {
-			tiles[c].B=255;
-		}
 
 		if(this.index==HIGHESTINDEX) {
 			var i=this.index;
@@ -576,7 +606,7 @@ Animal.prototype.decay=function() {
     }
     aveAge+=this.age/LIVEPOP;
     aveChildren+=(this.children.length)/LIVEPOP;
-		//this.interactionEnergy=0;
+		//this.energyExchanged=0;
     //this.age++;
 		if(this.energyChange>this.maxEnergyChange) {
 			this.maxEnergyChange=this.energyChange;
@@ -591,15 +621,15 @@ Animal.prototype.decay=function() {
     }
 	}
 }
+
 Animal.prototype.learn=function(b) {
   if(this.energyChange>=0) {
-    this.lr=this.energyChange/this.maxEnergyChange;
+    this.lr=this.energyChange/this.maxEnergyChange; // if the animal experienced a net increase in energy, strengthen connections by increasing lr 
   } else {
     this.lr=(-this.energyChange)/this.minEnergyChange;
   }
 	this.brainCost=0;
 	for(var i=0; i<BRAIN_SIZE; i++) {
-		//b[i].netBias += b[i].out*this.lr;
 		//b[i].bias = b[i].netBias/this.age;
 		/*
 		for(var j=0; j<BRAIN_SIZE; j++){
@@ -613,6 +643,7 @@ Animal.prototype.learn=function(b) {
 
 	}
 }
+
 Animal.prototype.grade=function() {
   for(var i=0, sC=SCORESCAP;i<sC;i++) {
     if(this.top<=i) {
@@ -669,6 +700,7 @@ Animal.prototype.grade=function() {
     }
   }
 }
+
 Animal.prototype.mutate=function(a) {
   a.alive=true;
   a.dir=this.dir;
@@ -681,35 +713,9 @@ Animal.prototype.mutate=function(a) {
   a.cno=this.children.length;
   a.name=this.name;
 
-  a.maxSize=this.maxSize;
-  a.minSize=this.minSize;
-  a.maxSize+=this.getMutations(5,10,0,0);
+  a.size=STARTSIZE;
 
-  a.maxSize=round(10*a.maxSize)/10;
-  if(a.maxSize>SIZECAP) {
-    a.maxSize=SIZECAP;
-  } else if(a.maxSize<round(20*a.minSize)/10) {
-    a.maxSize=2*a.minSize;
-  }
-  a.maxSize=round(10*a.maxSize)/10;
-
-  a.minSize+=this.getMutations(6,10,0,0);
-  a.minSize=round(10*a.minSize)/10;
-  if(a.minSize>round(10*(a.maxSize-0.1)/2)/10) {
-    a.minSize=round(10*(a.maxSize-0.1)/2)/10;
-  }else if(a.minSize<5) {
-    a.minSize=5;
-  }
-  a.minSize=round(10*a.minSize)/10;
-  if(a.maxSize<10){
-    a.maxSize=10;
-    a.minSize=5;
-  }
-
-  a.midSize=(a.maxSize-a.minSize)/2;
-  a.size=a.minSize;
-
-  a.energy=a.minSize*10000;
+  a.energy=a.size*10000;
   a.maxEnergy=a.energy;
   a.velocity=0;
   a.rot=0;
@@ -735,7 +741,6 @@ Animal.prototype.mutate=function(a) {
       for(var j=0; j<BRAIN_SIZE; j++){
         if(j>=BRAIN_INPUTS && j<BRAIN_INPUTS+8) {
           a.brain[i].weights[j]=this.brain[i].weights[j];
-          a.brain[i].weights2[j]=this.brain[i].weights2[j];
         }
       }
       a.brain[i].bias=this.brain[i].bias;
@@ -754,9 +759,6 @@ Animal.prototype.grave=function(a) {
   a.cno=this.cno;
   a.name=this.name;
   a.tile=this.tile;
-  a.maxSize=this.maxSize;
-  a.minSize=this.minSize;
-  a.midSize=this.midSize;
   a.size=this.size;
   a.energy=this.energy;
   a.maxEnergy=this.maxEnergy;
@@ -813,7 +815,6 @@ Animal.prototype.grave=function(a) {
     a.brain[i].out=this.brain[i].out;
     for(var j=0;j<BRAIN_SIZE; j++) {
       a.brain[i].weights[j]=this.brain[i].weights[j];
-      a.brain[i].weights2[j]=this.brain[i].weights2[j];
     }
     a.brain[i].bias=this.brain[i].bias;
   }
@@ -842,36 +843,9 @@ Animal.prototype.clone=function(a) {
   a.cno=this.children.length;
   a.name=this.name;
   a.tile=this.tile;
+  a.size=STARTSIZE;
 
-  a.maxSize=this.maxSize;
-  a.minSize=this.minSize;
-
-  a.maxSize+=this.getMutations(5,10,0,0);
-  a.maxSize=round(10*a.maxSize)/10;
-  if(a.maxSize>SIZECAP) {
-    a.maxSize=SIZECAP;
-  } else if(a.maxSize<round(20*a.minSize)/10) {
-    a.maxSize=2*a.minSize;
-  }
-  a.maxSize=round(10*a.maxSize)/10;
-
-  a.minSize+=this.getMutations(6,10,0,0);
-  a.minSize=round(10*a.minSize)/10;
-  if(a.minSize>round(10*(a.maxSize-0.1)/2)/10) {
-    a.minSize=round(10*(a.maxSize-0.1)/2)/10;
-  }else if(a.minSize<5) {
-    a.minSize=5;
-  }
-  a.minSize=round(10*a.minSize)/10;
-  if(a.maxSize<10){
-    a.maxSize=10;
-    a.minSize=5;
-  }
-
-  a.midSize=(a.maxSize-a.minSize)/2;
-  a.size=a.minSize;
-
-  a.energy=this.minSize*10000;
+  a.energy=a.size*10000;
   a.maxEnergy=this.energy;
   a.velocity=this.velocity;
   a.rot=this.rot;
@@ -889,7 +863,6 @@ Animal.prototype.clone=function(a) {
   for(var i=0; i<BRAIN_SIZE; i++) {
     for(var j=0; j<BRAIN_SIZE; j++) {
       a.brain[i].weights[j]=this.brain[i].weights[j];
-      a.brain[i].weights2[j]=this.brain[i].weights2[j];
     }
     a.brain[i].cost=this.brain[i].cost;
     a.brain[i].bias=this.brain[i].bias;
@@ -1050,7 +1023,7 @@ Animal.prototype.highlight=function() {
     ctx4.fillText("PRO/CON: "+this.proGenes+"/"+this.conGenes,posx,posy+=10);
 
     posy+=10;
-    ctx4.fillText("NRG: "+round(this.energy),posx,posy+=10);
+    ctx4.fillText("NRG: "+this.energy,posx,posy+=10);
     ctx4.fillText("NETNRG: "+round(this.gain),posx,posy+=10);
     ctx4.fillText("TOP: "+round(this.top),posx, posy+=10);
     ctx4.fillText("B$: "+(round(1000*this.brainCost)/1000),posx,posy+=10);
@@ -1064,7 +1037,7 @@ Animal.prototype.highlight=function() {
 
     posx+=100;
     posy=210;
-    ctx4.fillText("SIZE: "+this.minSize+"<"+(round(10*s)/10)+"<"+this.maxSize, posx, posy+=10);
+    ctx4.fillText("SIZE: "+this.size, posx, posy+=10);
     posy+=10;
     ctx4.fillText(">>DMG: "+round(this.dmgReceived*100)/100,posx,posy+=10);
     ctx4.fillText("DMG>>: "+round(this.dmgCaused*100)/100,posx,posy+=10);
@@ -1492,7 +1465,7 @@ Animal.prototype.highlight=function() {
         ctx4.fillText("WEIGHTS:",20,posy2+=10);
         posx=20;
         for(var i=0; i<BRAIN_SIZE; i++) {
-          ctx4.fillText(i+":  "+round(1000*neu.weights[i])/1000+", "+round(1000*neu.weights2[i])/1000, posx, posy2+=10);
+          ctx4.fillText(i+":  "+round(1000*neu.weights[i])/1000, posx, posy2+=10);
           if(i%30==0 && i!=0){
             posx+=160;
             posy2=posy;

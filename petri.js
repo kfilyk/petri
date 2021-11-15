@@ -60,12 +60,13 @@ var SCORESCAP=25;
 var CYCLEPOP=SCORESCAP;
 var HIGHESTINDEX=-1;
 var LIVEPOP=0;
-var SIZECAP=30;
+var STARTSIZE=5;
+var SIZECAP=10;
 var MUTCAP=10;
 var ALPH="ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-var BRAIN_SIZE=120;
-var BRAIN_INPUTS=29;
-var BRAIN_OUTPUTS=22;
+var BRAIN_SIZE=120; //number of neurons
+var BRAIN_INPUTS=29; // input neurons
+var BRAIN_OUTPUTS=22; //also count as recursive inputs
 var tiles=new Array(TILENUMBER);
 var animals=new Array(POPCAP);
 var graveyard=[];
@@ -76,9 +77,6 @@ var netParents=0; // Adds to total (if parent) at time of death
 var netLifespan=0; //Total number of years all animals have lived (recorded upon death)
 var globalNetNRG=0;
 var time=0;
-var redAgar=0;
-var blueAgar=0;
-var greenAgar=0;
 var aveFER=0;
 
 var aveChildren=0; //Ratio of number of children per parent
@@ -94,6 +92,9 @@ var maxPPG=1;
 var maxBPG=1;
 var maxPop=1;
 
+var redAgar=0; // count total red, green, blue on the map
+var blueAgar=0;
+var greenAgar=0;
 var maxRedAgar=0;
 var maxBlueAgar=0;
 var maxGreenAgar=0;
@@ -257,20 +258,23 @@ var update=function() {
   requestAnimationFrame(cycle);
 }
 var tileManager = {
+  // store total amounts of all agar
 	generate : function() {
-    redAgar=0;
+    redAgar=0; // reset current global agar quantity
     blueAgar=0;
     greenAgar=0;
-    maxRedAgar=0;
+    maxRedAgar=0; // reset global max agar quantity
     maxBlueAgar=0;
     maxGreenAgar=0;
-    minRedAgar=0;
+    minRedAgar=0; // reset global min agar quantity
     minBlueAgar=0;
     minGreenAgar=0;
     redAgarHist=[];
     blueAgarHist=[];
     greenAgarHist=[];
 
+    // old generation method
+    /*
 		var pos=0;
 		for(var i=0;i<FIELDY;i+=25) {
 			for(var j=0;j<FIELDX;j+=25) {
@@ -278,16 +282,147 @@ var tileManager = {
 				pos++;
 			}
 		}
+    */
+
+    let neighbors = [];
+    var pos=0;
+		for(var i=0;i<FIELDY;i+=25) {
+			for(var j=0;j<FIELDX;j+=25) {
+
+        /*
+        if tile x is not boundary x has neighbors:
+        left  = pos - 1
+        right = pos + 1
+        above = pos - 40
+        below = pos + 40
+
+        if x is on a boundary, then its: 
+        pos < 40 (top bound)
+        pos >= 1560 (bottom bound)
+        pos is a multiple of 40 (left bound)
+        pos+1 is a multiple of 40 (right bound)
+        */
+        // check if tile is boundary
+        if(pos >= 40) { // if not top bound
+          neighbors.push(pos-40);
+        } 
+        if (pos < 1560) { // not bottom 
+          neighbors.push(pos+40);
+        } 
+        if (pos %40 != 0) { // not left
+          neighbors.push(pos-1);
+        } 
+        if ((pos +1) % 40 != 0 ) { // not right bound
+          neighbors.push(pos+1);
+        } 
+
+				tiles[pos]=new Tile(j,i,pos, neighbors);
+
+				pos++; // set to next tile
+        isBoundary = -1; // reset boundary check
+        neighbors = []; // empty/reset array
+        neighbors.length = 0;
+
+			}
+		}
+
+    // used for computed smoothing of terrain
+    var minR,minG,minB, maxR, maxG,maxB;
+    var rangeR,rangeG,rangeB;
+    var RMult, GMult, BMult;
+
+    var standardRangeR = 100;
+    var standardRangeG = 100;
+    var standardRangeB = 75;
+    var standardMinR = 50;
+    var standardMinG = 100;
+    var standardMinB = 25;
+
+    // now go through all tiles and average out their vals
+    for(var iter = 0; iter<8; iter++) { // number of iterations determines
+      minR = 255;
+      minG = 255;
+      minB = 255;
+      maxR = 0;
+      maxG = 0;
+      maxB = 0;
+
+      for(var i=0; i< pos; i++) {
+        var t = tiles[i]; // get tile
+        var aveRedAgar = t.RCap;
+        var aveGreenAgar = t.GCap;
+        var aveBlueAgar = t.BCap;
+        
+        for(n=0; n<t.neighbors.length; n++){ // for every neighbor, add neighbor quantities
+          //console.log(t.neighbors.length);
+          aveRedAgar += tiles[t.neighbors[n]].RCap;
+          aveGreenAgar += tiles[t.neighbors[n]].GCap;
+          aveBlueAgar += tiles[t.neighbors[n]].BCap;
+        }
+        t.RCap = aveRedAgar/(t.neighbors.length+1);
+        t.GCap = aveGreenAgar/(t.neighbors.length+1);
+        t.BCap = aveBlueAgar/(t.neighbors.length+1);
+        t.R = t.RCap; // set new value for agar (smoothed)
+        t.G = t.GCap;
+        t.B = t.BCap;
+
+        // save mins
+        if(t.RCap < minR) {
+          minR = t.RCap;
+        }
+        if(t.GCap < minG) {
+          minG = t.GCap;
+        }
+        if(t.BCap < minB) {
+          minB = t.BCap;
+        }
+
+        // save maxes
+        if(t.RCap > maxR) {
+          maxR = t.RCap;
+        }
+        if(t.GCap > maxG) {
+          maxG = t.GCap;
+        }
+        if(t.BCap > maxB) {
+          maxB = t.BCap;
+        }
+      }
+
+      rangeR = maxR-minR;
+      rangeG = maxG-minG;
+      rangeB = maxB-minB;
+
+      RMult = standardRangeR/rangeR;
+      GMult = standardRangeG/rangeG;
+      BMult = standardRangeB/rangeB;
+
+      /* now standardize all tiles between bounds:
+      // 50 < red < 150
+      // 100 < green < 200
+      // 25 < blue < 100
+      */
+      for(var i =0; i < pos; i++) {
+        var t = tiles[i]; // get tile
+        t.RCap = (t.RCap-minR)*RMult+ standardMinR;
+        t.GCap = (t.GCap-minG)*GMult+ standardMinG;
+        t.BCap = (t.BCap-minB)*BMult+ standardMinB;
+        t.R = t.RCap;
+        t.G = t.GCap;
+        t.B = t.BCap;
+      }
+    }
 	},
+
 	update : function() {
     ctx2.clearRect(-50,-50,1100,50); //top
     ctx2.clearRect(-50,FIELDY,1100,50);//bottom
     ctx2.clearRect(-50,0,50,1000); //left
     ctx2.clearRect(FIELDX,0,50,1000); //right
 
-    redAgar=0;
-    blueAgar=0;
+    redAgar=0; // reset global count 
     greenAgar=0;
+    blueAgar=0;
 		for(var i=0; i<TILENUMBER; i++) {
 			tiles[i].draw();
 			if(!pause && regenTiles==1) {
@@ -296,6 +431,7 @@ var tileManager = {
 		}
 	}
 }
+
 var animalManager = {
 	update : function() {
 		for(var a,i=0; i<=HIGHESTINDEX; i++) {
@@ -307,10 +443,10 @@ var animalManager = {
           a.think(a.brain);
           a.eat();
           a.move();
-          a.grow();
-          a.decay();
-          a.learn(a.brain);
+          a.grow(); // adjust animal size/reproduction
+          //a.learn(a.brain);
           a.grade();
+          a.decay(); // check if animal dies
         }
 
         if(leftPressed && mouseOverMap) {
@@ -409,7 +545,6 @@ var statManager = {
     }
   }
 }
-
 var dashboard = {
 	setup : function() {
 		ctx3.fillStyle=rgbToHex(50,50,50);
@@ -1319,27 +1454,30 @@ function rgbToHex(r,g,b) {
   return "#" + ((1 << 24)+(r << 16)+(g << 8)+b).toString(16).slice(1);
 }
 function round(x) {
-	return ~~(x + (x>0 ? .5:-.5));
+  return Math.round(x);
+	//return ~~(x + (x>0 ? .5:-.5));
 }
 function abs(x) {
 	return (x>0 ? x:-x);
 }
 
-function Tile(x,y,num) {
+function Tile(x,y,num, neighbors) {
 	this.x=x;
 	this.y=y;
 	this.num=num;
 	this.regenRate=(Math.random()*0.1)+0.05;
-	this.RCap = round(Math.random()*100)+50; // red food caps at 150
+	this.RCap = round(Math.random()*100)+50; // for this particular tile, red food caps at maximum of 150
 	this.GCap = round(Math.random()*100)+100; // green food caps at 200
 	this.BCap = round(Math.random()*75)+25; // blue food caps at 100
-	this.R=this.RCap;
+	this.R=this.RCap; // current r, g, b agar content
 	this.G=this.GCap;
 	this.B=this.BCap;
-  redAgar+=this.R;
+  this.neighbors = neighbors;
+  redAgar+=this.R; // count towards global red Agar
   greenAgar+=this.G;
   blueAgar+=this.B;
 }
+
 Tile.prototype.draw=function() {
   ctx2.fillStyle=rgbToHex((this.R<50 ? 50:round(this.R)), (this.G<50 ? 50:round(this.G)), (this.B<50 ? 50:round(this.B)));
   ctx2.fillRect(this.x,this.y,25,25);
@@ -1358,6 +1496,7 @@ Tile.prototype.draw=function() {
   greenAgar+=this.G;
   blueAgar+=this.B;
 }
+
 Tile.prototype.regenerate=function() {
   if(this.R<this.RCap) {
     this.R+=this.regenRate;
@@ -1374,14 +1513,11 @@ function Neuron() {
   // upon new input, brain signals are initially weak and do not affect creature. Grow stronger over time.
   //why try to determine which input neurons are optimal to start with? Start from simple to complex; Do not attempt all at same time.
   // neural connections start
-  this.active=false;
-  this.states=3; // -1, 0, 1
-  this.weights=new Float32Array(BRAIN_SIZE); 
-  //this.netBias=0;
+  this.weights=new Float32Array(BRAIN_SIZE);  // one connection for every other neuron in brain - including input and output neurons
 	this.bias=0;
   this.in=0;
   /*
-  this.i1=0; // for recursion I guess?
+  this.i1=0; // for recursion...
   this.i2=0;
   this.i3=0;
   this.o1=0;
@@ -1398,13 +1534,18 @@ Neuron.prototype.initRandomWeights=function(x, y) { // if this.in>=0 return this
     this.cost+=abs(c); // add cost of weight to
 	}
 }
+
+ // used by output neurons only?
+Neuron.prototype.calc=function() { // calculates sum of inputs + bias to be used in synapse
+  this.out = this.in+this.bias; // 
+}
+
+
 Neuron.prototype.synapse=function(idx) { // if this.in>=0 return this.in*weights[0]
   return this.out*this.weights[idx] + this.bias;
 }
-Neuron.prototype.calc=function() {
-  this.out = this.in+this.bias;
-}
 
+// Eye creature component
 function Eye(x,y) {
 	this.dis=0; //
   this.angle=0; // polar angle of eye
@@ -1437,6 +1578,7 @@ Eye.prototype.setXY=function(o,x,y) {
   }
 }
 
+// Mouth creature component
 function Mouth(x,y) {
   this.dis=0;
   this.angle=0;
