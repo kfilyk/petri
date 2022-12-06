@@ -37,11 +37,8 @@ var mouseOverConsole = false;
 var leftPressed = false;
 var rightPressed = false;
 var pause=false; // whether simulation is paused
-var recording=false;
 var highlighted=null;
 var display=0;
-var regenTiles=1;
-var consumption=2;
 var scoreType=0;
 var newest=null;
 var TWOPI=6.283185;
@@ -55,7 +52,7 @@ var POPCAP=1000;
 var SCORESCAP=3;
 var CYCLEPOP=SCORESCAP;
 var HIGHESTINDEX=-1;
-var LIVEPOP=0;
+var livePop=0;
 var MUTCAP=10;
 var ALPH="ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
@@ -83,29 +80,147 @@ var maxAveChildren=1;
 var maxAveLifespan=1;
 var maxAvePosNRG=1;
 var maxPPG=1;
-var maxPop=1;
 
-var redAgar=0; // count total red, green, blue on the map
-var blueAgar=0;
-var greenAgar=0;
-var maxRedAgar=0;
-var maxBlueAgar=0;
-var maxGreenAgar=0;
-var minRedAgar=0;
-var minBlueAgar=0;
-var minGreenAgar=0;
+// count total red, green, blue on the map
+var redAgarOnMapStat=0; 
+var blueAgarOnMapStat=0;
+var greenAgarOnMapStat=0;
+var mutationRateStat=0;
+var mitosisStat=0;
+
+
+var agarChart = new Chart("agarChart", {
+  type: "line",
+  data: {
+    datasets: [
+      {
+        label: 'RED AGAR',
+        data: [],
+        borderColor: 'rgb(255, 0, 0)',
+        pointRadius:0,
+        fill: false,
+        yAxisID: 'AGAR',
+
+      }, 
+      {
+        label: 'GREEN AGAR',
+        data: [],
+        borderColor: 'rgb(0, 255, 0)',
+        pointRadius:0,
+        fill: false,
+        yAxisID: 'AGAR',
+
+      }, 
+      {
+        label: 'BLUE AGAR',
+        data: [],
+        borderColor: 'rgb(0, 0, 255)',
+        pointRadius:0,
+        fill: false,
+        yAxisID: 'AGAR',
+
+      }, 
+      {
+        label: 'POPULATION',
+        data: [],
+        borderColor: 'rgb(32, 32, 32)',
+        pointRadius:0,
+        fill: false,
+        yAxisID: 'POP',
+
+      }, 
+    ]
+  },
+  options: {
+    legend: {display:false},
+    animation: {
+      duration: 0
+    },
+    scales: {
+      xAxes: [{
+        ticks: {
+          maxTicksLimit: 8
+        }
+      }],
+      yAxes: [
+      {
+        id: 'AGAR',
+        ticks: {
+          maxTicksLimit: 8
+        },
+        position: 'left',
+      },
+      {
+        id: 'POP',
+        ticks: {
+          maxTicksLimit: 8
+        },
+        position: 'right',
+      }]
+    }
+  }
+});
+
+var mutationChart = new Chart("mutationChart", {
+  type: "line",
+  data: {
+    datasets: [
+      {
+        label: 'MUTATION RATE',
+        data: [],
+        borderColor: 'rgb(0, 0, 0)',
+        pointRadius:0,
+        fill: false,
+      }, 
+    ]
+  },
+  options: {
+    legend: {display:false},
+    animation: {
+      duration: 0
+    },
+    scales: {
+      xAxes: [{
+        ticks: {
+          maxTicksLimit: 8
+        }
+      }],
+      yAxes: [
+      {
+        ticks: {
+          maxTicksLimit: 8
+        },
+        position: 'left',
+      }]
+    }
+  }
+});
+
+function addData(chart, label, data) {
+  chart.data.labels.push(label);
+  i=0;
+  chart.data.datasets.forEach((dataset) => {
+      dataset.data.push(data[i]);
+      i++;
+  });
+  chart.update();
+}
+
+function resetData(chart) {
+  chart.data.labels = [];
+  i=0;
+  chart.data.datasets.forEach((dataset) => {
+      dataset.data = [];
+  });
+  chart.update();
+}
 
 var aveFERHist=[];
 var aveChildrenHist=[];
 var aveLifespanHist=[];
 var avePosNRGHist=[];
-var redAgarHist=[];
-var greenAgarHist=[];
-var blueAgarHist=[];
-var popHist=[];
-var PPG=[];
 
-var statLogs=[];
+var PPG=[];
 
 var accelerate=0;
 
@@ -119,17 +234,23 @@ var downAccel = 0;
 
 function highlight_newest() {
   highlighted=newest;
+  document.getElementById("dashboard-stats").style.display="block";
 }
 
 function highlight_gold() {
   highlighted=gold;
+  document.getElementById("dashboard-stats").style.display="block";
+
 }
 function highlight_silver() {
   highlighted=silver;
+  document.getElementById("dashboard-stats").style.display="block";
+
 }
 
 function highlight_bronze() {
   highlighted=bronze;
+  document.getElementById("dashboard-stats").style.display="block";
 }
 
 function pauseSimulation() {
@@ -187,7 +308,7 @@ function init() {
     } else if(scaleDelta<-20){
       scaleDelta=-20;
     }
-    var tSca = 1+scaleDelta/500;
+    var tSca = 1+scaleDelta/400;
     // temp position: say at 500,500: translate then zoom-> displace 500,500 to top left, zoomed in by x/y pixels, displace back by less than original amount.
     
     
@@ -270,18 +391,6 @@ var update=function() {
 var tileManager = {
   // store total amounts of all agar
 	generate : function() {
-    redAgar=0; // reset current global agar quantity
-    blueAgar=0;
-    greenAgar=0;
-    maxRedAgar=0; // reset global max agar quantity
-    maxBlueAgar=0;
-    maxGreenAgar=0;
-    minRedAgar=0; // reset global min agar quantity
-    minBlueAgar=0;
-    minGreenAgar=0;
-    redAgarHist=[];
-    blueAgarHist=[];
-    greenAgarHist=[];
 
     let neighbors = [];
     var pos=0;
@@ -414,22 +523,24 @@ var tileManager = {
 	},
 
 	update : function() {
-    ctx2.clearRect(-50,-50,1100,50); //top
-    ctx2.clearRect(-50,FIELDY,1100,50);//bottom
-    ctx2.clearRect(-50,0,50,1000); //left
-    ctx2.clearRect(FIELDX,0,50,1000); //right
+    ctx2.clearRect(-100,-100,1200,100); //top
+    ctx2.clearRect(-100,FIELDY,1200,100);//bottom
+    ctx2.clearRect(-100,0,100,1000); //left
+    ctx2.clearRect(FIELDX,0,100,1000); //right
 
-    redAgar=0; // reset global count 
-    greenAgar=0;
-    blueAgar=0;
+    redAgarOnMapStat=0; // reset global count 
+    greenAgarOnMapStat=0;
+    blueAgarOnMapStat=0;
 		for(var i=0; i<TILENUMBER; i++) {
 			tiles[i].draw();
-			if(!pause && regenTiles==1) {
+			if(!pause) {
 				tiles[i].regenerate();
 			}
 		}
 	}
 }
+
+
 
 var animalManager = {
 
@@ -487,6 +598,7 @@ var animalManager = {
             if(highlighted!= i) {
               highlighted=i;
               console.log(animals[i])
+              document.getElementById('dashboard-stats').style.display='block';
               document.getElementById("dash-highlighted").innerHTML = "HIGHLIGHTED: " + animals[highlighted].name +"-"+animals[highlighted].gen+"A"+animals[highlighted].children.length;
               leftPressed=false;
             }
@@ -505,6 +617,7 @@ var animalManager = {
 }
 var statManager = {
   update : function() {
+    /*
     aveFER=aveFER/100;
     aveChildren=aveChildren/100;
     if(graveyard.length>0){
@@ -514,11 +627,7 @@ var statManager = {
       aveLifespan=0;
       avePosNRG=0;
     }
-    aveFERHist.push(aveFER); //add up all the ratios and divide by the number of living creatures
-    if(recording && time==10000){
-      var l=new statLog(time, accelerate, redAgar, greenAgar, blueAgar, aveFER);
-      statLogs.push(l);
-    }
+    */
 
     aveChildrenHist.push(aveChildren);
     if(aveChildren>maxAveChildren){
@@ -529,14 +638,13 @@ var statManager = {
     aveLifespanHist.push(aveLifespan);
     avePosNRGHist.push(avePosNRG);
 
-    redAgarHist.push(redAgar);
-    blueAgarHist.push(blueAgar);
-    greenAgarHist.push(greenAgar);
+    addData(agarChart, time/100, [redAgarOnMapStat, greenAgarOnMapStat, blueAgarOnMapStat, livePop])
+    addData(mutationChart, time/100, [mutationRateStat/mitosisStat])
 
-    popHist.push(LIVEPOP);
-    if(LIVEPOP>maxPop){
-      maxPop=LIVEPOP;
-    }
+
+    mutationRateStat = 0;
+    mitosisStat = 0;
+    
     aveFER=0;
     if(aveLifespan>maxAveLifespan){
       maxAveLifespan=aveLifespan;
@@ -545,24 +653,7 @@ var statManager = {
       maxAvePosNRG=avePosNRG;
     }
 
-    if(redAgar>maxRedAgar){
-      maxRedAgar=redAgar;
-    }
-    if(greenAgar>maxGreenAgar){
-      maxGreenAgar=greenAgar;
-    }
-    if(blueAgar>maxBlueAgar){
-      maxBlueAgar=blueAgar;
-    }
-    if(redAgar<minRedAgar){
-      minRedAgar=redAgar;
-    }
-    if(greenAgar<minGreenAgar){
-      minGreenAgar=greenAgar;
-    }
-    if(blueAgar<minBlueAgar){
-      minBlueAgar=blueAgar;
-    }
+
   }
 }
 var dashboard = {
@@ -602,7 +693,7 @@ var dashboard = {
       }
     }
 
-    // check if highlighted creature has diedß
+    // check if highlighted creature has died
 		if(highlighted!=null) {
 			if(highlighted<0) {
 				graveyard[-(highlighted+1)].highlight();
@@ -627,12 +718,12 @@ function resetStats(){
   maxAveLifespan=1;
   maxAvePosNRG=1;
 
-  LIVEPOP=0;
+  livePop=0;
   HIGHESTINDEX=0;
   for(var a, i=0; i<animals.length;i++){
     a=animals[i];
     if(a!=null && a.alive==true){
-      LIVEPOP++;
+      livePop++;
       HIGHESTINDEX=i;
     }
   }
@@ -656,28 +747,9 @@ function resetStats(){
     }
   }
 
-  popHist=[];
-  redAgar=0;
-  blueAgar=0;
-  greenAgar=0;
-  maxRedAgar=0;
-  maxBlueAgar=0;
-  maxGreenAgar=0;
-  minRedAgar=0;
-  minBlueAgar=0;
-  minGreenAgar=0;
-  redAgarHist=[];
-  blueAgarHist=[];
-  greenAgarHist=[];
-}
-
-function statLog(t, a, rA, gA, bA, fer) {
-  this.time=t;
-  this.acc=a;
-  this.rAgar=rA;
-  this.gAgar=gA;
-  this.bAgar=bA;
-  this.fer=fer;
+  redAgarOnMapStat=0;
+  blueAgarOnMapStat=0;
+  greenAgarOnMapStat=0;
 }
 
 var inputManager= {
@@ -687,7 +759,7 @@ var inputManager= {
 			//gen 1 random
 			if(rightPressed) {
         
-				if(LIVEPOP<POPCAP) {
+				if(livePop<POPCAP) {
 					var i=0;
 					while(animals[i]!=null) {
 						if(animals[i].alive==true) {
@@ -698,11 +770,11 @@ var inputManager= {
 					}
 					animals[i]=new Animal(round(mouseX),round(mouseY),i);
           newest = i;
-					LIVEPOP++;
+					livePop++;
 					if(i>HIGHESTINDEX) {
 						HIGHESTINDEX=i;
 					}
-          document.getElementById("dash-live-info").innerHTML = "LIVE: " + LIVEPOP + "     DEAD: " + graveyard.length;
+          document.getElementById("dash-live-info").innerHTML = "LIVE: " + livePop + "     DEAD: " + graveyard.length;
 				}
 				rightPressed=false;
 			} else if(leftPressed){
@@ -750,7 +822,7 @@ var inputManager= {
 
 						dashboard.setup();
 						tileManager.generate();
-						LIVEPOP=0;
+						livePop=0;
 						HIGHESTINDEX=-1;
 						leftPressed=false;
 					}else if((mouseY>50)&&(mouseY<60)) { // MUT 100 HIGHSCORES
@@ -759,29 +831,6 @@ var inputManager= {
               resetStats();
 						}
             leftPressed=false;
-					}else if((mouseY>90)&&(mouseY<100)) { // FOOD AVAILABLE
-						consumption+=0.5;
-						if(consumption>4) {
-							consumption=0.5;
-						}
-						dashboard.setup();
-						leftPressed=false;
-					} else if((mouseY>110)&&(mouseY<120)) { // REGEN TILES
-						if(regenTiles==0) {
-							regenTiles=1;
-						} else {
-							regenTiles=0;
-						}
-						dashboard.setup();
-						leftPressed=false;
-					} else if((mouseY>130)&&(mouseY<140)) { // ACCELERATE MODE
-            if(accelerate==12) {
-              accelerate=0;
-            } else {
-              accelerate++;
-            }
-						dashboard.setup();
-						leftPressed=false;
           }
         }
 			}
@@ -830,9 +879,11 @@ function newSimulation() {
     animals[i]=new Animal(round(Math.random()*FIELDX),round(Math.random()*FIELDY), i);
   }
   resetStats();
+  resetData(agarChart);
   dashboard.setup();
   tileManager.generate();
-  document.getElementById("dash-live-info").innerHTML = "LIVE: " + LIVEPOP + "     DEAD: " + graveyard.length;
+  document.getElementById("dash-live-info").innerHTML = "LIVE: " + livePop + "     DEAD: " + graveyard.length;
+
 }
 
 function save() {
@@ -989,15 +1040,34 @@ function findxy(action, e) {
 function rgbToHex(r,g,b) {
   return "#" + ((1 << 24)+(r << 16)+(g << 8)+b).toString(16).slice(1);
 }
-function round(x) {
-  return Math.round(x);
-	//return ~~(x + (x>0 ? .5:-.5));
+
+function rgbaToHex (r,g,b,a) {
+  var outParts = [
+    r.toString(16),
+    g.toString(16),
+    b.toString(16),
+    Math.round(a * 255).toString(16).substring(0, 2)
+  ];
+
+  // Pad single-digit output values
+  outParts.forEach(function (part, i) {
+    if (part.length === 1) {
+      outParts[i] = '0' + part;
+    }
+  })
+
+  return ('#' + outParts.join(''));
+}
+
+function round(r) {
+	//return ~~(r + (r>0 ? .5:-.5));
+  return r + (r < 0 ? -0.5 : 0.5) | 0;
 }
 function abs(x) {
 	return (x>0 ? x:-x);
 }
 
-function Tile(x,y,num, neighbors) {
+function Tile(x, y, num, neighbors) {
 	this.x=x;
 	this.y=y;
 	this.num=num;
@@ -1009,9 +1079,6 @@ function Tile(x,y,num, neighbors) {
 	this.G=this.GCap;
 	this.B=this.BCap;
   this.neighbors = neighbors;
-  redAgar+=this.R; // count towards global red Agar
-  greenAgar+=this.G;
-  blueAgar+=this.B;
 }
 
 Tile.prototype.draw=function() {
@@ -1028,9 +1095,9 @@ Tile.prototype.draw=function() {
       ctx2.fillText(round(this.B),this.x,this.y+25);
     }
   }
-  redAgar+=this.R;
-  greenAgar+=this.G;
-  blueAgar+=this.B;
+  redAgarOnMapStat+=this.R;
+  greenAgarOnMapStat+=this.G;
+  blueAgarOnMapStat+=this.B;
 }
 
 Tile.prototype.regenerate=function() {

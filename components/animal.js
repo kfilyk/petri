@@ -2,7 +2,7 @@ var START_SIZE=1;
 var MAX_SIZE=20;
 var BRAIN_SIZE=50; //number of neurons
 var NUM_INPUT_NEURONS=30;
-var NUM_OUTPUT_NEURONS=20; 
+var NUM_OUTPUT_NEURONS=30; 
 
 class Animal {
   constructor(x, y, index ) {
@@ -30,17 +30,21 @@ class Animal {
       this.eyes[i] = new Eye(this.x, this.y);
     }
     this.mouth=new Mouth(this.x, this.y);
-    this.redEaten=0.0005;
-    this.greenEaten=0.0005;
-    this.blueEaten=0.0005;
-    this.netEaten=0.001;
+    this.eaten=0;
+    this.redEaten=1;
+    this.greenEaten=1;
+    this.blueEaten=1;
+    this.netRedEaten = 1;
+    this.netGreenEaten = 1;
+    this.netBlueEaten = 1;
+    this.netEaten=3;
     
     this.inputs=new Array(NUM_INPUT_NEURONS);
     this.outputs=new Array(NUM_OUTPUT_NEURONS);
   
     for(var i=0; i<NUM_INPUT_NEURONS; i++) { // fill with empty neurons
       this.inputs[i] = new Neuron(); // neuron will be created with number of weights equal to outputs+hiddens
-      this.inputs[i].init(NUM_OUTPUT_NEURONS, 13); // 30 inputs, 20 outputs - start without controlling direction, distance of eyes, mouth (12)
+      this.inputs[i].init(NUM_OUTPUT_NEURONS, 22); // 30 inputs, 20 outputs - start without controlling direction &distance of eyes, mouth (12)
     }
   
     for(var i=0; i<NUM_OUTPUT_NEURONS; i++) { // fill with empty neurons
@@ -51,9 +55,7 @@ class Animal {
     this.energy=START_SIZE*1000;
     this.maxEnergy=this.energy;
     this.energyChange=0;
-    this.maxEnergyChange=1;
   
-    this.eaten=0;
   
     this.totalEnergyGain=0;
     this.dmgReceived=0;
@@ -68,19 +70,12 @@ class Animal {
 // sense map + other animals in vicinity of mouth, eyes
 Animal.prototype.sense=function() {
 
-  // reset mouth, eyes seeing other animals
+  // reset mouth, eyes seeing other animals. if mouth, eyes over border of map: tell creature that there is no food there (r, g, b = -1)
   this.mouth.sees=-1; 
   this.mouth.sense = 0;     
-  this.mouth.r = 0;
-  this.mouth.g = 0;
-  this.mouth.b = 0;
-
   for(var j=0;j<5; j++) {
     this.eyes[j].sees=-1;
     this.eyes[j].sense = 0;
-    this.eyes[j].r = 0;
-    this.eyes[j].g = 0;
-    this.eyes[j].b = 0;
   }
 
   // set tile of mouth, eyes
@@ -89,13 +84,21 @@ Animal.prototype.sense=function() {
     this.mouth.r=tiles[this.mouth.tile].R/150;
     this.mouth.g=tiles[this.mouth.tile].G/200;
     this.mouth.b=tiles[this.mouth.tile].B/100;
-  } 
+  } else {
+    this.mouth.r = -1;
+    this.mouth.g = -1;
+    this.mouth.b = -1;
+  }
 
   for(var i=0; i<5; i++) { // set  tile  visible to eye
     if(this.eyes[i].tile!=null) {
       this.eyes[i].r=tiles[this.eyes[i].tile].R/150;
       this.eyes[i].g=tiles[this.eyes[i].tile].G/200;
       this.eyes[i].b=tiles[this.eyes[i].tile].B/100;
+    } else {
+      this.eyes[i].r = -1;
+      this.eyes[i].g = -1;
+      this.eyes[i].b = -1;
     }
   }
   /*
@@ -183,9 +186,9 @@ Animal.prototype.move=function() {
 	this.tile=ct;
 
   // set mouth x, y using x,y plane coord. system rather than distance, rotation coord. sys used by movement
-  this.mouth.setXY(this.dir, this.x, this.y, this.outputs[7].out*2*this.size, this.outputs[8].out*2*this.size);
+  this.mouth.setXY(this.dir, this.x, this.y, this.outputs[8].out*2*this.size, this.outputs[9].out*2*this.size);
   for(var i=0;i<5; i++) {
-    this.eyes[i].setXY(this.dir, this.x, this.y, this.outputs[(i*2)+9].out*5*this.size, this.outputs[(i*2)+10].out*5*this.size);
+    this.eyes[i].setXY(this.dir, this.x, this.y, this.outputs[(i*2)+10].out*5*this.size, this.outputs[(i*2)+11].out*5*this.size);
   }
 }
 
@@ -214,6 +217,10 @@ Animal.prototype.eat=function() {
       this.blueEaten+=b;
       this.eaten=r+g+b;
       this.netEaten += this.eaten;
+      this.netRedEaten += this.eaten;
+      this.netGreenEaten += this.eaten;
+      this.netBlueEaten += this.eaten;
+
       prey.dmgReceived += this.eaten; // energy exchanged with interacted creature. could receive damage from multiple, so +=
       this.dmgCaused += this.eaten;
     }
@@ -226,22 +233,34 @@ Animal.prototype.eat=function() {
     r = this.outputs[3].out < 0 ? 0 : this.outputs[3].out*s1*10; 
     g = this.outputs[4].out < 0 ? 0 : this.outputs[4].out*s1*10; 
     b = this.outputs[5].out < 0 ? 0 : this.outputs[5].out*s1*10; 
+    
+    if(isNaN(this.outputs[3].out) || isNaN(this.outputs[4].out) || isNaN(this.outputs[5].out)){
+      console.log("NAN OUTPUT")
+    }
 
-    // food is removed from tile. could go into the negative, but halted at -RCap. Because tile colouration is predominantly green, adjust so that red, blue tiles lose less food per consumption.
-    tiles[t].R > -tiles[t].RCap ? tiles[t].R-=r*0.75 : tiles[t].R = -tiles[t].RCap;
-    tiles[t].G > -tiles[t].GCap ? tiles[t].G-=g : tiles[t].G = -tiles[t].GCap;
-    tiles[t].B > -tiles[t].BCap ? tiles[t].B-=b*0.5 : tiles[t].B = -tiles[t].BCap;
+    // food is removed from tile. could go into the negative, but halted at -RCap. Because tile colouration is predominantly green, adjust so that red, blue tiles lose less food per consumption, to make RGB equal
+    tiles[t].R > -tiles[t].RCap ? tiles[t].R-= r/1.5 : tiles[t].R = -tiles[t].RCap;
+    tiles[t].G > -tiles[t].GCap ? tiles[t].G-= g : tiles[t].G = -tiles[t].GCap;
+    tiles[t].B > -tiles[t].BCap ? tiles[t].B-= b/2 : tiles[t].B = -tiles[t].BCap;
   
+    if(isNaN(tiles[t].R) || isNaN(tiles[t].G) || isNaN(tiles[t].B)){
+      console.log("NAN TILE RGB")
+
+    }
     // multiply final food retrieved by amount of food on tile. If there a negative amount of food, it is poisonous to the creature.
     r *= tiles[t].R/tiles[t].RCap;
     g *= tiles[t].G/tiles[t].GCap;
     b *= tiles[t].B/tiles[t].BCap;
 
-    if (r>0) { this.redEaten+=r};
-    if (g>0) { this.greenEaten+=g};
-    if (b>0) { this.blueEaten+=b};
+    if(r> 0) {this.redEaten+=r};
+    if(g> 0) {this.greenEaten+=g};
+    if(b> 0) {this.blueEaten+=b};
+
     this.eaten=r+g+b;
-    this.netEaten += this.eaten;
+    this.netRedEaten += abs(r);
+    this.netGreenEaten += abs(g);
+    this.netBlueEaten += abs(b);
+    this.netEaten += abs(r)+abs(g)+abs(b);
   } else {
     // if not on mouth tile - if the creature is stuck on the edge of the map- too bad, its slightly poisonous also. incentive to not be lazy
     this.eaten = -1;
@@ -249,13 +268,17 @@ Animal.prototype.eat=function() {
 }
 
 Animal.prototype.draw=function(c){
-  c[0]=abs(this.outputs[3].out)*255; // colour the creature
-  c[1]=abs(this.outputs[4].out)*255;
-  c[2]=abs(this.outputs[5].out)*255;
+  //var opacity = round(255*((abs(this.outputs[3].out) + abs(this.outputs[4].out) + abs(this.outputs[5].out))/3))
+  c[0] = round(abs(this.outputs[3].out)*255); // what its planning to eat
+  c[1] = round(abs(this.outputs[4].out)*255);
+  c[2] = round(abs(this.outputs[5].out)*255);
 
-  c[3]=c[0]-20;
-  c[4]=c[1]-20;
-  c[5]=c[2]-20;
+  c[3]= round(255*this.redEaten/this.netRedEaten); // at most, red, green or blue is 1/3 * netEaten 
+  c[4]= round(255*this.greenEaten/this.netGreenEaten);
+  c[5]= round(255*this.blueEaten/this.netBlueEaten);
+  //c[3]=c[0]-20;
+  //c[4]=c[1]-20;
+  //c[5]=c[2]-20;
   c[6]=c[0]+20;
   c[7]=c[1]+20;
   c[8]=c[2]+20;
@@ -268,16 +291,18 @@ Animal.prototype.draw=function(c){
 
 
   //draw eyes
-  ctx2.strokeStyle=rgbToHex(c[6],c[7],c[8]);
+  //ctx2.strokeStyle=rgbToHex(c[6],c[7],c[8]);
   ctx2.fillStyle=rgbToHex(c[12],c[13],c[14]);
   for(var i=0; i<5; i++) {
     ctx2.beginPath();
     ctx2.arc(this.eyes[i].x,this.eyes[i].y, this.size/8, 0, TWOPI); // eyes are 1/5 size of body
+    //ctx2.stroke();
     ctx2.fill();
   }
 
   // draw body
   ctx2.strokeStyle= rgbToHex(c[3],c[4],c[5]);
+  //ctx2.fillStyle="rgba("+c[0]+", "+c[1]+", "+c[2]+", "+opacity+")"
   ctx2.fillStyle= rgbToHex(c[0],c[1],c[2]);
   ctx2.beginPath();
   ctx2.arc(this.x, this.y, this.size/2, 0, TWOPI); // WITH START SIZE OF 5, RADIUS IS 2.5
@@ -285,11 +310,12 @@ Animal.prototype.draw=function(c){
   ctx2.fill();
 
   // draw mouth
-	ctx2.strokeStyle=rgbToHex(c[9],c[10],c[11]);
+	//ctx2.strokeStyle=rgbToHex(c[9],c[10],c[11]);
+  //ctx2.fillStyle=rgbaToHex(c[3], c[4], c[5], opacity)
 	ctx2.fillStyle=rgbToHex(c[3],c[4],c[5]);
 	ctx2.beginPath();
 	ctx2.arc(this.mouth.x,this.mouth.y, this.size/4, 0, TWOPI);
-	ctx2.stroke();
+	//ctx2.stroke();
 	ctx2.fill();
 
 	if(mouseOverMap && mouseX>=this.x-50 && mouseX<this.x+50 && mouseY>=this.y-50 && mouseY<this.y+50 && highlighted!=this.index) {
@@ -304,7 +330,7 @@ Animal.prototype.decay=function() {
 
   // reset energyChange; account for any damage taken last iteration
   // energy is expended from the 'exertion of interaction', as well as 'metabolism' from size. adding exertion from interaction is to inhibit a creature from interacting unless there is actually food to be gained.
-  this.energyChange = this.eaten - this.dmgReceived - ((abs(this.outputs[0].out)+abs(this.outputs[1].out)+abs(this.outputs[3].out)+abs(this.outputs[4].out)+abs(this.outputs[5].out))/2); // + this.size
+  this.energyChange = this.eaten - this.dmgReceived - ((abs(this.outputs[0].out)+abs(this.outputs[1].out)+abs(this.outputs[3].out)+abs(this.outputs[4].out)+abs(this.outputs[5].out)))/2; 
   this.totalDmgReceived += this.dmgReceived;  // how much damage has been taken by this creature
   this.dmgReceived = 0; // reset damage
 
@@ -318,13 +344,13 @@ Animal.prototype.decay=function() {
     this.maxEnergy=this.energy;
   }
 
-  aveChildren+=(this.children.length)/LIVEPOP;
+  aveChildren+=(this.children.length)/livePop;
   this.health=(this.energy-(this.maxEnergy/2))/(this.maxEnergy/2);
 
   // after processing food consumed this iteration, if energy is still negative, creature dies
 	if(this.energy<=0) {
 		this.alive=false;
-		LIVEPOP--;
+		livePop--;
 
 		if(this.index==HIGHESTINDEX) {
 			var i=this.index;
@@ -380,7 +406,7 @@ Animal.prototype.decay=function() {
     globalNetNRG+=this.totalEnergyGain;
 
 		graveyard.push(dead);
-    document.getElementById("dash-live-info").innerHTML = "LIVE: " + LIVEPOP + "     DEAD: " + graveyard.length;
+    document.getElementById("dash-live-info").innerHTML = "LIVE: " + livePop + "     DEAD: " + graveyard.length;
 	
   }
 }
@@ -397,7 +423,7 @@ Animal.prototype.grow=function() {
   } else if(this.size<1) {
     this.size = 1
   }
-  if (this.energy > (this.outputs[6].out + 1)*18000+2000 && LIVEPOP<POPCAP) { // if signal divide, creature big enough, and there is room
+  if (this.energy > (this.outputs[6].out + 1)*18000+2000 && livePop<POPCAP) { // if signal divide, creature big enough, and there is room
 
     // find an empty creature slot in the animals[] array to place new mutant creature
     var i=0;
@@ -429,7 +455,7 @@ Animal.prototype.grow=function() {
     mutant.index = i // IMPORTANT! Set index of mutant
     animals[i]=mutant; 
     newest=i;
-    LIVEPOP++;
+    livePop++;
 
     var ancestor=this.parent;
     while(ancestor!=null) {
@@ -462,6 +488,8 @@ Animal.prototype.think=function() {
   this.inputs[idx++].in = this.eaten/(this.size*10); // food eaten - max/min food able to be eaten per iteration is < self.size*10: see eat()
   this.energyChange > 0 ? this.inputs[idx++].in = this.energyChange/(this.size*10) : this.inputs[idx++].in = -this.energyChange/(this.size*10);  // how much energy animal gained last iteration
   this.inputs[idx++].in=this.health; 
+
+  
 
   this.inputs[idx++].in=this.mouth.r; // what the mouth sees
   this.inputs[idx++].in=this.mouth.g;
@@ -540,7 +568,8 @@ Animal.prototype.think=function() {
   this.outputs[idx++].tanh(); // interact green
   this.outputs[idx++].tanh(); // interact blue
   this.outputs[idx++].tanh(); // grow/divide ∆ ** +0.1 indicates deposit 1000 energy to increase 0.1 size. indicates gain size until maximum, -1
-  
+  this.outputs[idx++].tanh(); // mutation rate
+
   // mouth
   this.outputs[idx++].tanh(); // mouth left / right
   this.outputs[idx++].tanh(); // mouth front / back
@@ -583,6 +612,10 @@ Animal.prototype.mutate=function(parent) {
   this.maxEnergy=parent.energy;
   this.velocity=0;
   this.rotation=0;
+  this.redEaten=0.003;
+  this.greenEaten=0.003;
+  this.blueEaten=0.003;
+  this.netEaten=0.01;
 
   if(round(Math.random()*3)==3) {
     if(round(Math.random()*4)==3) {
@@ -600,23 +633,30 @@ Animal.prototype.mutate=function(parent) {
     }
   }
 
+  var mut_rate = round(100*(this.outputs[7].out+1))/2000
+  mitosisStat+=1;
+  mutationRateStat+=mut_rate;
+  if(isNaN(mut_rate)) {
+    console.log(this.outputs[7])
+    console.log("NAN MUT RATE")
+  }
   for(var i=0; i<NUM_INPUT_NEURONS; i++) {
     for(var j = 0; j<NUM_OUTPUT_NEURONS; j++) {
       // put pressure on weights to go towards zero by subtracting the weight from the possible
-      this.inputs[i].posWeights[j] += (2*Math.random()-1 - this.inputs[i].posWeights[j])/50;
-      this.inputs[i].negWeights[j] += (2*Math.random()-1 - this.inputs[i].negWeights[j])/50;
+      this.inputs[i].posWeights[j] += round((2*Math.random()-1 - this.inputs[i].posWeights[j])*mut_rate*1000)/1000;
+      this.inputs[i].negWeights[j] += round((2*Math.random()-1 - this.inputs[i].negWeights[j])*mut_rate*1000)/1000;
     }
   }
   // do hiddens
 
   for(var i=0; i<NUM_OUTPUT_NEURONS; i++) {
     for(var j = 0; j<NUM_OUTPUT_NEURONS; j++) {
-      this.outputs[i].posWeights[j] += (2*Math.random()-1 - this.outputs[i].posWeights[j])/50;
-      this.outputs[i].negWeights[j] += (2*Math.random()-1 - this.outputs[i].negWeights[j])/50;
+      this.outputs[i].posWeights[j] += round((2*Math.random()-1 - this.outputs[i].posWeights[j])*mut_rate*1000)/1000;
+      this.outputs[i].negWeights[j] += round((2*Math.random()-1 - this.outputs[i].negWeights[j])*mut_rate*1000)/1000;
 
     }
   }
-  document.getElementById("dash-live-info").innerHTML = "LIVE: " + LIVEPOP + "     DEAD: " + graveyard.length;
+  document.getElementById("dash-live-info").innerHTML = "LIVE: " + livePop + "     DEAD: " + graveyard.length;
 
 }
 
@@ -628,7 +668,7 @@ Animal.prototype.kill=function() {
 
 Animal.prototype.reincarnate=function() {
   if(this.alive==false){
-    if(LIVEPOP<POPCAP) {
+    if(livePop<POPCAP) {
       var i=0;
       while (animals[i]!=null) {
         if(animals[i].alive==true) {  //Alive clause effectively determines that animal isnt overwriting itself
@@ -647,7 +687,7 @@ Animal.prototype.reincarnate=function() {
       animals[i]=clone;
 
       newest=i;
-      LIVEPOP++;
+      livePop++;
       var ancestor=this.parent;
       while(ancestor!=null) {
         if(ancestor>=0) {
@@ -745,8 +785,8 @@ Animal.prototype.highlight=function() {
       document.getElementById("stats-sibling-idx").innerHTML = "SIBLING: "+this.sibling_idx+1;
     }
     document.getElementById("stats-descendants").innerHTML = "DESCENDANTS: "+this.descendants;
-    
-    var stat = this.energyChange>0 ? round(5*this.energyChange/this.maxEnergyChange) : round(5*this.energyChange/this.maxEnergyChange)
+
+    var stat = round(5*this.energyChange/((this.size*10)+5)) // eaten plus max. relevant output activations
     var stat_string = "";
     if(stat > 0) {
       for(var i = 0; i<stat; i++) {

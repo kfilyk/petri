@@ -19,8 +19,9 @@ Eye.prototype.setXY=function(animalDir, animalX, animalY, eyeX, eyeY) {
   this.x= animalX + eyeX*Math.cos(DEG_TO_RAD*animalDir) + eyeY*Math.cos(DEG_TO_RAD*(animalDir+90));
   this.y= animalY + eyeX*Math.sin(DEG_TO_RAD*(animalDir+90)) + eyeY*Math.sin(DEG_TO_RAD*animalDir); //+ mouthY * Math.cos(DEG_TO_RAD*animalDir);
 
-  //this.x=x+this.dis*(Math.cos(DEG_TO_RAD*(o+this.angle)));
-  //this.y=y+this.dis*(Math.sin(DEG_TO_RAD*(o+this.angle)));
+  //this.x= animalX + mouthX;
+  //this.y= animalY + mouthY;
+  
   if(this.x>=0 && this.y>=0 && this.x<FIELDX && this.y<FIELDY) {
     this.tile=((~~(this.y/25)*40)+(~~(this.x/25)));
     if(this.tile<0 || this.tile>=TILENUMBER) {
