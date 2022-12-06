@@ -1,0 +1,105 @@
+@font-face {
+    font-family: SplineSans;
+    src: url('./fonts/Spline_Sans/SplineSans-Regular.ttf');
+    font-weight: normal;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: SplineSans;
+    src: url('./fonts/Spline_Sans/SplineSans-Bold.ttf');
+    font-weight: bold;
+    font-style: normal;
+}
+
+body {
+    font-family: SplineSans;
+    font-size: 10px;
+    color:#161616aa; /*~68% opaque*/
+}
+
+#dash-live-info {
+    white-space:pre;
+}
+
+#dashboard {
+    width:20%;
+    position: absolute;
+    top:0px;
+    right:0;
+    background-color: #ffffff88;
+    backdrop-filter: blur(4px);
+    border-bottom-left-radius: 10px;
+}
+
+#dashboard-content {
+    display: block;
+}
+
+#dashboard-top {
+    display: relative;
+}
+
+#dashboard img {
+    width:20px;
+    height:20px;
+    padding-left:5px;
+    padding-right:5px;
+    opacity:68%;
+    transition: 0.5s;
+    cursor: pointer;
+}
+
+#dashboard img:hover {
+    opacity:100%;
+    transition: 0.5s;
+}
+
+#dashboard-info {
+    margin:10px;
+    /*border: 1px black solid;*/
+}
+
+#dashboard-buttons {
+    position:absolute;
+    top:0px;
+    right:0px;
+    margin:10px;
+}
+
+#dashboard-stats {
+    border: 1px solid #000000;
+    margin:10px;
+}
+
+.dash-medallist {
+    position: relative;
+}
+
+.dash-medallist img {
+    padding:0px !important;
+    padding-top:2px !important;
+    padding-right:2px !important;
+}
+
+.dash-medallist span {
+    cursor:pointer;
+    position:absolute;
+    line-height: 22px;
+}
+
+.bold-stat {
+    font-weight: bold;
+}
+
+#stats-red {
+    color: #FF0000;
+}
+
+#stats-green {
+    color: #00FF00;
+}
+
+#stats-blue {
+    color: #0000FF;
+}

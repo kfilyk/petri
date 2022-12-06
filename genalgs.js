@@ -58,29 +58,6 @@ Animal.prototype.getMutations=function(x, scale, i, k) {
     pM=(pM+(r*(this.conGenes+1)))/(this.proGenes+(this.conGenes+1));
     return (diff+pM);
 
-  } else if(accelerate==8){
-    var pM=this.recurseGetAdvantageous(x, i, k, this.index);
-    var pG=this.liveDescendants;
-    if(pG==0){
-      pG++;
-    } else {
-      this.proGenes=pG;
-    }
-    pM/=pG;
-    var cM=this.recurseGetDetrimentals(x, i, k, this.index);
-    var cG=this.descendants-this.liveDescendants;
-    if(cG==0){
-      cG++;
-    } else {
-      this.conGenes=cG;
-    }
-    cM/=cG;
-
-    var diff = pM-cM;
-    pM*=pG;
-    pM=(pM+r)/(this.proGenes+1);
-    return (diff+pM);
-
   } else if(accelerate==9){
     /*
       Look at descendants, count those who successfully reproduced. Sum mutations then average -> advantageous.
@@ -186,9 +163,7 @@ Animal.prototype.getAdvantageousMutations=function(x, i, k) {
         child = graveyard[-(this.children[y]+1)];
       }
       var c;
-      if(accelerate==5 || accelerate==6 || accelerate==7){
-        c=child.liveDescendants;
-      } else if(accelerate>0 && accelerate<5){ // 1,2,3,4
+      if(accelerate>0 && accelerate<5){ // 1,2,3,4
         c=child.children.length;
       }
       if(x==0){
@@ -209,17 +184,9 @@ Animal.prototype.getAdvantageousMutations=function(x, i, k) {
     }
     return pM/pG;
 
-  } else if(accelerate==8){
-    var pM=this.recurseGetAdvantageous(x, i, k, this.index);
-    var pG=this.liveDescendants;
-    if(pG==0){
-      pG++;
-    } else {
-      this.proGenes=pG;
-    }
-    return pM/pG;
+  }
 
-  } else if(accelerate>=9){
+  if(accelerate>=9){
     pM=this.recurseGetAdvantageous(x, i, k, this.index);
     pG=this.recurseCountAdvantageous(x, i, k);
     if(pG==0){
@@ -259,41 +226,8 @@ Animal.prototype.getDetrimentalMutations=function(x, i, k) {
         } else {
           child = graveyard[-(this.children[y]+1)];
         }
-
-        if(accelerate==5 && child.liveDescendants==0){
-          if(x==0){
-            cM+=(child.brain[i].weights[k]-this.brain[i].weights[k]);
-          } else if(x==1){
-            cM+=(child.brain[i].bias-this.brain[i].bias);
-          } else if(x==5){
-            cM+=(child.maxSize-this.maxSize);
-          } else if(x==6){
-            cM+=(child.minSize-this.minSize);
-          }
-          cG++;
-        }else if((accelerate==6 || accelerate==7) && (child.liveDescendants==0 && (this.children[y]<0 || child.descendants>0))){
-          if(x==0){
-            cM+=(child.brain[i].weights[k]-this.brain[i].weights[k]);
-          } else if(x==1){
-            cM+=(child.brain[i].bias-this.brain[i].bias);
-          } else if(x==5){
-            cM+=(child.maxSize-this.maxSize);
-          } else if(x==6){
-            cM+=(child.minSize-this.minSize);
-          }
-          cG++;
-        }
       }
     }
-    if(cG==0){
-      cG++;
-    } else {
-      this.conGenes=cG;
-    }
-    return cM/cG;
-  }else if(accelerate==8){
-    cM=this.recurseGetDetrimentals(x, i, k, this.index);
-    cG=this.descendants-this.liveDescendants;
     if(cG==0){
       cG++;
     } else {

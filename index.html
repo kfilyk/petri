@@ -1,15 +1,120 @@
 <!DOCTYPE html>
 <html>
   <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+  <script
+    src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.4/Chart.js">
+  </script>
   <title>Petri</title>
+
+  <head>
+    <link rel="stylesheet" href="style.css">
+  </head>
   <body onload="init()" oncontextmenu="return false;" style="margin:0px;">
-    <a download="save.js" id="download" style="text-decoration: none; z-index:4; position:fixed; display: none">Download</a>
-    <canvas id="map" style="z-index: 1; position:fixed; height:100%"></canvas>
-    <canvas id="dashboard" style="z-index: 2; position:fixed; right:0px; top:0px; height:100%"></canvas>
-    <canvas id="dashboard2" style="z-index: 3; position:fixed; right:0px; top:0px; height:100%"></canvas>
-    <script src="animal.js"></script>
+    <canvas id="map" style="z-index: 1; height:100%; width:100%"></canvas>    
+    <div id="dashboard">
+      <div id="dashboard-content">
+        <div id="dashboard-info">
+          <b>PETRI 2.19</b></br></br>
+          <span id="dash-live-info"></span></br>
+          <span id="dash-newest" onclick="highlight_newest()" >NEW: </span></br>
+          <span id="dash-time"></span></br>
+          <span id="dash-highlighted"></span></br>
+          <div class="dash-medallist" onclick="highlight_gold()"><img src="icons/gold-medal.png"><span id="dash-gold"></span></img></div>
+          <div class="dash-medallist" onclick="highlight_silver()"><img src="icons/silver-medal.png"><span id="dash-silver"></span></img></div>
+          <div class="dash-medallist" onclick="highlight_bronze()"><img src="icons/bronze-medal.png"><span id="dash-bronze"></span></img></div>
+          <br>
+        </div>
+
+        <div id="dashboard-buttons">
+          <img src="icons/on_restart.png" onclick="newSimulation()"> <!-- on / reset -->
+          <img id="play-button" src="icons/play.png" onclick="pauseSimulation()">
+          <img id="load-button" onclick="load()" src="icons/load.png">
+          <img src="icons/skip.png">
+          <a id="save-button" onclick="save()"><img src="icons/save.png"/></a>
+          <br>
+          <br>
+
+          <img src="icons/food.png"> <!-- on / reset -->
+          <img src="icons/fitness.png">
+          <img src="icons/energy.png">
+          <img src="icons/lifespan.png">
+          <img src="icons/children.png">
+
+
+        </div>
+        <div id="dashboard-stats">
+          <span onclick="(() => {  
+            highlighted=null; 
+            leftPressed=false; 
+          })()">X</span>
+
+          <!--         this.kill(); -->
+          <!--         this.reincarnate(); -->
+
+          <b id="stats-name"></b><br/>
+          <span id="stats-idx"></span><br/>
+          <span id="stats-parent" onclick="(() => {
+            highlighted=this.parent; 
+            leftPressed=false;
+          })()"></span><br/>
+          <span id="stats-sibling-idx"></span><br/>
+          <span id="stats-descendants"></span><br/>
+          <span id="stats-energy"></span><br/>
+          <span id="stats-size"></span><br/>
+          <span id="stats-damage"></span><br/>
+          <span class="bold-stat" id="stats-red"></span><br/>
+          <span class="bold-stat" id="stats-green"></span><br/>
+          <span class="bold-stat" id="stats-blue"></span><br/>
+          <span id="stats-sensors"></span><br/>
+          <span class="bold-stat" id="stats-velocity"></span><br/>
+          <span class="bold-stat" id="stats-rotation"></span><br/>
+        </div>
+        <div id="dashboard-charts">
+          <canvas id="brain" style="width:100%"></canvas>
+          <canvas id="chart" style="width:100%"></canvas>
+        </div>
+      </div>
+    </div>
+    <script src="lodash.js"></script>
+    <script src="./components/animal.js"></script>
+    <script src="./components/eye.js"></script>
+    <script src="./components/mouth.js"></script>
+    <script src="./components/neuron.js"></script>
     <script src="petri.js"></script>
     <script src="genalgs.js"></script>
     <script src="save.js"></script>
   </body>
+  <script>
+    var xyValues = [
+      {x:50, y:7},
+      {x:60, y:8},
+      {x:70, y:8},
+      {x:80, y:9},
+      {x:90, y:9},
+      {x:100, y:9},
+      {x:110, y:10},
+      {x:120, y:11},
+      {x:130, y:14},
+      {x:140, y:14},
+      {x:150, y:15}
+    ];
+    
+    new Chart("chart", {
+      type: "scatter",
+      data: {
+        datasets: [{
+          pointRadius: 4,
+          pointBackgroundColor: "rgb(0,0,255)",
+          data: xyValues
+        }]
+      },
+      options: {
+        legend: {display: false},
+        scales: {
+          xAxes: [{ticks: {min: 40, max:160}}],
+          yAxes: [{ticks: {min: 6, max:16}}],
+        }
+      }
+    });
+  </script>
 </html>
