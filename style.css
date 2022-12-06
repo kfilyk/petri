@@ -32,7 +32,8 @@ html, body {margin: 0; height: 100%; overflow: hidden}
     background-color: #ffffff88;
     backdrop-filter: blur(4px);
     border-bottom-left-radius: 10px;
-    overflow-y: scroll;
+    height: 100%;
+    overflow: auto;
 }
 
 #dashboard-content {
