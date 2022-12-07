@@ -880,6 +880,8 @@ function newSimulation() {
   }
   resetStats();
   resetData(agarChart);
+  resetData(mutationChart);
+
   dashboard.setup();
   tileManager.generate();
   document.getElementById("dash-live-info").innerHTML = "LIVE: " + livePop + "     DEAD: " + graveyard.length;

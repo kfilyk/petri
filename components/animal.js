@@ -34,9 +34,6 @@ class Animal {
     this.redEaten=1;
     this.greenEaten=1;
     this.blueEaten=1;
-    this.netRedEaten = 1;
-    this.netGreenEaten = 1;
-    this.netBlueEaten = 1;
     this.netEaten=3;
     
     this.inputs=new Array(NUM_INPUT_NEURONS);
@@ -61,7 +58,7 @@ class Animal {
     this.dmgReceived=0;
     this.totalDmgReceived=0;
     this.dmgCaused=0;
-    this.cols = new Uint8ClampedArray(15);
+    this.cols = new Uint8ClampedArray(9);
     this.lr=0;
   }
 }
@@ -119,7 +116,7 @@ Animal.prototype.sense=function() {
 
       for(var i=0; i<5; i++) {
         if(this.eyes[i].sees==-1) {
-          if(((abs(this.eyes[i].x-animals[j].x)-(s1/8))<=animals[j].size/2 && (abs(this.eyes[i].y-animals[j].y)-(s1/8))<=animals[j].size/2) || ((abs(this.eyes[i].x-animals[j].mouth.x)-(s1/8))<=animals[j].size/4 && (abs(this.eyes[i].y-animals[j].mouth.y)-(s1/8))<=animals[j].size/4)) {
+          if((abs(this.eyes[i].x-animals[j].x)<=(s1/4)+animals[j].size/2 && abs(this.eyes[i].y-animals[j].y)<=(s1/4)+animals[j].size/2) || (abs(this.eyes[i].x-animals[j].mouth.x) <= (s1/4)+animals[j].size/4 && abs(this.eyes[i].y-animals[j].mouth.y) <= (s1/4)+animals[j].size/4)) {
             this.eyes[i].sense=animals[j].outputs[2].out;
             this.eyes[i].r=(animals[j].outputs[3].out);
             this.eyes[i].g=(animals[j].outputs[4].out);
@@ -217,9 +214,6 @@ Animal.prototype.eat=function() {
       this.blueEaten+=b;
       this.eaten=r+g+b;
       this.netEaten += this.eaten;
-      this.netRedEaten += this.eaten;
-      this.netGreenEaten += this.eaten;
-      this.netBlueEaten += this.eaten;
 
       prey.dmgReceived += this.eaten; // energy exchanged with interacted creature. could receive damage from multiple, so +=
       this.dmgCaused += this.eaten;
@@ -252,15 +246,11 @@ Animal.prototype.eat=function() {
     g *= tiles[t].G/tiles[t].GCap;
     b *= tiles[t].B/tiles[t].BCap;
 
-    if(r> 0) {this.redEaten+=r};
-    if(g> 0) {this.greenEaten+=g};
-    if(b> 0) {this.blueEaten+=b};
+    if(r> 0) {this.redEaten+=r; this.netEaten +=r};
+    if(g> 0) {this.greenEaten+=g; this.netEaten +=g};
+    if(b> 0) {this.blueEaten+=b; this.netEaten +=b};
 
     this.eaten=r+g+b;
-    this.netRedEaten += abs(r);
-    this.netGreenEaten += abs(g);
-    this.netBlueEaten += abs(b);
-    this.netEaten += abs(r)+abs(g)+abs(b);
   } else {
     // if not on mouth tile - if the creature is stuck on the edge of the map- too bad, its slightly poisonous also. incentive to not be lazy
     this.eaten = -1;
@@ -269,30 +259,27 @@ Animal.prototype.eat=function() {
 
 Animal.prototype.draw=function(c){
   //var opacity = round(255*((abs(this.outputs[3].out) + abs(this.outputs[4].out) + abs(this.outputs[5].out))/3))
+  // total = this.outputs[3].out+this.outputs[4].out+this.outputs[5].out
+
   c[0] = round(abs(this.outputs[3].out)*255); // what its planning to eat
   c[1] = round(abs(this.outputs[4].out)*255);
   c[2] = round(abs(this.outputs[5].out)*255);
 
-  c[3]= round(255*this.redEaten/this.netRedEaten); // at most, red, green or blue is 1/3 * netEaten 
-  c[4]= round(255*this.greenEaten/this.netGreenEaten);
-  c[5]= round(255*this.blueEaten/this.netBlueEaten);
-  //c[3]=c[0]-20;
-  //c[4]=c[1]-20;
-  //c[5]=c[2]-20;
-  c[6]=c[0]+20;
-  c[7]=c[1]+20;
-  c[8]=c[2]+20;
-  c[9]=c[0]-40;
-  c[10]=c[1]-40;
-  c[11]=c[2]-40;
-  c[12]=c[0]+40;
-  c[13]=c[1]+40;
-  c[14]=c[2]+40;
+  //c[3]= round(255*this.redEaten/this.netEaten); // at most, red, green or blue is 1/3 * netEaten 
+  //c[4]= round(255*this.greenEaten/this.netEaten);
+  //c[5]= round(255*this.blueEaten/this.netEaten);
+  c[3]=c[0]+40;
+  c[4]=c[1]+40;
+  c[5]=c[2]+40;
+  c[6]=c[0]+80;
+  c[7]=c[1]+80;
+  c[8]=c[2]+80;
+
 
 
   //draw eyes
   //ctx2.strokeStyle=rgbToHex(c[6],c[7],c[8]);
-  ctx2.fillStyle=rgbToHex(c[12],c[13],c[14]);
+  ctx2.fillStyle=rgbToHex(c[6],c[7],c[8]);
   for(var i=0; i<5; i++) {
     ctx2.beginPath();
     ctx2.arc(this.eyes[i].x,this.eyes[i].y, this.size/8, 0, TWOPI); // eyes are 1/5 size of body
@@ -302,7 +289,6 @@ Animal.prototype.draw=function(c){
 
   // draw body
   ctx2.strokeStyle= rgbToHex(c[3],c[4],c[5]);
-  //ctx2.fillStyle="rgba("+c[0]+", "+c[1]+", "+c[2]+", "+opacity+")"
   ctx2.fillStyle= rgbToHex(c[0],c[1],c[2]);
   ctx2.beginPath();
   ctx2.arc(this.x, this.y, this.size/2, 0, TWOPI); // WITH START SIZE OF 5, RADIUS IS 2.5
@@ -310,7 +296,6 @@ Animal.prototype.draw=function(c){
   ctx2.fill();
 
   // draw mouth
-	//ctx2.strokeStyle=rgbToHex(c[9],c[10],c[11]);
   //ctx2.fillStyle=rgbaToHex(c[3], c[4], c[5], opacity)
 	ctx2.fillStyle=rgbToHex(c[3],c[4],c[5]);
 	ctx2.beginPath();
