@@ -131,6 +131,7 @@ Animal.prototype.sense=function() {
 
 Animal.prototype.move=function() {
   this.hitWall = false;
+  
   this.velocity=this.outputs[0].out*10; 
   this.rotation=this.outputs[1].out*90; 
   this.dir+=this.rotation;
@@ -140,17 +141,9 @@ Animal.prototype.move=function() {
   } else if(this.dir>359) {
     this.dir-=360;
   }
-
-  // pin a creature if actively being eaten?
-  /*
-  if(highlighted==this.index && leftPressed && mouseOverMap && abs(this.x-mouseX)<20 && abs(this.y-mouseY)<20){
-    this.x=round(mouseX);
-    this.y=round(mouseY);
-  } else {
-    this.x+=this.velocity*Math.cos(this.dir*DEG_TO_RAD);
-    this.y+=this.velocity*Math.sin(this.dir*DEG_TO_RAD);
-  }
-  */
+  
+  //this.x+=this.outputs[0].out*10;
+  //this.y+=this.outputs[1].out*10;
 
   this.x+=this.velocity*Math.cos(this.dir*DEG_TO_RAD);
   this.y+=this.velocity*Math.sin(this.dir*DEG_TO_RAD);
@@ -183,9 +176,9 @@ Animal.prototype.move=function() {
 	this.tile=ct;
 
   // set mouth x, y using x,y plane coord. system rather than distance, rotation coord. sys used by movement
-  this.mouth.setXY(this.dir, this.x, this.y, this.outputs[8].out*2*this.size, this.outputs[9].out*2*this.size);
+  this.mouth.setXY(/*this.dir,*/ this.x, this.y, this.outputs[8].out*2*this.size, this.outputs[9].out*2*this.size);
   for(var i=0;i<5; i++) {
-    this.eyes[i].setXY(this.dir, this.x, this.y, this.outputs[(i*2)+10].out*5*this.size, this.outputs[(i*2)+11].out*5*this.size);
+    this.eyes[i].setXY(/*this.dir,*/ this.x, this.y, this.outputs[(i*2)+10].out*5*this.size, this.outputs[(i*2)+11].out*5*this.size);
   }
 }
 
