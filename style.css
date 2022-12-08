@@ -11,6 +11,7 @@
     font-weight: bold;
     font-style: normal;
 }
+html, body {margin: 0; height:100%; overflow: hidden}
 
 body {
     font-family: SplineSans;
@@ -18,26 +19,21 @@ body {
     color:#161616aa; /*~68% opaque*/
 }
 
-html, body {margin: 0; height: 100%; overflow: hidden}
-
-#dash-live-info {
-    white-space:pre;
-}
-
 #dashboard {
     width:20%;
-    position: absolute;
-    top:0px;
-    right:0;
-    background-color: #ffffff88;
-    backdrop-filter: blur(4px);
-    border-bottom-left-radius: 10px;
-    height: 100%;
-    overflow: auto;
+    position: fixed; /*  fixed is relative to viewport*/
+    top: 0;
+    right:0;   
+    bottom:0;
+    overflow-y:scroll;
 }
 
 #dashboard-content {
     display: block;
+    background-color: #ffffff88;
+    backdrop-filter: blur(4px);
+    padding:10px;
+    border-bottom-left-radius: 10px;
 }
 
 #dashboard-top {
@@ -60,9 +56,10 @@ html, body {margin: 0; height: 100%; overflow: hidden}
 }
 
 #dashboard-info {
-    margin:10px;
+    margin-bottom:10px;
     /*border: 1px black solid;*/
 }
+
 
 #dashboard-buttons {
     position:absolute;
@@ -83,6 +80,10 @@ html, body {margin: 0; height: 100%; overflow: hidden}
 
 .dash-medallist {
     position: relative;
+}
+
+#dash-live-info {
+    white-space:pre;
 }
 
 .dash-medallist img {
@@ -122,10 +123,18 @@ html, body {margin: 0; height: 100%; overflow: hidden}
     color: #0000FF;
 }
 
+#stats-parent {
+    cursor:pointer;
+}
+
 #stats-close-button {
     font-weight: bold;
     right:10px;
     top:10px;
     position:absolute;
     cursor:pointer;
+}
+
+#brain {
+    display:none;
 }

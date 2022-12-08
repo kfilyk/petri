@@ -47,6 +47,8 @@
             highlighted=null; 
             leftPressed=false; 
             document.getElementById('dashboard-stats').style.display='none';
+            document.getElementById('brain').style.display='none';
+            
           })()">X</span>
 
           <!--         this.kill(); -->
@@ -56,8 +58,14 @@
             <b id="stats-name"></b><br/>
             <span id="stats-idx"></span><br/>
             <span id="stats-parent" onclick="(() => {
-              highlighted=this.parent; 
-              leftPressed=false;
+              var a = null;
+              if(highlighted < 0){
+                a = graveyard[-(highlighted+1)]
+              } else {
+                a = animals[highlighted]
+              }
+              highlighted=a.parent; 
+
             })()"></span><br/>
             <span id="stats-sibling-idx"></span><br/>
             <span id="stats-descendants"></span><br/>
@@ -76,8 +84,8 @@
         </div>
         <div id="dashboard-charts">
           <canvas id="brain" style="width:100%"></canvas>
-          <canvas id="agarChart" style="width:100%"></canvas>
-          <canvas id="mutationChart" style="width:100%"></canvas>
+          <canvas class="chart" id="foodPopChart" style="width:100%"></canvas>
+          <canvas class="chart" id="optimizationChart" style="width:100%"></canvas>
 
         </div>
       </div>

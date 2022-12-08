@@ -70,7 +70,6 @@ var netParents=0; // Adds to total (if parent) at time of death
 var netLifespan=0; //Total number of years all animals have lived (recorded upon death)
 var globalNetNRG=0;
 var time=0;
-var aveFER=0;
 
 var aveChildren=0; //Ratio of number of children per parent
 var aveLifespan=0;
@@ -79,17 +78,17 @@ var avePosNRG=0;
 var maxAveChildren=1;
 var maxAveLifespan=1;
 var maxAvePosNRG=1;
-var maxPPG=1;
 
+/* STATS */
 // count total red, green, blue on the map
 var redAgarOnMapStat=0; 
 var blueAgarOnMapStat=0;
 var greenAgarOnMapStat=0;
 var mutationRateStat=0;
 var mitosisStat=0;
+var netEatenRatioStat=0;
 
-
-var agarChart = new Chart("agarChart", {
+var foodPopChart = new Chart("foodPopChart", {
   type: "line",
   data: {
     datasets: [
@@ -98,36 +97,36 @@ var agarChart = new Chart("agarChart", {
         data: [],
         borderColor: 'rgb(255, 0, 0)',
         pointRadius:0,
+        lineTension: 0,
         fill: false,
         yAxisID: 'AGAR',
-
       }, 
       {
         label: 'GREEN AGAR',
         data: [],
         borderColor: 'rgb(0, 255, 0)',
         pointRadius:0,
+        lineTension: 0,
         fill: false,
         yAxisID: 'AGAR',
-
       }, 
       {
         label: 'BLUE AGAR',
         data: [],
         borderColor: 'rgb(0, 0, 255)',
         pointRadius:0,
+        lineTension: 0,
         fill: false,
         yAxisID: 'AGAR',
-
       }, 
       {
         label: 'POPULATION',
         data: [],
-        borderColor: 'rgb(32, 32, 32)',
+        borderColor: 'rgb(50, 50, 50)',
         pointRadius:0,
+        lineTension: 0,
         fill: false,
         yAxisID: 'POP',
-
       }, 
     ]
   },
@@ -161,21 +160,34 @@ var agarChart = new Chart("agarChart", {
   }
 });
 
-var mutationChart = new Chart("mutationChart", {
+var optimizationChart = new Chart("optimizationChart", {
   type: "line",
   data: {
     datasets: [
       {
         label: 'MUTATION RATE',
         data: [],
-        borderColor: 'rgb(0, 0, 0)',
+        borderColor: 'rgb(50, 50, 50)',
         pointRadius:0,
+        lineTension: 0,
         fill: false,
+        yAxisID: 'MUT',
+
+      }, 
+      {
+        label: 'EATING EFFICIENCY',
+        data: [],
+        borderColor: 'rgb(00, 196, 00)',
+        pointRadius:0,
+        lineTension: 0,
+        fill: false,
+        yAxisID: 'EAT',
+
       }, 
     ]
   },
   options: {
-    legend: {display:false},
+    legend: {display:false},    
     animation: {
       duration: 0
     },
@@ -187,16 +199,21 @@ var mutationChart = new Chart("mutationChart", {
       }],
       yAxes: [
       {
-        ticks: {
-          maxTicksLimit: 8
-        },
+        id: 'MUT',
+        ticks: {maxTicksLimit: 8},
         position: 'left',
-      }]
+      },
+      {
+        id: 'EAT',
+        ticks: {maxTicksLimit: 8},
+        position: 'right',
+      }
+      ]
     }
   }
 });
 
-function addData(chart, label, data) {
+function addChartData(chart, label, data) {
   chart.data.labels.push(label);
   i=0;
   chart.data.datasets.forEach((dataset) => {
@@ -206,7 +223,7 @@ function addData(chart, label, data) {
   chart.update();
 }
 
-function resetData(chart) {
+function resetChartData(chart) {
   chart.data.labels = [];
   i=0;
   chart.data.datasets.forEach((dataset) => {
@@ -215,12 +232,9 @@ function resetData(chart) {
   chart.update();
 }
 
-var aveFERHist=[];
 var aveChildrenHist=[];
 var aveLifespanHist=[];
 var avePosNRGHist=[];
-
-var PPG=[];
 
 var accelerate=0;
 
@@ -235,22 +249,24 @@ var downAccel = 0;
 function highlight_newest() {
   highlighted=newest;
   document.getElementById("dashboard-stats").style.display="block";
+  document.getElementById('brain').style.display='block';
 }
 
 function highlight_gold() {
   highlighted=gold;
   document.getElementById("dashboard-stats").style.display="block";
-
+  document.getElementById('brain').style.display='block';
 }
 function highlight_silver() {
   highlighted=silver;
   document.getElementById("dashboard-stats").style.display="block";
-
+  document.getElementById('brain').style.display='block';
 }
 
 function highlight_bronze() {
   highlighted=bronze;
   document.getElementById("dashboard-stats").style.display="block";
+  document.getElementById('brain').style.display='block';
 }
 
 function pauseSimulation() {
@@ -373,7 +389,7 @@ function cycle() {
 	tileManager.update();
 	animalManager.update();
   inputManager.update();
-  if(!pause && time%100==0){ // COLLECT EVERY 100 FRAMES
+  if(!pause && time%1000==0){ // COLLECT EVERY 100 FRAMES
     statManager.update();
   }
   dashboard.update(); // update dashboard parameters
@@ -528,9 +544,6 @@ var tileManager = {
     ctx2.clearRect(-100,0,100,1000); //left
     ctx2.clearRect(FIELDX,0,100,1000); //right
 
-    redAgarOnMapStat=0; // reset global count 
-    greenAgarOnMapStat=0;
-    blueAgarOnMapStat=0;
 		for(var i=0; i<TILENUMBER; i++) {
 			tiles[i].draw();
 			if(!pause) {
@@ -559,11 +572,11 @@ var animalManager = {
           a.decay(); // check if animal dies this round
           a.sense();
 
-          if(gold == null || animals[i].descendants > animals[gold].descendants) {
+          if(gold == null || a.descendants > animals[gold].descendants) {
             gold = i;
-          } else if(silver == null || animals[i].descendants > animals[silver].descendants) {
+          } else if(silver == null || a.descendants > animals[silver].descendants) {
             silver = i;
-          } else if(bronze == null || animals[i].descendants > animals[bronze].descendants) {
+          } else if(bronze == null || a.descendants > animals[bronze].descendants) {
             bronze = i;
           }
 
@@ -617,17 +630,7 @@ var animalManager = {
 }
 var statManager = {
   update : function() {
-    /*
-    aveFER=aveFER/100;
-    aveChildren=aveChildren/100;
-    if(graveyard.length>0){
-      aveLifespan=netLifespan/graveyard.length;
-      avePosNRG=globalNetNRG/graveyard.length;
-    }else {
-      aveLifespan=0;
-      avePosNRG=0;
-    }
-    */
+
 
     aveChildrenHist.push(aveChildren);
     if(aveChildren>maxAveChildren){
@@ -638,14 +641,41 @@ var statManager = {
     aveLifespanHist.push(aveLifespan);
     avePosNRGHist.push(avePosNRG);
 
-    addData(agarChart, time/100, [redAgarOnMapStat, greenAgarOnMapStat, blueAgarOnMapStat, livePop])
-    addData(mutationChart, time/100, [mutationRateStat/mitosisStat])
+    // go through animals and collect data
+    if(livePop != 0){
+      for(var a, i=0; i<=HIGHESTINDEX; i++) {
+        a = animals[i];
+        if(a.alive) {
+          netEatenRatioStat += (a.redEaten + a.greenEaten + a.blueEaten)  / a.netEaten;
+        }
+      }
+      netEatenRatioStat /= livePop;
+
+    } else {
+      netEatenRatioStat = 0;
+    }
+    // go through tiles and collect data
+		for(var i=0; i<TILENUMBER; i++) {
+			if(!pause) {
+        redAgarOnMapStat+=tiles[i].R;
+        greenAgarOnMapStat+=tiles[i].G;
+        blueAgarOnMapStat+=tiles[i].B;			
+      }
+		}
+
+
+    addChartData(foodPopChart, time/100, [redAgarOnMapStat, greenAgarOnMapStat, blueAgarOnMapStat, livePop])
+    addChartData(optimizationChart, time/100, [mutationRateStat/mitosisStat, netEatenRatioStat])
 
 
     mutationRateStat = 0;
     mitosisStat = 0;
+    netEatenRatioStat = 0;
+
+    redAgarOnMapStat=0;
+    greenAgarOnMapStat=0;
+    blueAgarOnMapStat=0;
     
-    aveFER=0;
     if(aveLifespan>maxAveLifespan){
       maxAveLifespan=aveLifespan;
     }
@@ -708,7 +738,6 @@ function resetStats(){
   time=0;
   netLifespan=0;
   globalNetNRG=0;
-  aveFER=0;
 
   aveChildren=0;
   aveLifespan=0;
@@ -731,25 +760,7 @@ function resetStats(){
   aveChildrenHist=[];
   aveLifespanHist=[];
   avePosNRGHist=[];
-  aveFERHist=[];
-  PPG=[];
-  maxPPG=0;
-  for(var a, i=0; i<=HIGHESTINDEX;i++){
-    a=animals[i];
-    while(a.gen>=PPG.length){
-      PPG.push(0);
-    }
-    if(a.alive==true) {
-      PPG[a.gen]++;
-      if(PPG[a.gen]>maxPPG){
-        maxPPG=PPG[a.gen];
-      }
-    }
-  }
 
-  redAgarOnMapStat=0;
-  blueAgarOnMapStat=0;
-  greenAgarOnMapStat=0;
 }
 
 var inputManager= {
@@ -879,8 +890,8 @@ function newSimulation() {
     animals[i]=new Animal(round(Math.random()*FIELDX),round(Math.random()*FIELDY), i);
   }
   resetStats();
-  resetData(agarChart);
-  resetData(mutationChart);
+  resetChartData(foodPopChart);
+  resetChartData(optimizationChart);
 
   dashboard.setup();
   tileManager.generate();
@@ -1097,9 +1108,6 @@ Tile.prototype.draw=function() {
       ctx2.fillText(round(this.B),this.x,this.y+25);
     }
   }
-  redAgarOnMapStat+=this.R;
-  greenAgarOnMapStat+=this.G;
-  blueAgarOnMapStat+=this.B;
 }
 
 Tile.prototype.regenerate=function() {
