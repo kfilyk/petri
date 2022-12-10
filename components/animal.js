@@ -23,7 +23,6 @@ class Animal {
     this.name=namer();
     this.velocity=0; 
     this.rotation=0;
-    this.hitWall = false;
     this.dir=round(Math.random()*360); // facing direction
     this.eyes=new Array(5);
     for(var i=0;i<5;i++) {
@@ -68,35 +67,13 @@ class Animal {
 Animal.prototype.sense=function() {
 
   // reset mouth, eyes seeing other animals. if mouth, eyes over border of map: tell creature that there is no food there (r, g, b = -1)
-  this.mouth.sees=-1; 
-  this.mouth.sense = 0;     
-  for(var j=0;j<5; j++) {
-    this.eyes[j].sees=-1;
-    this.eyes[j].sense = 0;
-  }
 
   // set tile of mouth, eyes
   var s1=this.size;
-  if(this.mouth.tile!=null) { // set tile visible to mouth 
-    this.mouth.r=tiles[this.mouth.tile].R/150;
-    this.mouth.g=tiles[this.mouth.tile].G/200;
-    this.mouth.b=tiles[this.mouth.tile].B/100;
-  } else {
-    this.mouth.r = -1;
-    this.mouth.g = -1;
-    this.mouth.b = -1;
-  }
+  this.mouth.sense()
 
   for(var i=0; i<5; i++) { // set  tile  visible to eye
-    if(this.eyes[i].tile!=null) {
-      this.eyes[i].r=tiles[this.eyes[i].tile].R/150;
-      this.eyes[i].g=tiles[this.eyes[i].tile].G/200;
-      this.eyes[i].b=tiles[this.eyes[i].tile].B/100;
-    } else {
-      this.eyes[i].r = -1;
-      this.eyes[i].g = -1;
-      this.eyes[i].b = -1;
-    }
+    this.eyes[i].sense()
   }
   /*
   (s1/4)= radius of mouth
@@ -106,7 +83,7 @@ Animal.prototype.sense=function() {
       if(this.mouth.sees==-1) { 
         // if this creatures mouth intercepts bounding box of another creature body
         if(abs(this.mouth.x-animals[j].x) <= ((animals[j].size/2)+(s1/4)) && abs(this.mouth.y-animals[j].y) <= ((animals[j].size/2)+(s1/4))) {
-          this.mouth.sense=animals[j].outputs[2].out; // sense other creature's 'voice'
+          this.mouth.s=animals[j].outputs[2].out; // sense other creature's 'voice'
           this.mouth.r=(animals[j].outputs[3].out); // get red of other creature
           this.mouth.g=(animals[j].outputs[4].out); // get green of other creature
           this.mouth.b=(animals[j].outputs[5].out); // get blue of other creature
@@ -117,7 +94,7 @@ Animal.prototype.sense=function() {
       for(var i=0; i<5; i++) {
         if(this.eyes[i].sees==-1) {
           if(abs(this.eyes[i].x-animals[j].x) <= (s1/4)+animals[j].size/2 && abs(this.eyes[i].y-animals[j].y) <= (s1/4)+animals[j].size/2) {
-            this.eyes[i].sense=animals[j].outputs[2].out;
+            this.eyes[i].s=animals[j].outputs[2].out;
             this.eyes[i].r=(animals[j].outputs[3].out);
             this.eyes[i].g=(animals[j].outputs[4].out);
             this.eyes[i].b=(animals[j].outputs[5].out);
@@ -130,7 +107,6 @@ Animal.prototype.sense=function() {
 }
 
 Animal.prototype.move=function() {
-  this.hitWall = false;
   
   this.velocity=this.outputs[0].out*10; 
   this.rotation=this.outputs[1].out*90; 
@@ -155,7 +131,6 @@ Animal.prototype.move=function() {
 		} else {
 			this.x=FIELDX-1;
 		}
-    this.hitWall = true;
 	}
 	if(this.y<0 || this.y>=FIELDY) {
 		if(this.y<0) {
@@ -163,7 +138,6 @@ Animal.prototype.move=function() {
 		} else {
 			this.y=FIELDY-1;
 		}
-    this.hitWall = true;
 	}
 
 	//update current tile this creature is on
@@ -176,9 +150,9 @@ Animal.prototype.move=function() {
 	this.tile=ct;
 
   // set mouth x, y using x,y plane coord. system rather than distance, rotation coord. sys used by movement
-  this.mouth.setXY(/*this.dir,*/ this.x, this.y, this.outputs[8].out*2*this.size, this.outputs[9].out*2*this.size);
+  this.mouth.move(this.dir, this.x, this.y, this.outputs[8].out*2*this.size, this.outputs[9].out*2*this.size);
   for(var i=0;i<5; i++) {
-    this.eyes[i].setXY(/*this.dir,*/ this.x, this.y, this.outputs[(i*2)+10].out*5*this.size, this.outputs[(i*2)+11].out*5*this.size);
+    this.eyes[i].move(this.dir, this.x, this.y, this.outputs[(i*2)+10].out*5*this.size, this.outputs[(i*2)+11].out*5*this.size);
   }
 }
 
@@ -462,28 +436,23 @@ Animal.prototype.think=function() {
 
   // ~30 inputs, ~20 outputs
   var idx = 0;
-  this.hitWall ? this.inputs[idx++].in = 0 : this.inputs[idx++].in = this.outputs[0].out; // velocity of self last iteration 
-  this.inputs[idx++].in = this.outputs[1].out; // rotation of self
   this.inputs[idx++].in = this.eaten/(this.size*10); // food eaten - max/min food able to be eaten per iteration is < self.size*10: see eat()
   this.energyChange > 0 ? this.inputs[idx++].in = this.energyChange/(this.size*10) : this.inputs[idx++].in = -this.energyChange/(this.size*10);  // how much energy animal gained last iteration
   this.inputs[idx++].in=this.health; 
 
-  
-
   this.inputs[idx++].in=this.mouth.r; // what the mouth sees
   this.inputs[idx++].in=this.mouth.g;
   this.inputs[idx++].in=this.mouth.b;
-  this.inputs[idx++].in=this.mouth.sense; // sense other creatures
+  this.inputs[idx++].in=this.mouth.s; // sense other creatures
 
   for(var eye=0; eye<5; eye++) {
     this.inputs[idx++].in=this.eyes[eye].r;
     this.inputs[idx++].in=this.eyes[eye].g;
     this.inputs[idx++].in=this.eyes[eye].b;
-    this.inputs[idx++].in=this.eyes[eye].sense;
+    this.inputs[idx++].in=this.eyes[eye].s;
   }
 
   //console.log(this.inputs)
-
 
 	// first frame: imagine all other neurons recieving '0' as input, so all neuron input values are accounted for up to this point.
 

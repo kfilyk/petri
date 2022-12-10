@@ -25,9 +25,8 @@ Neuron.prototype.init=function(connections, ignorable) { // if this.in>=0 return
    // this.biases = new Float32Array(connections).fill(0)
 
     for(var i=0; i<connections-ignorable; i++) {
-        this.posWeights[i]= Math.random()*2-1;
-        this.negWeights[i]= Math.random()*2-1;
-
+        this.posWeights[i]= Math.random()+Math.random()-1;
+        this.negWeights[i]= Math.random()+Math.random()-1;
         // this.biases[i] = 0 ** this is implicitly done at creation of biases array
     }
 }
