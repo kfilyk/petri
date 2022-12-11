@@ -23,17 +23,17 @@ class Animal {
     this.name=namer();
     this.velocity=0; 
     this.rotation=0;
-    this.dir=round(Math.random()*360); // facing direction
+    this.direction=round(Math.random()*360); // facing direction
     this.eyes=new Array(5);
     for(var i=0;i<5;i++) {
       this.eyes[i] = new Eye(this.x, this.y);
     }
     this.mouth=new Mouth(this.x, this.y);
     this.eaten=0;
-    this.redEaten=1;
-    this.greenEaten=1;
-    this.blueEaten=1;
-    this.netEaten=3;
+    this.redEaten=0.003;
+    this.greenEaten=0.003;
+    this.blueEaten=0.003;
+    this.netEaten=1;
     
     this.inputs=new Array(NUM_INPUT_NEURONS);
     this.outputs=new Array(NUM_OUTPUT_NEURONS);
@@ -54,9 +54,9 @@ class Animal {
   
   
     this.totalEnergyGain=0;
-    this.dmgReceived=0;
-    this.totalDmgReceived=0;
-    this.dmgCaused=0;
+    this.damage=0;
+    this.damageReceived=0;
+    this.damageCaused=0;
     this.cols = new Uint8ClampedArray(9);
     this.lr=0;
   }
@@ -83,18 +83,18 @@ Animal.prototype.sense=function() {
       if(this.mouth.sees==-1) { 
         // if this creatures mouth intercepts bounding box of another creature body
         if(abs(this.mouth.x-animals[j].x) <= ((animals[j].size/2)+(s1/4)) && abs(this.mouth.y-animals[j].y) <= ((animals[j].size/2)+(s1/4))) {
-          this.mouth.s=animals[j].outputs[2].out; // sense other creature's 'voice'
+          this.mouth.s=1; // sense other creature's 'voice'
           this.mouth.r=(animals[j].outputs[3].out); // get red of other creature
           this.mouth.g=(animals[j].outputs[4].out); // get green of other creature
           this.mouth.b=(animals[j].outputs[5].out); // get blue of other creature
-          this.mouth.sees=j; // could have a concurrency problem IFF the creature dies before eat sequence- could hurt a new creature which took the spot of the old one. Fix this later
+          this.mouth.sees=j; // record what animal has been seen. could have a concurrency problem IFF the creature dies before eat sequence- could hurt a new creature which took the spot of the old one. Fix this later
         }
       }
 
       for(var i=0; i<5; i++) {
         if(this.eyes[i].sees==-1) {
           if(abs(this.eyes[i].x-animals[j].x) <= (s1/4)+animals[j].size/2 && abs(this.eyes[i].y-animals[j].y) <= (s1/4)+animals[j].size/2) {
-            this.eyes[i].s=animals[j].outputs[2].out;
+            this.eyes[i].s=1;
             this.eyes[i].r=(animals[j].outputs[3].out);
             this.eyes[i].g=(animals[j].outputs[4].out);
             this.eyes[i].b=(animals[j].outputs[5].out);
@@ -107,22 +107,22 @@ Animal.prototype.sense=function() {
 }
 
 Animal.prototype.move=function() {
+  // smallest creature max damage: 15
+  // largest creature max damage: 300
+  var s1 = this.size
+  this.velocity=this.outputs[0].out*10/(1+this.damage/s1*s1); 
+  this.rotation=this.outputs[1].out*90/(1+this.damage/s1*s1); 
   
-  this.velocity=this.outputs[0].out*10; 
-  this.rotation=this.outputs[1].out*90; 
-  this.dir+=this.rotation;
+  this.direction+=this.rotation;
 
-  if(this.dir<0) {
-    this.dir+=360;
-  } else if(this.dir>359) {
-    this.dir-=360;
+  if(this.direction<0) {
+    this.direction+=360;
+  } else if(this.direction>359) {
+    this.direction-=360;
   }
-  
-  //this.x+=this.outputs[0].out*10;
-  //this.y+=this.outputs[1].out*10;
 
-  this.x+=this.velocity*Math.cos(this.dir*DEG_TO_RAD);
-  this.y+=this.velocity*Math.sin(this.dir*DEG_TO_RAD);
+  this.x+=this.velocity*Math.cos(this.direction*DEG_TO_RAD);
+  this.y+=this.velocity*Math.sin(this.direction*DEG_TO_RAD);
 
   // if map boundary hit
 	if(this.x<0 || this.x>=FIELDX) {
@@ -131,6 +131,7 @@ Animal.prototype.move=function() {
 		} else {
 			this.x=FIELDX-1;
 		}
+    this.velocity = 0;  // -2 acts as a flag
 	}
 	if(this.y<0 || this.y>=FIELDY) {
 		if(this.y<0) {
@@ -138,6 +139,7 @@ Animal.prototype.move=function() {
 		} else {
 			this.y=FIELDY-1;
 		}
+    this.velocity = 0;
 	}
 
 	//update current tile this creature is on
@@ -150,9 +152,9 @@ Animal.prototype.move=function() {
 	this.tile=ct;
 
   // set mouth x, y using x,y plane coord. system rather than distance, rotation coord. sys used by movement
-  this.mouth.move(this.dir, this.x, this.y, this.outputs[8].out*2*this.size, this.outputs[9].out*2*this.size);
+  this.mouth.move(this.direction, this.x, this.y, this.outputs[8].out*2*this.size, this.outputs[9].out*2*this.size);
   for(var i=0;i<5; i++) {
-    this.eyes[i].move(this.dir, this.x, this.y, this.outputs[(i*2)+10].out*5*this.size, this.outputs[(i*2)+11].out*5*this.size);
+    this.eyes[i].move(this.direction, this.x, this.y, this.outputs[(i*2)+10].out*5*this.size, this.outputs[(i*2)+11].out*5*this.size);
   }
 }
 
@@ -181,9 +183,9 @@ Animal.prototype.eat=function() {
       this.blueEaten+=b;
       this.eaten=r+g+b;
       this.netEaten += this.eaten;
-
-      prey.dmgReceived += this.eaten; // energy exchanged with interacted creature. could receive damage from multiple, so +=
-      this.dmgCaused += this.eaten;
+      prey.damage += this.eaten; // energy exchanged with interacted creature. could receive damage from multiple, so +=
+      prey.damageReceived += this.eaten;  // how much damage has been taken by this creature over lifetime; this doesn't reset
+      this.damageCaused += this.eaten;
     }
     
   } else if(this.mouth.tile!=null) { // herbivore if the mouth is actually over a tile
@@ -286,15 +288,13 @@ Animal.prototype.decay=function() {
 
   // reset energyChange; account for any damage taken last iteration
   // energy is expended from the 'exertion of interaction', as well as 'metabolism' from size. adding exertion from interaction is to inhibit a creature from interacting unless there is actually food to be gained.
-  if(time>10000){
-    this.energyChange = this.eaten - this.dmgReceived - ((abs(this.outputs[0].out)+abs(this.outputs[1].out)+abs(this.outputs[3].out)+abs(this.outputs[4].out)+abs(this.outputs[5].out))); 
-  } else if(time>5000) {
-    this.energyChange = this.eaten - this.dmgReceived - (abs(this.outputs[0].out)+abs(this.outputs[1].out)+abs(this.outputs[3].out)+abs(this.outputs[4].out)+abs(this.outputs[5].out))/2; 
+  if(livePop>100){
+    this.energyChange = this.eaten - this.damage - ((abs(this.outputs[0].out)+abs(this.outputs[1].out)+abs(this.outputs[3].out)+abs(this.outputs[4].out)+abs(this.outputs[5].out))); 
+  } else if(livePop>50) {
+    this.energyChange = this.eaten - this.damage - (abs(this.outputs[0].out)+abs(this.outputs[1].out)+abs(this.outputs[3].out)+abs(this.outputs[4].out)+abs(this.outputs[5].out))/2; 
   } else {
-    this.energyChange = this.eaten - this.dmgReceived - (abs(this.outputs[0].out)+abs(this.outputs[1].out)+abs(this.outputs[3].out)+abs(this.outputs[4].out)+abs(this.outputs[5].out))/4; 
+    this.energyChange = this.eaten - this.damage - (abs(this.outputs[0].out)+abs(this.outputs[1].out)+abs(this.outputs[3].out)+abs(this.outputs[4].out)+abs(this.outputs[5].out))/4; 
   }
-  this.totalDmgReceived += this.dmgReceived;  // how much damage has been taken by this creature
-  this.dmgReceived = 0; // reset damage
 
   this.energy+=this.energyChange;
 
@@ -436,10 +436,11 @@ Animal.prototype.think=function() {
 
   // ~30 inputs, ~20 outputs
   var idx = 0;
+  this.inputs[idx++].in = this.velocity/10; 
+  this.inputs[idx++].in = this.rotation/90; 
   this.inputs[idx++].in = this.eaten/(this.size*10); // food eaten - max/min food able to be eaten per iteration is < self.size*10: see eat()
   this.energyChange > 0 ? this.inputs[idx++].in = this.energyChange/(this.size*10) : this.inputs[idx++].in = -this.energyChange/(this.size*10);  // how much energy animal gained last iteration
   this.inputs[idx++].in=this.health; 
-
   this.inputs[idx++].in=this.mouth.r; // what the mouth sees
   this.inputs[idx++].in=this.mouth.g;
   this.inputs[idx++].in=this.mouth.b;
@@ -558,17 +559,19 @@ Animal.prototype.mutate=function(parent) {
   this.sibling_idx=parent.children.length;
   this.name=parent.name;
   this.maxEnergy=parent.energy;
-  this.velocity=0;
-  this.rotation=0;
   this.redEaten=0.003;
   this.greenEaten=0.003;
   this.blueEaten=0.003;
   this.netEaten=0.01;
+  this.damageCaused=0;
+  this.damageReceived=0;
 
-  if(round(Math.random()*3)==3) {
-    if(round(Math.random()*4)==3) {
-      if(round(Math.random()*5)==3) {
-        if(round(Math.random()*6)==3) {
+
+
+  if(round(Math.random()*2)==2) {
+    if(round(Math.random()*2)==2) {
+      if(round(Math.random()*2)==2) {
+        if(round(Math.random()*2)==2) {
           this.name=ALPH.charAt(round(Math.random()*25))+this.name.charAt(1)+this.name.charAt(2)+this.name.charAt(3);
         } else {
           this.name=this.name.charAt(0)+ALPH.charAt(round(Math.random()*25))+this.name.charAt(2)+this.name.charAt(3);
@@ -664,23 +667,23 @@ Animal.prototype.highlight=function() {
   ctx2.fillStyle="#FFFFFF";
   ctx2.strokeStyle="#FFFFFF";
   ctx2.strokeRect(this.x-(2*s), this.y-(2*s), s*4, s*4);
-  var oriX=this.x+(this.size*Math.cos(this.dir*DEG_TO_RAD));
-  var oriY=this.y+(this.size*Math.sin(this.dir*DEG_TO_RAD));
+  var oriX=this.x+(this.size*Math.cos(this.direction*DEG_TO_RAD));
+  var oriY=this.y+(this.size*Math.sin(this.direction*DEG_TO_RAD));
 
   ctx2.beginPath();
   ctx2.strokeStyle="#FF0000";
   // draw velocity vector
-  var velX=this.x+(this.outputs[0].out*10*Math.cos(this.dir*DEG_TO_RAD));
-  var velY=this.y+(this.outputs[0].out*10*Math.sin(this.dir*DEG_TO_RAD));
+  var velX=this.x+(this.outputs[0].out*10*Math.cos(this.direction*DEG_TO_RAD));
+  var velY=this.y+(this.outputs[0].out*10*Math.sin(this.direction*DEG_TO_RAD));
   ctx2.moveTo(this.x,this.y);
   ctx2.lineTo(velX, velY);
   // draw rotation vector
   if(this.velocity>0) {
-    var rotX = velX-this.outputs[1].out*10*Math.cos((this.dir-90)*DEG_TO_RAD);
-    var rotY = velY-this.outputs[1].out*10*Math.sin((this.dir-90)*DEG_TO_RAD);
+    var rotX = velX-this.outputs[1].out*10*Math.cos((this.direction-90)*DEG_TO_RAD);
+    var rotY = velY-this.outputs[1].out*10*Math.sin((this.direction-90)*DEG_TO_RAD);
   } else {
-    var rotX = velX+this.outputs[1].out*10*Math.cos((this.dir-90)*DEG_TO_RAD);
-    var rotY = velY+this.outputs[1].out*10*Math.sin((this.dir-90)*DEG_TO_RAD);
+    var rotX = velX+this.outputs[1].out*10*Math.cos((this.direction-90)*DEG_TO_RAD);
+    var rotY = velY+this.outputs[1].out*10*Math.sin((this.direction-90)*DEG_TO_RAD);
   }
 
   ctx2.lineTo(rotX, rotY);
@@ -748,7 +751,7 @@ Animal.prototype.highlight=function() {
     }
     document.getElementById("stats-energy").innerHTML = "NRG: "+round(this.energy)+"/"+round(this.maxEnergy)+"   "+stat_string;
     document.getElementById("stats-size").innerHTML = "SIZE: "+ this.size;
-    document.getElementById("stats-damage").innerHTML = round(this.totalDmgReceived)+" >> DMG >> "+round(this.dmgCaused);
+    document.getElementById("stats-damage").innerHTML = round(this.damageReceived)+" >> DMG >> "+round(this.damageCaused);
     document.getElementById("stats-sensors").innerHTML = (this.mouth.sees==1 ? "M ":"")+(this.eyes[0].sees==1 ? "E1 ":"")+(this.eyes[1].sees==1 ? "E2 ":"")+(this.eyes[2].sees==1 ? "E3 ":"")+(this.eyes[3].sees==1 ? "E4 ":"")+(this.eyes[4].sees==1 ? "E5 ":"")
     
 

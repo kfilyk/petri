@@ -570,16 +570,19 @@ var animalManager = {
         a = animals[i];
         if(a.alive==true) {
           a.decay(); // check if animal dies this round
-          a.sense();
+          if(a.alive==true){
+            a.move(); // only move if not dead; this is placed here before sensing, but seperate from the eat step because movement can be stifled by being attacked
+            a.damage = 0; // reset damage
+            a.sense();
 
-          if(gold == null || a.descendants > animals[gold].descendants) {
-            gold = i;
-          } else if(silver == null || a.descendants > animals[silver].descendants) {
-            silver = i;
-          } else if(bronze == null || a.descendants > animals[bronze].descendants) {
-            bronze = i;
+            if(gold == null || a.descendants > animals[gold].descendants) {
+              gold = i;
+            } else if(silver == null || a.descendants > animals[silver].descendants) {
+              silver = i;
+            } else if(bronze == null || a.descendants > animals[bronze].descendants) {
+              bronze = i;
+            }
           }
-
         }
       }
       
@@ -595,8 +598,6 @@ var animalManager = {
         if(pause==false) {
           a.think();
           a.eat();
-          a.move();
-          //a.learn(a.brain);
           a.grow(); // adjust animal size/reproduction
         }
 
@@ -619,15 +620,9 @@ var animalManager = {
         }
       }
 		}
-
-
-
-
-
-
-
 	}
 }
+
 var statManager = {
   update : function() {
 
