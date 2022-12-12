@@ -568,9 +568,9 @@ var animalManager = {
       // reset a number of interaction conditions
       for(var a, i=0; i<=HIGHESTINDEX; i++) {
         a = animals[i];
-        if(a.alive==true) {
+        if(a.alive) {
           a.decay(); // check if animal dies this round
-          if(a.alive==true){
+          if(a.alive){
             a.move(); // only move if not dead; this is placed here before sensing, but seperate from the eat step because movement can be stifled by being attacked
             a.damage = 0; // reset damage
             a.sense();

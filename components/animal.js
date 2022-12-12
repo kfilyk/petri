@@ -2,7 +2,7 @@ var START_SIZE=1;
 var MAX_SIZE=20;
 var BRAIN_SIZE=50; //number of neurons
 var NUM_INPUT_NEURONS=30;
-var NUM_OUTPUT_NEURONS=30; 
+var NUM_OUTPUT_NEURONS=35; 
 
 class Animal {
   constructor(x, y, index ) {
@@ -40,12 +40,15 @@ class Animal {
   
     for(var i=0; i<NUM_INPUT_NEURONS; i++) { // fill with empty neurons
       this.inputs[i] = new Neuron(); // neuron will be created with number of weights equal to outputs+hiddens
-      this.inputs[i].init(NUM_OUTPUT_NEURONS, 22); // 30 inputs, 20 outputs - start without controlling direction &distance of eyes, mouth (12)
+      this.inputs[i].init(NUM_OUTPUT_NEURONS, 8); // 30 inputs, 20 outputs - start without controlling direction &distance of eyes, mouth (12)
+      //this.inputs[i].createDeltas(NUM_OUTPUT_NEURONS); 
+
     }
 
     for(var i=0; i<NUM_OUTPUT_NEURONS; i++) { // fill with empty neurons
       this.outputs[i] = new Neuron(); // no weights; exist only to calculate output
-      this.outputs[i].init(NUM_OUTPUT_NEURONS, NUM_OUTPUT_NEURONS); // start output neurons with empty weights linking to other output neurons
+      this.outputs[i].init(NUM_OUTPUT_NEURONS, 0); // start output neurons with empty weights linking to other output neurons
+      //this.outputs[i].createDeltas(NUM_OUTPUT_NEURONS); 
     }
   
     this.energy=START_SIZE*1000;
@@ -312,16 +315,14 @@ Animal.prototype.decay=function() {
 		this.alive=false;
 		livePop--;
 
+    //roll back highest index
 		if(this.index==HIGHESTINDEX) {
 			var i=this.index;
-			while(i>-1 && animals[i].alive==false) {
+			while(i>-1 && !animals[i].alive) {
 				i--;
 			}
 			HIGHESTINDEX=i;
 		}
-    // CHANGE
-    //var dead = new Animal(this.x, this.y, -(graveyard.length+1)); // set an index to pos in dead array...
-		//this.grave(dead);
 
     var dead = _.cloneDeep(this);
     dead.index = -(graveyard.length+1)
@@ -394,15 +395,13 @@ Animal.prototype.grow=function() {
         break;
       }
     }
+    //console.log("FOUND INDEX: ", HIGHESTINDEX)    
+
+    // parent undergoes mitosis
 
     if(i>HIGHESTINDEX) {
       HIGHESTINDEX=i;
     }
-
-    //console.log("FOUND INDEX: ", HIGHESTINDEX)    
-
-    // parent undergoes 'mitosis'
-
     this.size = round((this.size*10)/2)/10; // divide in half
     this.energy /= 2;
 
@@ -416,7 +415,7 @@ Animal.prototype.grow=function() {
     animals[i]=mutant; 
     newest=i;
     livePop++;
-
+  
     var ancestor=this.parent;
     while(ancestor!=null) {
       if(ancestor>=0) {
@@ -436,7 +435,7 @@ Animal.prototype.think=function() {
   var idx = 0;
   this.inputs[idx++].in = this.velocity/10; 
   this.inputs[idx++].in = this.rotation/90; 
-  this.inputs[idx++].in = this.eaten/(this.size*10); // food eaten as herbivore - max/min food able to be eaten per iteration is < self.size*10 + self.size*10 + self.size*10: see eat()
+  this.inputs[idx++].in = this.eaten/(this.size*30); // food eaten as herbivore - max/min food able to be eaten per iteration is < self.size*10 + self.size*10 + self.size*10: see eat()
   //this.inputs[idx++].in = this.eaten/(this.size*10); // food eaten as carnivore - max/min food eaten per iteration is < self.size*10: see eat()
 
   this.energyChange > 0 ? this.inputs[idx++].in = this.energyChange/(this.size*10) : this.inputs[idx++].in = -this.energyChange/(this.size*10);  // how much energy animal gained last iteration
@@ -489,27 +488,26 @@ Animal.prototype.think=function() {
   for(o=0; o < NUM_OUTPUT_NEURONS; o++) { 
 
     for(var j=0; j< NUM_INPUT_NEURONS; j++){
-      input+=this.inputs[j].synapse(o); // Sum neuron weights with respect to neuron n
+      input+=this.inputs[j].synapse(o/*, this.outputs[20].out, this.outputs[21].out,  this.outputs[22].out*/); // Sum neuron weights with respect to neuron n
     }
 
     for(var j=0; j<NUM_OUTPUT_NEURONS; j++){
       if(j != o){
-        input+=this.outputs[j].synapse(o); // Sum neuron weights with respect to neuron n
+        input+=this.outputs[j].synapse(o/*, this.outputs[20].out, this.outputs[21].out,  this.outputs[22].out*/); // Sum neuron weights with respect to neuron n
       }
     }
     
     //console.log(input)
     this.outputs[o].in=input; // set activation of neuron
+    if(input>5) {
+      console.log(input)
+    }
     input=0;
   }
 
-  //console.log("TIME: ", Date.now()-start)
-
-
-
+  // determine outputs
   var idx = 0;
   outputIdx = 0;
-  //var start = Date.now()
   this.outputs[idx++].clamp(); // velocity
   this.outputs[idx++].clamp(); // rotation
   this.outputs[idx++].clamp(); // voice
@@ -528,27 +526,20 @@ Animal.prototype.think=function() {
     this.outputs[idx++].clamp(); // eye left / right
     this.outputs[idx++].clamp(); // eye front / back
   }
-  /*
-  for(var i= 0; i<10000000; i++) {
-    this.outputs[0].clamp(); // mouth front / back
-  }
-   */
-  //console.log("TIME: ", Date.now()-start)
-}
 
-Animal.prototype.learn=function(b) {
   /*
-	for(var i=0; i<BRAIN_SIZE; i++) {
-
-		for(var j=0; j<BRAIN_SIZE; j++){
-			if(b[i].out>0){
-				b[i].weights[j]+=b[i].out*b[i].weights[j]*this.lr*0.01;
-			} else {
-				b[i].weights2[j]+=b[i].out*b[i].weights2[j]*this.lr*0.01;
-			}
-		}
-	}
+  this.outputs[20].in == 0 ? "": console.log("BEFORE: ", this.outputs[20].in)
+  this.outputs[21].in == 0 ? "": console.log("BEFORE: ",this.outputs[21].in)
+  this.outputs[22].in == 0 ? "": console.log("BEFORE: ",this.outputs[22].in)
+  this.outputs[idx++].clamp(); // 20
+  this.outputs[idx++].clamp(); // 21
+  this.outputs[idx++].clamp(); // 22
+  this.outputs[20].out == 0 ? "": console.log("AFTER: ",this.outputs[20].out)
+  this.outputs[21].out == 0 ? "": console.log("AFTER: ",this.outputs[21].out)
+  this.outputs[22].out == 0 ? "": console.log("AFTER: ",this.outputs[22].out)
   */
+
+  //console.log("TIME: ", Date.now()-start)
 }
 
 Animal.prototype.mitosis=function(parent) {
@@ -583,32 +574,44 @@ Animal.prototype.mitosis=function(parent) {
     }
   }
 
-  // mut_rate is rounded because NaN errors occuring upon addition to pos/negWeight float32Arrays
-  var mut_rate = round(100*(this.outputs[7].out+1))/2000 
+  // randomMutation is rounded because NaN errors occuring upon addition to pos/negWeight float32Arrays
+  
+  var randomMutation = round(100*(this.outputs[7].out+1))/2000 
   mitosisStat+=1;
-  mutationRateStat+=mut_rate;
-  if(isNaN(mut_rate)) {
+  mutationRateStat+=randomMutation;
+  if(isNaN(randomMutation)) {
     console.log(this.outputs[7])
     console.log("NAN MUT RATE")
   }
   for(var i=0; i<NUM_INPUT_NEURONS; i++) {
     for(var j = 0; j<NUM_OUTPUT_NEURONS; j++) {
-      // put pressure on weights to go towards zero by subtracting the weight from the possible
-      this.inputs[i].posWeights[j] += (2*Math.random()-1 - this.inputs[i].posWeights[j])*mut_rate;
-      this.inputs[i].negWeights[j] += (2*Math.random()-1 - this.inputs[i].negWeights[j])*mut_rate;
+      // put pressure on weights to go towards zero by subtracting the weight from the possible. 
+      //this.inputs[i].weights1[j] += round(1000*((2*Math.random()-1 - this.inputs[i].weights1[j])*randomMutation + parent.inputs[i].weight1Deltas1[j]*parent.outputs[20].out + parent.inputs[i].weight1Deltas2[j]*parent.outputs[21].out + parent.inputs[i].weight1Deltas3[j]*parent.outputs[22].out))/1000;
+      //this.inputs[i].weights2[j] += round(1000*((2*Math.random()-1 - this.inputs[i].weights2[j])*randomMutation + parent.inputs[i].weight2Deltas1[j]*parent.outputs[20].out + parent.inputs[i].weight2Deltas2[j]*parent.outputs[21].out + parent.inputs[i].weight2Deltas3[j]*parent.outputs[22].out))/1000;
+      this.inputs[i].weights1[j] += (2*Math.random()-1 - this.inputs[i].weights1[j])*randomMutation;
+      this.inputs[i].weights2[j] += (2*Math.random()-1 - this.inputs[i].weights2[j])*randomMutation;
+
+
     }
+    //this.inputs[i].createDeltas(NUM_OUTPUT_NEURONS) // create new deltas
+    //parent.outputs[i].createDeltas(NUM_OUTPUT_NEURONS) // randomize parent deltas
   }
   // do hiddens
 
   for(var i=0; i<NUM_OUTPUT_NEURONS; i++) {
     for(var j = 0; j<NUM_OUTPUT_NEURONS; j++) {
-      this.outputs[i].posWeights[j] += (2*Math.random()-1 - this.outputs[i].posWeights[j])*mut_rate;
-      this.outputs[i].negWeights[j] += (2*Math.random()-1 - this.outputs[i].negWeights[j])*mut_rate;
-
+      //this.outputs[i].weights1[j] += round(1000*((2*Math.random()-1 - this.outputs[i].weights1[j])*randomMutation + parent.outputs[i].weight1Deltas1[j]*parent.outputs[20].out + parent.outputs[i].weight1Deltas2[j]*parent.outputs[21].out + parent.outputs[i].weight1Deltas3[j]*parent.outputs[22].out))/1000;
+      //this.outputs[i].weights2[j] += round(1000*((2*Math.random()-1 - this.outputs[i].weights2[j])*randomMutation + parent.outputs[i].weight1Deltas1[j]*parent.outputs[20].out + parent.outputs[i].weight1Deltas2[j]*parent.outputs[21].out + parent.outputs[i].weight1Deltas3[j]*parent.outputs[22].out))/1000;
+      this.outputs[i].weights1[j] += (2*Math.random()-1 - this.outputs[i].weights1[j])*randomMutation;
+      this.outputs[i].weights2[j] += (2*Math.random()-1 - this.outputs[i].weights2[j])*randomMutation;
     }
+    //this.outputs[i].createDeltas(NUM_OUTPUT_NEURONS) // create new deltas
+    //parent.outputs[i].createDeltas(NUM_OUTPUT_NEURONS) // randomize parent deltas
   }
-  document.getElementById("dash-live-info").innerHTML = "LIVE: " + livePop + "     DEAD: " + graveyard.length;
 
+
+  document.getElementById("dash-live-info").innerHTML = "LIVE: " + livePop + "     DEAD: " + graveyard.length;
+  
 }
 
 Animal.prototype.kill=function() {
