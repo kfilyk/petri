@@ -2,7 +2,6 @@ var START_SIZE=1;
 var MAX_SIZE=20;
 var BRAIN_SIZE=50; //number of neurons
 var NUM_INPUT_NEURONS=30;
-var NUM_HIDDEN_NEURONS=10;
 var NUM_OUTPUT_NEURONS=30; 
 
 class Animal {
@@ -37,7 +36,6 @@ class Animal {
     this.netEaten=1;
     
     this.inputs=new Array(NUM_INPUT_NEURONS);
-    this.hiddens=new Array(NUM_HIDDEN_NEURONS);
     this.outputs=new Array(NUM_OUTPUT_NEURONS);
   
     for(var i=0; i<NUM_INPUT_NEURONS; i++) { // fill with empty neurons
@@ -45,11 +43,6 @@ class Animal {
       this.inputs[i].init(NUM_OUTPUT_NEURONS, 22); // 30 inputs, 20 outputs - start without controlling direction &distance of eyes, mouth (12)
     }
 
-    for(var i=0; i<NUM_HIDDEN_NEURONS+NUM_OUTPUT_NEURONS; i++) { // fill with empty neurons
-      this.inputs[i] = new Neuron(); // neuron will be created with number of weights equal to outputs+hiddens
-      this.inputs[i].init(NUM_OUTPUT_NEURONS, 22); // 30 inputs, 20 outputs - start without controlling direction &distance of eyes, mouth (12)
-    }
-  
     for(var i=0; i<NUM_OUTPUT_NEURONS; i++) { // fill with empty neurons
       this.outputs[i] = new Neuron(); // no weights; exist only to calculate output
       this.outputs[i].init(NUM_OUTPUT_NEURONS, NUM_OUTPUT_NEURONS); // start output neurons with empty weights linking to other output neurons
@@ -414,7 +407,7 @@ Animal.prototype.grow=function() {
     this.energy /= 2;
 
     var mutant=_.cloneDeep(this); // create new animal
-    mutant.mutate(this); // mutate given parent as reference
+    mutant.mitosis(this); // mutate given parent as reference
 
     this.descendants++;
     this.children.push(i);
@@ -443,7 +436,7 @@ Animal.prototype.think=function() {
   var idx = 0;
   this.inputs[idx++].in = this.velocity/10; 
   this.inputs[idx++].in = this.rotation/90; 
-  this.inputs[idx++].in = this.eaten/(this.size*10); // food eaten as herbivore - max/min food able to be eaten per iteration is < self.size*10: see eat()
+  this.inputs[idx++].in = this.eaten/(this.size*10); // food eaten as herbivore - max/min food able to be eaten per iteration is < self.size*10 + self.size*10 + self.size*10: see eat()
   //this.inputs[idx++].in = this.eaten/(this.size*10); // food eaten as carnivore - max/min food eaten per iteration is < self.size*10: see eat()
 
   this.energyChange > 0 ? this.inputs[idx++].in = this.energyChange/(this.size*10) : this.inputs[idx++].in = -this.energyChange/(this.size*10);  // how much energy animal gained last iteration
@@ -558,7 +551,7 @@ Animal.prototype.learn=function(b) {
   */
 }
 
-Animal.prototype.mutate=function(parent) {
+Animal.prototype.mitosis=function(parent) {
   this.descendants = 0;
   this.children = [];
   this.gen = parent.gen+1;

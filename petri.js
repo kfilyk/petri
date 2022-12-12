@@ -282,38 +282,38 @@ function pauseSimulation() {
 function init() {
 
   stats.addEventListener("mouseover", function (e) {
-		findxy('over', e)
+		getXY('over', e)
     mouseOverConsole = true;
 	}, false);
 	stats.addEventListener("mousemove", function (e) {
-		findxy('move', e)
+		getXY('move', e)
 	}, false);
 	stats.addEventListener("mousedown", function (e) {
-		findxy('down', e)
+		getXY('down', e)
 	}, false);
 	stats.addEventListener("mouseup", function (e) {
-		findxy('up', e)
+		getXY('up', e)
 	}, false);
 	stats.addEventListener("mouseout", function (e) {
-		findxy('out', e)
+		getXY('out', e)
     mouseOverConsole = false;
 	}, false);
 
 	map.addEventListener("mouseover", function (e) {
-		findxy('over', e)
+		getXY('over', e)
     mouseOverMap = true;
 	}, false);
 	map.addEventListener("mousemove", function (e) {
-		findxy('move', e)
+		getXY('move', e)
 	}, false);
 	map.addEventListener("mousedown", function (e) {
-		findxy('down', e)
+		getXY('down', e)
 	}, false);
 	map.addEventListener("mouseup", function (e) {
-		findxy('up', e)
+		getXY('up', e)
 	}, false);
 	map.addEventListener("mouseout", function (e) {
-		findxy('out', e)
+		getXY('out', e)
     mouseOverMap = false;
 	}, false);
   map.addEventListener("mousewheel", function (e) {
@@ -796,7 +796,6 @@ var inputManager= {
         prevMouseY = mouseY;
 
       } else if(cDrag){ // when left no longer pressed
-        console.log("CDRAG")
         cDrag = false;
 
         mouseOriginalX+=dragOffsetX;
@@ -806,41 +805,8 @@ var inputManager= {
 
         dragOffsetX=0;
         dragOffsetY=0;
-
       }
-
-		} else if(mouseOverConsole) { //dashboard mouse
-			if(leftPressed) {
-        console.log("X,Y: "+ mouseX +", "+ mouseY)
-        // dashboard MENU
-        if((mouseX>440)&&(mouseX<590) && display!=1 && display!=2) {
-					if((mouseY>10)&&(mouseY<20)) { // CLEAR
-						highlighted=null;
-						newest=null;
-						scores=null;
-						animals=null;
-            graveyard=null;
-						scores=new Array(SCORESCAP);
-						animals=new Array(POPCAP);
-            graveyard=[];
-
-            resetStats();
-
-						dashboard.setup();
-						tileManager.generate();
-						livePop=0;
-						HIGHESTINDEX=-1;
-						leftPressed=false;
-					}else if((mouseY>50)&&(mouseY<60)) { // MUT 100 HIGHSCORES
-						if(HIGHESTINDEX>=SCORESCAP) {
-							genHS();
-              resetStats();
-						}
-            leftPressed=false;
-          }
-        }
-			}
-		}
+		} 
 
     for(k in currentKeysPressed) {
       if((k == 'a' || k== 'ArrowLeft') && currentKeysPressed[k] == true) { 
@@ -941,63 +907,6 @@ function load() {
   dashboard.setup();
   */
 }
- 
-// Generate a new population pool based on animals with highest scores
-function genHS() {
-	display=0;
-	highlighted=null;
-	newest=null;
-	var a2 =new Array(POPCAP);
-	var it=0;
-	for(var j=0, sC=SCORESCAP; j<sC; j++) {
-		if(scores[j]!=null){
-      var a = new Animal(500,500,it);
-      var an = new Animal(500,500,it+1);
-      var ani = new Animal(500,500,it+2);
-      var anim = new Animal(500,500,it+3);
-      if(scores[j]>=0){
-        animals[scores[j]].x=round(Math.random()*FIELDX);
-        animals[scores[j]].y=round(Math.random()*FIELDY);
-        a2[it]=a;
-        animals[scores[j]].mutate(a2[it]);
-        a2[it].pidx=null;
-        a2[it+1]=an;
-        animals[scores[j]].mutate(a2[it+1]);
-        a2[it+1].pidx=null;
-        a2[it+2]=ani;
-        animals[scores[j]].mutate(a2[it+2]);
-        a2[it+2].pidx=null;
-        a2[it+3]=anim;
-        animals[scores[j]].mutate(a2[it+3]);
-        a2[it+3].pidx=null;
-        it+=4;
-      } else {
-        animals[-(scores[j]+1)].x=round(Math.random()*FIELDX);
-        animals[-(scores[j]+1)].y=round(Math.random()*FIELDY);
-        a2[it]=a;
-        animals[-(scores[j]+1)].mutate(a2[it]);
-        a2[it].pidx=null;
-        a2[it+1]=an;
-        animals[-(scores[j]+1)].mutate(a2[it+1]);
-        a2[it+1].pidx=null;
-        a2[it+2]=ani;
-        animals[-(scores[j]+1)].mutate(a2[it+2]);
-        a2[it+2].pidx=null;
-        a2[it+3]=anim;
-        animals[-(scores[j]+1)].mutate(a2[it+3]);
-        a2[it+3].pidx=null;
-        it+=4;
-      }
-    }
-	}
-	animals=new Array(POPCAP);
-	animals=a2;
-	a2=null;
-	scores=new Array(SCORESCAP);
-  resetStats();
-	dashboard.setup();
-	tileManager.generate();
-}
 
 function namer() {
 	var n="";
@@ -1007,7 +916,7 @@ function namer() {
 	return n;
 }
 
-function findxy(action, e) {
+function getXY(action, e) {
   // if action == move
 
   var rect = map.getBoundingClientRect();
