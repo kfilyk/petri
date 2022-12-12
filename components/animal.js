@@ -2,6 +2,7 @@ var START_SIZE=1;
 var MAX_SIZE=20;
 var BRAIN_SIZE=50; //number of neurons
 var NUM_INPUT_NEURONS=30;
+var NUM_HIDDEN_NEURONS=10;
 var NUM_OUTPUT_NEURONS=30; 
 
 class Animal {
@@ -36,9 +37,15 @@ class Animal {
     this.netEaten=1;
     
     this.inputs=new Array(NUM_INPUT_NEURONS);
+    this.hiddens=new Array(NUM_HIDDEN_NEURONS);
     this.outputs=new Array(NUM_OUTPUT_NEURONS);
   
     for(var i=0; i<NUM_INPUT_NEURONS; i++) { // fill with empty neurons
+      this.inputs[i] = new Neuron(); // neuron will be created with number of weights equal to outputs+hiddens
+      this.inputs[i].init(NUM_OUTPUT_NEURONS, 22); // 30 inputs, 20 outputs - start without controlling direction &distance of eyes, mouth (12)
+    }
+
+    for(var i=0; i<NUM_HIDDEN_NEURONS+NUM_OUTPUT_NEURONS; i++) { // fill with empty neurons
       this.inputs[i] = new Neuron(); // neuron will be created with number of weights equal to outputs+hiddens
       this.inputs[i].init(NUM_OUTPUT_NEURONS, 22); // 30 inputs, 20 outputs - start without controlling direction &distance of eyes, mouth (12)
     }
@@ -109,9 +116,8 @@ Animal.prototype.sense=function() {
 Animal.prototype.move=function() {
   // smallest creature max damage: 15
   // largest creature max damage: 300
-  var s1 = this.size
-  this.velocity=this.outputs[0].out*10/(1+this.damage/s1*s1); 
-  this.rotation=this.outputs[1].out*90/(1+this.damage/s1*s1); 
+  this.velocity=this.outputs[0].out*10/(1+this.damage/this.size); 
+  this.rotation=this.outputs[1].out*90/(1+this.damage/this.size); 
   
   this.direction+=this.rotation;
 
@@ -171,11 +177,10 @@ Animal.prototype.eat=function() {
     if(prey.alive==true) {
       
       // CARNIVORE RGB INTERACTION * ([PREY RGB INTERACTION]+1)/2 * SIZE * 5. 
-      // This is so that the total possible herbivorous/carnivorous eating amount remains equivalent!
       // Also, (abs(prey.outputs[3].out)+1) is done so that a creature that is not interacting still has the ability to be eaten actively, just at a reduced amount
-      r = this.outputs[3].out > 0 ? 0 : -this.outputs[3].out*(abs(prey.outputs[3].out)+1)*s1*5
-      g = this.outputs[4].out > 0 ? 0 : -this.outputs[4].out*(abs(prey.outputs[4].out)+1)*s1*5
-      b = this.outputs[5].out > 0 ? 0 : -this.outputs[5].out*(abs(prey.outputs[5].out)+1)*s1*5
+      r = this.outputs[3].out > 0 ? 0 : -this.outputs[3].out*(abs(prey.outputs[3].out)+1)*s1*10
+      g = this.outputs[4].out > 0 ? 0 : -this.outputs[4].out*(abs(prey.outputs[4].out)+1)*s1*10
+      b = this.outputs[5].out > 0 ? 0 : -this.outputs[5].out*(abs(prey.outputs[5].out)+1)*s1*10
 
         // if food has been properly eaten, increase the red/green/blue eaten tallies
       this.redEaten+=r;
@@ -261,11 +266,11 @@ Animal.prototype.draw=function(c){
   }
 
   // draw body
-  ctx2.strokeStyle= rgbToHex(c[3],c[4],c[5]);
+  //ctx2.strokeStyle= rgbToHex(c[3],c[4],c[5]);
   ctx2.fillStyle= rgbToHex(c[0],c[1],c[2]);
   ctx2.beginPath();
   ctx2.arc(this.x, this.y, this.size/2, 0, TWOPI); // WITH START SIZE OF 5, RADIUS IS 2.5
-  ctx2.stroke();
+  //ctx2.stroke();
   ctx2.fill();
 
   // draw mouth
@@ -438,7 +443,9 @@ Animal.prototype.think=function() {
   var idx = 0;
   this.inputs[idx++].in = this.velocity/10; 
   this.inputs[idx++].in = this.rotation/90; 
-  this.inputs[idx++].in = this.eaten/(this.size*10); // food eaten - max/min food able to be eaten per iteration is < self.size*10: see eat()
+  this.inputs[idx++].in = this.eaten/(this.size*10); // food eaten as herbivore - max/min food able to be eaten per iteration is < self.size*10: see eat()
+  //this.inputs[idx++].in = this.eaten/(this.size*10); // food eaten as carnivore - max/min food eaten per iteration is < self.size*10: see eat()
+
   this.energyChange > 0 ? this.inputs[idx++].in = this.energyChange/(this.size*10) : this.inputs[idx++].in = -this.energyChange/(this.size*10);  // how much energy animal gained last iteration
   this.inputs[idx++].in=this.health; 
   this.inputs[idx++].in=this.mouth.r; // what the mouth sees
@@ -563,10 +570,9 @@ Animal.prototype.mutate=function(parent) {
   this.greenEaten=0.003;
   this.blueEaten=0.003;
   this.netEaten=0.01;
+  this.damage = 0;
   this.damageCaused=0;
   this.damageReceived=0;
-
-
 
   if(round(Math.random()*2)==2) {
     if(round(Math.random()*2)==2) {
@@ -825,6 +831,20 @@ Animal.prototype.highlight=function() {
       }
     }
     document.getElementById("stats-rotation").innerHTML = stat_string;
+
+    //mutation
+    stat = round(this.outputs[6].out*5);
+    stat_string = "MUT";
+    if(stat > 0) {
+      for(var i = 0; i<stat; i++) {
+        stat_string = stat_string.concat("+")
+      }
+    } else {
+      for(var i = 0; i<-stat; i++) {
+        stat_string = stat_string.concat("-")
+      }
+    }
+    document.getElementById("stats-mutation").innerHTML = stat_string;
 
   } else if(display==1) { // BRAIN DISPLAY
     ctx4.beginPath();
