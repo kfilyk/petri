@@ -59,7 +59,6 @@ Neuron.prototype.clamp=function() { // calculates sum of inputs + bias to be use
 Neuron.prototype.synapse=function(idx /* d1, d2, d3*/) { // if this.in>=0 return this.in*weights[0]
     //return round(1000*(this.in > 0 ? this.in*(this.weights1[idx]+this.weight1Deltas1[idx]*d1+this.weight1Deltas2[idx]*d2+this.weight1Deltas3[idx]*d3) : this.in*(this.weights2[idx]+this.weight2Deltas1[idx]*d1+this.weight2Deltas2[idx]*d2+this.weight2Deltas3[idx]*d3)))/1000 //+ this.biases[idx];
     return this.in > 0 ? this.in*this.weights1[idx] : this.in*this.weights2[idx] //+ this.biases[idx];
-
 }
 
 
@@ -75,6 +74,13 @@ Neuron.prototype.tanh=function() { // calculates sum of inputs + bias to be used
     // Takes ~130ms to do 10 million of these
     var e = Math.exp(2*this.in) 
     this.out = (e-1)/(e+1);
+    */
+
+    /*
+        try this:
+        const x = this.in;
+        const x2 = x * x;
+        this.out = x * (27 + x2) / (27 + 9 * x2);
     */
 
     // Takes ~130ms to do 10 million of these. Fastet implementation found

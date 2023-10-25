@@ -3,6 +3,7 @@ var MAX_SIZE=20;
 var BRAIN_SIZE=50; //number of neurons
 var NUM_INPUT_NEURONS=30;
 var NUM_OUTPUT_NEURONS=35; 
+var EATING_CONSTANT=2;
 
 class Animal {
   constructor(x, y, index ) {
@@ -112,8 +113,8 @@ Animal.prototype.sense=function() {
 Animal.prototype.move=function() {
   // smallest creature max damage: 15
   // largest creature max damage: 300
-  this.velocity=this.outputs[0].out*10/(1+this.damage/this.size); 
-  this.rotation=this.outputs[1].out*90/(1+this.damage/this.size); 
+  this.velocity=this.outputs[0].out*5/(1+this.damage/this.size); 
+  this.rotation=this.outputs[1].out*45/(1+this.damage/this.size); 
   
   this.direction+=this.rotation;
 
@@ -173,10 +174,11 @@ Animal.prototype.eat=function() {
     if(prey.alive==true) {
       
       // CARNIVORE RGB INTERACTION * ([PREY RGB INTERACTION]+1)/2 * SIZE * 5. 
-      // Also, (abs(prey.outputs[3].out)+1) is done so that a creature that is not interacting still has the ability to be eaten actively, just at a reduced amount
-      r = this.outputs[3].out > 0 ? 0 : -this.outputs[3].out*(abs(prey.outputs[3].out)+1)*s1*10
-      g = this.outputs[4].out > 0 ? 0 : -this.outputs[4].out*(abs(prey.outputs[4].out)+1)*s1*10
-      b = this.outputs[5].out > 0 ? 0 : -this.outputs[5].out*(abs(prey.outputs[5].out)+1)*s1*10
+      // Also, (abs(prey.outputs[3].out)+1) is used so that a creature that is not 'interacting' with its environment still can be eaten: not invisible! 
+      // Furthermore, when a creature eats another creature who is fully 'grazing' on tiles, that creature receives the MOST amount of damage- akin to 'letting ones guard down'
+      r = this.outputs[3].out > 0 ? 0 : -this.outputs[3].out*(abs(prey.outputs[3].out)+1)*s1*EATING_CONSTANT;
+      g = this.outputs[4].out > 0 ? 0 : -this.outputs[4].out*(abs(prey.outputs[4].out)+1)*s1*EATING_CONSTANT;
+      b = this.outputs[5].out > 0 ? 0 : -this.outputs[5].out*(abs(prey.outputs[5].out)+1)*s1*EATING_CONSTANT;
 
         // if food has been properly eaten, increase the red/green/blue eaten tallies
       this.redEaten+=r;
@@ -193,19 +195,18 @@ Animal.prototype.eat=function() {
     var t = this.mouth.tile;
     
     // HERBIVORE COL INTERACTION * SIZE * COL EQUALIZATION VAR
-    
-    r = this.outputs[3].out < 0 ? 0 : this.outputs[3].out*s1*10; 
-    g = this.outputs[4].out < 0 ? 0 : this.outputs[4].out*s1*10; 
-    b = this.outputs[5].out < 0 ? 0 : this.outputs[5].out*s1*10; 
+    r = this.outputs[3].out < 0 ? 0 : this.outputs[3].out*s1*EATING_CONSTANT; 
+    g = this.outputs[4].out < 0 ? 0 : this.outputs[4].out*s1*EATING_CONSTANT; 
+    b = this.outputs[5].out < 0 ? 0 : this.outputs[5].out*s1*EATING_CONSTANT; 
     
     if(isNaN(this.outputs[3].out) || isNaN(this.outputs[4].out) || isNaN(this.outputs[5].out)){
       console.log("NAN OUTPUT")
     }
 
-    // food is removed from tile. could go into the negative, but halted at -RCap. Because tile colouration is predominantly green, adjust so that red, blue tiles lose less food per consumption, to make RGB equal
-    tiles[t].R > -tiles[t].RCap ? tiles[t].R-= r/1.5 : tiles[t].R = -tiles[t].RCap;
-    tiles[t].G > -tiles[t].GCap ? tiles[t].G-= g : tiles[t].G = -tiles[t].GCap;
-    tiles[t].B > -tiles[t].BCap ? tiles[t].B-= b/2 : tiles[t].B = -tiles[t].BCap;
+    // food is removed from tile. could go into the negative: halt further reduction if @ -XCap. Because tile colouration is predominantly green, adjust so that red, blue tiles lose less food per consumption, to make RGB equal
+    tiles[t].R > -tiles[t].RCap ? tiles[t].R-= r/1.5 : null;
+    tiles[t].G > -tiles[t].GCap ? tiles[t].G-= g : null;
+    tiles[t].B > -tiles[t].BCap ? tiles[t].B-= b/2 : null;
   
     if(isNaN(tiles[t].R) || isNaN(tiles[t].G) || isNaN(tiles[t].B)){
       console.log("NAN TILE RGB")
@@ -348,7 +349,7 @@ Animal.prototype.decay=function() {
       }
 		}
 
-    // Tell children that their parent is dead... If child dead, child_index will be negative (-(parent_index+1)).
+    // Tell children that their parent is dead... If child is dead, child_index is negative (-(parent_index+1)).
     for(var i=0, cL=this.children.length; i<cL; i++) {
 			if(this.children[i]<0) {
 				graveyard[-(this.children[i]+1)].parent=dead.index;
@@ -409,13 +410,14 @@ Animal.prototype.grow=function() {
     mutant.mitosis(this); // mutate given parent as reference
 
     this.descendants++;
-    this.children.push(i);
+    this.children.push(i); // push index of child to children[] array
 
     mutant.index = i // IMPORTANT! Set index of mutant
     animals[i]=mutant; 
     newest=i;
     livePop++;
   
+    // recursive backwards and add a record of descendants to older/deceased animals
     var ancestor=this.parent;
     while(ancestor!=null) {
       if(ancestor>=0) {
@@ -431,12 +433,10 @@ Animal.prototype.grow=function() {
 
 Animal.prototype.think=function() {
 
-  // ~30 inputs, ~20 outputs
   var idx = 0;
   this.inputs[idx++].in = this.velocity/10; 
   this.inputs[idx++].in = this.rotation/90; 
-  this.inputs[idx++].in = this.eaten/(this.size*30); // food eaten as herbivore - max/min food able to be eaten per iteration is < self.size*10 + self.size*10 + self.size*10: see eat()
-  //this.inputs[idx++].in = this.eaten/(this.size*10); // food eaten as carnivore - max/min food eaten per iteration is < self.size*10: see eat()
+  this.inputs[idx++].in = this.eaten/(this.size*(EATING_CONSTANT*6)); // food eaten / max possible food able to be eaten (carnivore) ≤ self.size*(R+G+B)*2*EATING_CONSTANT: see eat()
 
   this.energyChange > 0 ? this.inputs[idx++].in = this.energyChange/(this.size*10) : this.inputs[idx++].in = -this.energyChange/(this.size*10);  // how much energy animal gained last iteration
   this.inputs[idx++].in=this.health; 
@@ -499,9 +499,11 @@ Animal.prototype.think=function() {
     
     //console.log(input)
     this.outputs[o].in=input; // set activation of neuron
+    /*
     if(input>5) {
       console.log(input)
     }
+    */
     input=0;
   }
 
@@ -574,41 +576,165 @@ Animal.prototype.mitosis=function(parent) {
     }
   }
 
-  // randomMutation is rounded because NaN errors occuring upon addition to pos/negWeight float32Arrays
-  
-  var randomMutation = round(100*(this.outputs[7].out+1))/2000 
+  // mutationRate is rounded because NaN errors occuring upon addition to pos/negWeight float32Arrays
+  // NOTE: The mutation algorithm intentionally causes weights to tend towards 0 by subtracting "this.inputs[x].weights1[y]": This way, excessive mutation is avoided, and only useful mutations are kept non-zero
+  var mutationRate = round(100*(this.outputs[7].out+1))/2000 
   mitosisStat+=1;
-  mutationRateStat+=randomMutation;
-  if(isNaN(randomMutation)) {
+  mutationRateStat+=mutationRate;
+  if(isNaN(mutationRate)) {
     console.log(this.outputs[7])
     console.log("NAN MUT RATE")
   }
+
+  /****** MUTATE FIRST ******/
+
+  // Mutate all input neurons
   for(var i=0; i<NUM_INPUT_NEURONS; i++) {
     for(var j = 0; j<NUM_OUTPUT_NEURONS; j++) {
       // put pressure on weights to go towards zero by subtracting the weight from the possible. 
-      //this.inputs[i].weights1[j] += round(1000*((2*Math.random()-1 - this.inputs[i].weights1[j])*randomMutation + parent.inputs[i].weight1Deltas1[j]*parent.outputs[20].out + parent.inputs[i].weight1Deltas2[j]*parent.outputs[21].out + parent.inputs[i].weight1Deltas3[j]*parent.outputs[22].out))/1000;
-      //this.inputs[i].weights2[j] += round(1000*((2*Math.random()-1 - this.inputs[i].weights2[j])*randomMutation + parent.inputs[i].weight2Deltas1[j]*parent.outputs[20].out + parent.inputs[i].weight2Deltas2[j]*parent.outputs[21].out + parent.inputs[i].weight2Deltas3[j]*parent.outputs[22].out))/1000;
-      this.inputs[i].weights1[j] += (2*Math.random()-1 - this.inputs[i].weights1[j])*randomMutation;
-      this.inputs[i].weights2[j] += (2*Math.random()-1 - this.inputs[i].weights2[j])*randomMutation;
-
-
+      this.inputs[i].weights1[j] += (2*Math.random()-1 - this.inputs[i].weights1[j])*mutationRate;
+      this.inputs[i].weights2[j] += (2*Math.random()-1 - this.inputs[i].weights2[j])*mutationRate;
     }
-    //this.inputs[i].createDeltas(NUM_OUTPUT_NEURONS) // create new deltas
-    //parent.outputs[i].createDeltas(NUM_OUTPUT_NEURONS) // randomize parent deltas
   }
-  // do hiddens
 
+  // Mutate all output neurons
   for(var i=0; i<NUM_OUTPUT_NEURONS; i++) {
     for(var j = 0; j<NUM_OUTPUT_NEURONS; j++) {
-      //this.outputs[i].weights1[j] += round(1000*((2*Math.random()-1 - this.outputs[i].weights1[j])*randomMutation + parent.outputs[i].weight1Deltas1[j]*parent.outputs[20].out + parent.outputs[i].weight1Deltas2[j]*parent.outputs[21].out + parent.outputs[i].weight1Deltas3[j]*parent.outputs[22].out))/1000;
-      //this.outputs[i].weights2[j] += round(1000*((2*Math.random()-1 - this.outputs[i].weights2[j])*randomMutation + parent.outputs[i].weight1Deltas1[j]*parent.outputs[20].out + parent.outputs[i].weight1Deltas2[j]*parent.outputs[21].out + parent.outputs[i].weight1Deltas3[j]*parent.outputs[22].out))/1000;
-      this.outputs[i].weights1[j] += (2*Math.random()-1 - this.outputs[i].weights1[j])*randomMutation;
-      this.outputs[i].weights2[j] += (2*Math.random()-1 - this.outputs[i].weights2[j])*randomMutation;
+      this.outputs[i].weights1[j] += (2*Math.random()-1 - this.outputs[i].weights1[j])*mutationRate;
+      this.outputs[i].weights2[j] += (2*Math.random()-1 - this.outputs[i].weights2[j])*mutationRate;
     }
-    //this.outputs[i].createDeltas(NUM_OUTPUT_NEURONS) // create new deltas
-    //parent.outputs[i].createDeltas(NUM_OUTPUT_NEURONS) // randomize parent deltas
   }
 
+
+
+
+
+
+
+
+
+
+  /*
+    where weights = weights of current creature:
+    DELTAS
+    w_pos = [ave(weights of LIVING descendants) - weights]
+    w_neg = [ave(weights of dead descendants with 0 children) - weights]
+    w_rand = [small random weight deltas]
+
+    weights += w_rand + w_pos - w_neg
+  */
+
+  //find every child of a parent: add all except the original
+  function getDescendants(idx, orig) {
+    let idxs = [];  // Initialize array to store descendant indices
+    let current = (idx >= 0 ? animals[idx] : graveyard[-(idx + 1)]);  // Fetch animal or from graveyard based on index
+  
+    // Loop through all children of the current animal
+    for (let i = 0; i < current.children.length; i++) {
+      // Recursively fetch descendants of the child and concatenate with idxs
+      idxs = idxs.concat(getDescendants(current.children[i], orig));
+    }
+  
+    // Add current index to idxs if it's not the original animal
+    if (idx !== orig) {
+      idxs.push(idx);
+    }
+  
+    return idxs;  // Return the array of descendant indices
+  }
+
+  var idxs = getDescendants(this.parent, this.parent)
+  console.log("DESCENDANTS OF "+ parent.name+"-"+parent.gen+(parent.alive==true ? "A":"D")+parent.children.length+": "+idxs)
+
+
+  function getWeightDeltas(current, base) {
+    let in_weights1_deltas = [];  // Initialize array to store input weight1 deltas
+    let in_weights2_deltas = [];  // Initialize array to store input weight2 deltas
+    let out_weights1_deltas = []; // Initialize array to store output weight1 deltas
+    let out_weights2_deltas = []; // Initialize array to store output weight2 deltas
+  
+    // Loop through input neurons
+    for (let i = 0; i < NUM_INPUT_NEURONS; i++) {
+      let w1_deltas = [];  // Initialize sub-array for weight1 deltas
+      let w2_deltas = [];  // Initialize sub-array for weight2 deltas
+      // Loop through output neurons
+      for (let j = 0; j < NUM_OUTPUT_NEURONS; j++) {
+        // Calculate deltas for weights1 and weights2
+        w1_deltas[j] = current.inputs[i].weights1[j] - base.inputs[i].weights1[j];
+        w2_deltas[j] = current.inputs[i].weights2[j] - base.inputs[i].weights2[j];
+      }
+      in_weights1_deltas.push(w1_deltas);
+      in_weights2_deltas.push(w2_deltas);
+    }
+  
+    // Loop through output neurons
+    for (let i = 0; i < NUM_OUTPUT_NEURONS; i++) {
+      let w1_deltas = [];  // Initialize sub-array for weight1 deltas
+      let w2_deltas = [];  // Initialize sub-array for weight2 deltas
+      // Loop through output neurons
+      for (let j = 0; j < NUM_OUTPUT_NEURONS; j++) {
+        // Calculate deltas for weights1 and weights2
+        w1_deltas[j] = current.outputs[i].weights1[j] - base.outputs[i].weights1[j];
+        w2_deltas[j] = current.outputs[i].weights2[j] - base.outputs[i].weights2[j];
+      }
+      out_weights1_deltas.push(w1_deltas);
+      out_weights2_deltas.push(w2_deltas);
+    }
+  
+    return {in_weights1_deltas, in_weights2_deltas, out_weights1_deltas, out_weights2_deltas};
+  }
+  
+  // Usage
+  var advantageous = []
+  var detrimental = []
+  for (let i = 0; i < idxs.length; i++) {
+    let idx = idxs[i];
+    let current = (idx >= 0 ? animals[idx] : graveyard[-(idx + 1)]);  // Fetch animal or from graveyard based on index
+    // if animal is ALIVE or animal is DEAD WITH 0 CHILDREN: get deltas
+    if(idx >= 0) {
+      advantageous.push(getWeightDeltas(current, parent));
+    } else if(current.children.length == 0) {
+      detrimental.push(getWeightDeltas(current, parent))
+    }
+  }
+
+  //ADD AVERAGE OF ADVANTAGEOUS DELTAS
+  var advl = advantageous.length
+  for(var a= 0; a < advl; a++) {
+    adv = advantageous[a]
+    for(var i=0; i<NUM_INPUT_NEURONS; i++) {
+      for(var j = 0; j<NUM_OUTPUT_NEURONS; j++) {
+        this.inputs[i].weights1[j] += adv['in_weights1_deltas'][i][j]/advl
+        this.inputs[i].weights2[j] += adv['in_weights2_deltas'][i][j]/advl
+      }
+    }
+
+    for(var i=0; i<NUM_OUTPUT_NEURONS; i++) {
+      for(var j = 0; j<NUM_OUTPUT_NEURONS; j++) {
+        this.outputs[i].weights1[j] += adv['out_weights1_deltas'][i][j]/advl
+        this.outputs[i].weights2[j] += adv['out_weights2_deltas'][i][j]/advl
+      }
+    }
+  }
+
+  //SUBTRACT AVERAGE OF DETRIMENTAL DELTAS
+  var detl = detrimental.length
+  for(var d= 0; d < detl; d++) {
+    det = detrimental[d]
+    for(var i=0; i<NUM_INPUT_NEURONS; i++) {
+      for(var j = 0; j<NUM_OUTPUT_NEURONS; j++) {
+        this.inputs[i].weights1[j] -= det['in_weights1_deltas'][i][j]/detl;
+        this.inputs[i].weights2[j] -= det['in_weights2_deltas'][i][j]/detl;
+      }
+    }
+
+    for(var i=0; i<NUM_OUTPUT_NEURONS; i++) {
+      for(var j = 0; j<NUM_OUTPUT_NEURONS; j++) {
+        this.outputs[i].weights1[j] -= det['out_weights1_deltas'][i][j]/detl;
+        this.outputs[i].weights2[j] -= det['out_weights2_deltas'][i][j]/detl;
+      }
+    }
+  }
 
   document.getElementById("dash-live-info").innerHTML = "LIVE: " + livePop + "     DEAD: " + graveyard.length;
   
@@ -736,7 +862,7 @@ Animal.prototype.highlight=function() {
       document.getElementById("stats-parent").innerHTML = ""
     }
     if(this.sibling_idx!=null){
-      document.getElementById("stats-sibling-idx").innerHTML = "SIBLING: "+this.sibling_idx+1;
+      document.getElementById("stats-sibling-idx").innerHTML = "SIBLING: "+this.sibling_idx;
     }
     document.getElementById("stats-descendants").innerHTML = "DESCENDANTS: "+this.descendants;
 

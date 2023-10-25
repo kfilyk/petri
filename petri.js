@@ -38,6 +38,7 @@ var leftPressed = false;
 var rightPressed = false;
 var pause=false; // whether simulation is paused
 var highlighted=null;
+var following=null; // following with camera
 var display=0;
 var scoreType=0;
 var newest=null;
