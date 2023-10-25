@@ -586,33 +586,6 @@ Animal.prototype.mitosis=function(parent) {
     console.log("NAN MUT RATE")
   }
 
-  /****** MUTATE FIRST ******/
-
-  // Mutate all input neurons
-  for(var i=0; i<NUM_INPUT_NEURONS; i++) {
-    for(var j = 0; j<NUM_OUTPUT_NEURONS; j++) {
-      // put pressure on weights to go towards zero by subtracting the weight from the possible. 
-      this.inputs[i].weights1[j] += (2*Math.random()-1 - this.inputs[i].weights1[j])*mutationRate;
-      this.inputs[i].weights2[j] += (2*Math.random()-1 - this.inputs[i].weights2[j])*mutationRate;
-    }
-  }
-
-  // Mutate all output neurons
-  for(var i=0; i<NUM_OUTPUT_NEURONS; i++) {
-    for(var j = 0; j<NUM_OUTPUT_NEURONS; j++) {
-      this.outputs[i].weights1[j] += (2*Math.random()-1 - this.outputs[i].weights1[j])*mutationRate;
-      this.outputs[i].weights2[j] += (2*Math.random()-1 - this.outputs[i].weights2[j])*mutationRate;
-    }
-  }
-
-
-
-
-
-
-
-
-
 
   /*
     where weights = weights of current creature:
@@ -644,7 +617,7 @@ Animal.prototype.mitosis=function(parent) {
   }
 
   var idxs = getDescendants(this.parent, this.parent)
-  console.log("DESCENDANTS OF "+ parent.name+"-"+parent.gen+(parent.alive==true ? "A":"D")+parent.children.length+": "+idxs)
+  //console.log("DESCENDANTS OF "+ parent.name+"-"+parent.gen+(parent.alive==true ? "A":"D")+parent.children.length+": "+idxs)
 
 
   function getWeightDeltas(current, base) {
@@ -736,8 +709,27 @@ Animal.prototype.mitosis=function(parent) {
     }
   }
 
+  /****** ADD RANDOM MUTATIONS->ZERO LAST ******/
+  // oddly enough, mutating AFTER adding ADVANTAGEOUS and DETRIMENTAL results in the FASTEST LEARNING TIMES
+
+  // Mutate all input neurons
+  for(var i=0; i<NUM_INPUT_NEURONS; i++) {
+    for(var j = 0; j<NUM_OUTPUT_NEURONS; j++) {
+      // put pressure on weights to go towards zero by subtracting the weight from the possible. 
+      this.inputs[i].weights1[j] += (2*Math.random()-1 - this.inputs[i].weights1[j])*mutationRate;
+      this.inputs[i].weights2[j] += (2*Math.random()-1 - this.inputs[i].weights2[j])*mutationRate;
+    }
+  }
+
+  // Mutate all output neurons
+  for(var i=0; i<NUM_OUTPUT_NEURONS; i++) {
+    for(var j = 0; j<NUM_OUTPUT_NEURONS; j++) {
+      this.outputs[i].weights1[j] += (2*Math.random()-1 - this.outputs[i].weights1[j])*mutationRate;
+      this.outputs[i].weights2[j] += (2*Math.random()-1 - this.outputs[i].weights2[j])*mutationRate;
+    }
+  }
+
   document.getElementById("dash-live-info").innerHTML = "LIVE: " + livePop + "     DEAD: " + graveyard.length;
-  
 }
 
 Animal.prototype.kill=function() {
