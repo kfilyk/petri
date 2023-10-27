@@ -87,7 +87,7 @@ Animal.prototype.sense=function() {
       if(this.mouth.sees==-1) { 
         // if this creatures mouth intercepts bounding box of another creature body
         if(abs(this.mouth.x-animals[j].x) <= ((animals[j].size/2)+(s1/4)) && abs(this.mouth.y-animals[j].y) <= ((animals[j].size/2)+(s1/4))) {
-          this.mouth.s=1; // sense other creature's 'voice'
+          this.mouth.s=((2*animals[j].size)/MAX_SIZE)-1;
           this.mouth.r=(animals[j].outputs[3].out); // get red of other creature
           this.mouth.g=(animals[j].outputs[4].out); // get green of other creature
           this.mouth.b=(animals[j].outputs[5].out); // get blue of other creature
@@ -98,10 +98,10 @@ Animal.prototype.sense=function() {
       for(var i=0; i<5; i++) {
         if(this.eyes[i].sees==-1) {
           if(abs(this.eyes[i].x-animals[j].x) <= (s1/4)+animals[j].size/2 && abs(this.eyes[i].y-animals[j].y) <= (s1/4)+animals[j].size/2) {
-            this.eyes[i].s=1;
-            this.eyes[i].r=(animals[j].outputs[3].out);
-            this.eyes[i].g=(animals[j].outputs[4].out);
-            this.eyes[i].b=(animals[j].outputs[5].out);
+            this.eyes[i].s=((2*animals[j].size)/MAX_SIZE)-1;
+            this.eyes[i].r=(animals[j].outputs[3].out); // get red of other creature
+            this.eyes[i].g=(animals[j].outputs[4].out); // get green of other creature
+            this.eyes[i].b=(animals[j].outputs[5].out); // get blue of other creature
             this.eyes[i].sees=j;
           }
         }
@@ -437,19 +437,21 @@ Animal.prototype.think=function() {
   this.inputs[idx++].in = this.velocity/10; 
   this.inputs[idx++].in = this.rotation/90; 
   this.inputs[idx++].in = this.eaten/(this.size*(EATING_CONSTANT*6)); // food eaten / max possible food able to be eaten (carnivore) ≤ self.size*(R+G+B)*2*EATING_CONSTANT: see eat()
+  this.inputs[idx++].in = ((2*this.size)/MAX_SIZE)-1; // current size
 
-  this.energyChange > 0 ? this.inputs[idx++].in = this.energyChange/(this.size*10) : this.inputs[idx++].in = -this.energyChange/(this.size*10);  // how much energy animal gained last iteration
-  this.inputs[idx++].in=this.health; 
+  this.inputs[idx++].in = this.energyChange/(this.size*10);  // how much energy animal gained/lost last tick
+  //console.log("ENERGY CHANGE INPUT: ", this.inputs[--idx])
+  //this.inputs[idx++].in=this.health; 
   this.inputs[idx++].in=this.mouth.r; // what the mouth sees
   this.inputs[idx++].in=this.mouth.g;
   this.inputs[idx++].in=this.mouth.b;
-  this.inputs[idx++].in=this.mouth.s; // sense other creatures
+  this.inputs[idx++].in=this.mouth.s; // sense other creature size
 
   for(var eye=0; eye<5; eye++) {
     this.inputs[idx++].in=this.eyes[eye].r;
     this.inputs[idx++].in=this.eyes[eye].g;
     this.inputs[idx++].in=this.eyes[eye].b;
-    this.inputs[idx++].in=this.eyes[eye].s;
+    this.inputs[idx++].in=this.eyes[eye].s; // sense other creature size
   }
 
   //console.log(this.inputs)
@@ -512,7 +514,7 @@ Animal.prototype.think=function() {
   outputIdx = 0;
   this.outputs[idx++].clamp(); // velocity
   this.outputs[idx++].clamp(); // rotation
-  this.outputs[idx++].clamp(); // voice
+  this.outputs[idx++].clamp(); // ???
   this.outputs[idx++].clamp(); // interact red
   this.outputs[idx++].clamp(); // interact green
   this.outputs[idx++].clamp(); // interact blue
@@ -578,14 +580,14 @@ Animal.prototype.mitosis=function(parent) {
 
   // mutationRate is rounded because NaN errors occuring upon addition to pos/negWeight float32Arrays
   // NOTE: The mutation algorithm intentionally causes weights to tend towards 0 by subtracting "this.inputs[x].weights1[y]": This way, excessive mutation is avoided, and only useful mutations are kept non-zero
-  var mutationRate = round(100*(this.outputs[7].out+1))/2000 
+  //var mutationRate = round(100*(this.outputs[7].out+1)/2)/1000 
+  var mutationRate = 0.1
   mitosisStat+=1;
   mutationRateStat+=mutationRate;
   if(isNaN(mutationRate)) {
     console.log(this.outputs[7])
     console.log("NAN MUT RATE")
   }
-
 
   /*
     where weights = weights of current creature:
@@ -664,55 +666,17 @@ Animal.prototype.mitosis=function(parent) {
     let idx = idxs[i];
     let current = (idx >= 0 ? animals[idx] : graveyard[-(idx + 1)]);  // Fetch animal or from graveyard based on index
     // if animal is ALIVE or animal is DEAD WITH 0 CHILDREN: get deltas
-    if(idx >= 0) {
+    if(current.children.length > 0) { // add all living and dead animals that had children
       advantageous.push(getWeightDeltas(current, parent));
-    } else if(current.children.length == 0) {
-      detrimental.push(getWeightDeltas(current, parent))
+    } else if(idx < 0) { // if didn't have children and is dead
+      //detrimental.push(getWeightDeltas(current, parent))
     }
   }
+  var net = advantageous.length + detrimental.length
 
-  //ADD AVERAGE OF ADVANTAGEOUS DELTAS
-  var advl = advantageous.length
-  for(var a= 0; a < advl; a++) {
-    adv = advantageous[a]
-    for(var i=0; i<NUM_INPUT_NEURONS; i++) {
-      for(var j = 0; j<NUM_OUTPUT_NEURONS; j++) {
-        this.inputs[i].weights1[j] += adv['in_weights1_deltas'][i][j]/advl
-        this.inputs[i].weights2[j] += adv['in_weights2_deltas'][i][j]/advl
-      }
-    }
-
-    for(var i=0; i<NUM_OUTPUT_NEURONS; i++) {
-      for(var j = 0; j<NUM_OUTPUT_NEURONS; j++) {
-        this.outputs[i].weights1[j] += adv['out_weights1_deltas'][i][j]/advl
-        this.outputs[i].weights2[j] += adv['out_weights2_deltas'][i][j]/advl
-      }
-    }
-  }
-
-  //SUBTRACT AVERAGE OF DETRIMENTAL DELTAS
-  var detl = detrimental.length
-  for(var d= 0; d < detl; d++) {
-    det = detrimental[d]
-    for(var i=0; i<NUM_INPUT_NEURONS; i++) {
-      for(var j = 0; j<NUM_OUTPUT_NEURONS; j++) {
-        this.inputs[i].weights1[j] -= det['in_weights1_deltas'][i][j]/detl;
-        this.inputs[i].weights2[j] -= det['in_weights2_deltas'][i][j]/detl;
-      }
-    }
-
-    for(var i=0; i<NUM_OUTPUT_NEURONS; i++) {
-      for(var j = 0; j<NUM_OUTPUT_NEURONS; j++) {
-        this.outputs[i].weights1[j] -= det['out_weights1_deltas'][i][j]/detl;
-        this.outputs[i].weights2[j] -= det['out_weights2_deltas'][i][j]/detl;
-      }
-    }
-  }
-
-  /****** ADD RANDOM MUTATIONS->ZERO LAST ******/
-  // oddly enough, mutating AFTER adding ADVANTAGEOUS and DETRIMENTAL results in the FASTEST LEARNING TIMES
-
-  // Mutate all input neurons
+  /****** ADD RANDOM MUTATIONS->ZERO BEFORE ADDING ADVANAGEOUS + DETRIMENTAL ******/
+ 
+  // Mutate input neurons
   for(var i=0; i<NUM_INPUT_NEURONS; i++) {
     for(var j = 0; j<NUM_OUTPUT_NEURONS; j++) {
       // put pressure on weights to go towards zero by subtracting the weight from the possible. 
@@ -721,13 +685,72 @@ Animal.prototype.mitosis=function(parent) {
     }
   }
 
-  // Mutate all output neurons
+  // Mutate output neurons
   for(var i=0; i<NUM_OUTPUT_NEURONS; i++) {
     for(var j = 0; j<NUM_OUTPUT_NEURONS; j++) {
       this.outputs[i].weights1[j] += (2*Math.random()-1 - this.outputs[i].weights1[j])*mutationRate;
       this.outputs[i].weights2[j] += (2*Math.random()-1 - this.outputs[i].weights2[j])*mutationRate;
     }
   }
+
+
+
+  //ADD AVERAGE OF ADVANTAGEOUS DELTAS
+  var advl = advantageous.length
+  for(var a= 0; a < advl; a++) {
+    adv = advantageous[a]
+    for(var i=0; i<NUM_INPUT_NEURONS; i++) {
+      for(var j = 0; j<NUM_OUTPUT_NEURONS; j++) {
+        this.inputs[i].weights1[j] += adv['in_weights1_deltas'][i][j]/advl;
+        this.inputs[i].weights2[j] += adv['in_weights2_deltas'][i][j]/advl;
+      }
+    }
+
+    for(var i=0; i<NUM_OUTPUT_NEURONS; i++) {
+      for(var j = 0; j<NUM_OUTPUT_NEURONS; j++) {
+        this.outputs[i].weights1[j] += adv['out_weights1_deltas'][i][j]/advl;
+        this.outputs[i].weights2[j] += adv['out_weights2_deltas'][i][j]/advl;
+      }
+    }
+  }
+
+  /*
+  //SUBTRACT AVERAGE OF DETRIMENTAL DELTAS
+  var detl = detrimental.length
+  for(var d= 0; d < detl; d++) {
+    det = detrimental[d]
+    for(var i=0; i<NUM_INPUT_NEURONS; i++) {
+      for(var j = 0; j<NUM_OUTPUT_NEURONS; j++) {
+        this.inputs[i].weights1[j] -= det['in_weights1_deltas'][i][j]/net;
+        this.inputs[i].weights2[j] -= det['in_weights2_deltas'][i][j]/net;
+      }
+    }
+
+    for(var i=0; i<NUM_OUTPUT_NEURONS; i++) {
+      for(var j = 0; j<NUM_OUTPUT_NEURONS; j++) {
+        this.outputs[i].weights1[j] -= det['out_weights1_deltas'][i][j]/net;
+        this.outputs[i].weights2[j] -= det['out_weights2_deltas'][i][j]/net;
+      }
+    }
+  }
+  */
+  /*
+  for(var i=0; i<NUM_INPUT_NEURONS; i++) {
+    for(var j = 0; j<NUM_OUTPUT_NEURONS; j++) {
+      // put pressure on weights to go towards zero by subtracting the weight from the possible. 
+      this.inputs[i].weights1[j] += (2*Math.random()-1 - this.inputs[i].weights1[j])*mutationRate;
+      this.inputs[i].weights2[j] += (2*Math.random()-1 - this.inputs[i].weights2[j])*mutationRate;
+    }
+  }
+
+  // Mutate output neurons
+  for(var i=0; i<NUM_OUTPUT_NEURONS; i++) {
+    for(var j = 0; j<NUM_OUTPUT_NEURONS; j++) {
+      this.outputs[i].weights1[j] += (2*Math.random()-1 - this.outputs[i].weights1[j])*mutationRate;
+      this.outputs[i].weights2[j] += (2*Math.random()-1 - this.outputs[i].weights2[j])*mutationRate;
+    }
+  }
+  */
 
   document.getElementById("dash-live-info").innerHTML = "LIVE: " + livePop + "     DEAD: " + graveyard.length;
 }
