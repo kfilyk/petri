@@ -21,20 +21,80 @@ body {
 
 #dashboard {
     width:20%;
-    position: fixed; /*  fixed is relative to viewport*/
+    min-width: 200px;
+    max-width: 80%;
+    position: fixed;
     top: 0;
-    right:0;   
-    bottom:0;
-    overflow-y:scroll;
+    right:0;
+    /* overflow: visible; */
+    overflow-y:auto;
+    display: flex;
+    flex-direction: row;
+    max-height: 100vh;
 }
 
+
+
 #dashboard-content {
+    flex: 1;
+    display: flex;
+    flex-direction: row;
+    overflow:hidden;
+    height:max-content;
+}
+
+#dashboard-content-right {
+    flex: 1;
     display: block;
     background-color: #ffffff88;
     backdrop-filter: blur(4px);
-    padding:10px;
-    border-bottom-left-radius: 10px;
+    overflow:hidden;
+    height:max-content;
 }
+
+#dashboard-resize-handle {
+    visibility: hidden;
+    display:flex !important;
+    background-color: #FFFFFF40;
+    position: relative;
+    /* left:-4px; */
+    cursor: ew-resize;
+    z-index: 1;
+    align-items: center;
+    /* margin:4px; */
+    cursor: grab;
+    width:12px !important;
+    height:auto;
+}
+
+#dashboard-resize-handle img {
+    pointer-events: none;
+    position:absolute;
+    transform-origin: top left;
+    transform: rotate(-90deg) translate(-50%, 0%);
+    opacity:0.5;
+    height:12px !important;
+    width:12px !important;
+}
+
+
+
+#dashboard-content:hover #dashboard-resize-handle {
+    visibility: visible;
+    cursor: grab;
+
+}
+
+#dashboard-resize-handle:hover,
+#dashboard-resize-handle.dragging {
+    visibility: visible;
+    cursor: grabbing;
+
+}
+
+
+
+
 
 #dashboard-top {
     display: relative;
@@ -46,17 +106,23 @@ body {
     padding-left:5px;
     padding-right:5px;
     opacity:68%;
-    transition: 0.5s;
     cursor: pointer;
 }
 
 #dashboard img:hover {
     opacity:100%;
-    transition: 0.5s;
 }
+
+#dashboard-info-container {
+    display: flex;
+    flex-direction: row;
+}
+
 
 #dashboard-info {
     margin-bottom:10px;
+    padding:8px;
+
     /*border: 1px black solid;*/
 }
 
@@ -68,18 +134,23 @@ body {
     margin:10px;
 }
 
-#dashboard-stats {
-    padding:10px;
-    margin:5px;
+#amoeb-stats {
+    padding:8px;
     position:relative;
     background-color: #ffffff88;
-    border-radius: 10px;
     overflow:hidden;
     display: none;
 }
 
+#dash-charts {
+    padding:8px;
+}
+
+
 .dash-medallist {
     position: relative;
+    width:min-content;
+    white-space: nowrap;
 }
 
 #dash-live-info {
@@ -98,17 +169,43 @@ body {
     line-height: 22px;
 }
 
-.bold-stat {
+.gauge-stat {
     font-weight: bold;
+    box-shadow: 0 -2px 0 0 #00000020 inset;
+    outline-offset: 2px;
 }
 
-#stats-left {
+#amoeb-stats-left {
     float: left;
-    width: 50%;
 }
-#stats-right {
-    float: right;
-    width: 50%;
+#amoeb-stats-right {
+    float:right;
+
+    display:flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+}
+
+#amoeb-stats-separator {
+    clear: both;
+    height: 1px;
+    background-color: #ccc;
+    margin: 12px 0;
+}
+
+#stats-red,
+#stats-green,
+#stats-blue,
+#stats-energy,
+#stats-velocity,
+#stats-rotation,
+#stats-mutation {
+    font-family: monospace;
+}
+
+#stats-energy {
+    color: #FFD000;
+    text-shadow: #FF0000 0.5px 0.5px;
 }
 
 #stats-red {
@@ -127,14 +224,230 @@ body {
     cursor:pointer;
 }
 
-#stats-close-button {
-    font-weight: bold;
-    right:10px;
-    top:10px;
-    position:absolute;
-    cursor:pointer;
+#amoeb-stats-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
 }
+  #amoeb-stats-separator {   
+    pointer-events: none;                                                                                                                      
+    height: 1px;                                                                                                                                 
+    background-color: transparent;                                                                                                                      
+    margin: 12px 0;                                                                                                                              
+  }     
+
+#amoeb-stats-title {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+}
+
+#amoeb-stats-buttons {
+    display: flex;
+    gap: 8px;
+}
+
+#amoeb-stats-buttons button img {
+    padding:0px;
+}
+
 
 #brain {
     display:none;
+    cursor:none;
 }
+
+#neuron-weights {
+    font-family: monospace;
+    font-size: 10px;
+    overflow-y: auto;
+    margin-top: 8px;
+}
+
+.neuron-weights-header {
+    font-weight: bold;
+    padding: 0px 0;
+    border-bottom: 1px solid #ccc;
+}
+
+.neuron-weights-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.neuron-weights-table th,
+.neuron-weights-table td {
+    padding: 0px 8px;
+    text-align: right;
+}
+
+.neuron-weights-table th {
+    border-bottom: 1px solid #ccc;
+}
+
+.col-separator {
+    width: 8px;
+    border-left: 1px solid #ccc;
+    padding: 0 !important;
+}
+
+.initial-weights {
+    color: #7F7F7F;
+}
+
+.adv-delta {
+    color: #00AA00;
+}
+
+
+.dis-delta {
+    color: #FF0000;
+
+}
+
+
+
+button {
+    display:flex;
+    justify-content: center;
+    align-items: center;
+    border: none;
+    outline:none;
+    background-color: transparent;
+    opacity:0.75;
+    font-weight: bold;
+    font-size: 16px;
+    padding:0px;
+}
+
+button:hover {
+    opacity: 1;
+}
+
+/* * * * * * * * * * * * * FAMILY TREE * * * * * * * * * * * * */
+
+#family-tree {
+    padding: 8px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.family-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #ddd;
+}
+
+.family-back-btn {
+    padding: 4px 8px !important;
+    background-color: #e0e0e0 !important;
+    border: 1px solid #bbb !important;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 10px !important;
+    opacity: 1 !important;
+}
+
+.family-back-btn:hover:not(:disabled) {
+    background-color: #d0d0d0 !important;
+}
+
+.family-back-btn:disabled {
+    opacity: 0.4 !important;
+    cursor: not-allowed;
+}
+
+.family-history-count {
+    color: #888;
+    font-size: 9px;
+}
+
+.family-empty {
+    color: #888;
+    font-style: italic;
+    padding: 16px;
+    text-align: center;
+}
+
+.family-section {
+    margin-bottom: 12px;
+}
+
+.family-section-header {
+    font-weight: bold;
+    font-size: 9px;
+    text-transform: uppercase;
+    color: #666;
+    margin-bottom: 4px;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 2px;
+}
+
+.family-member {
+    display: inline-block;
+    padding: 2px 6px;
+    margin: 2px;
+    background-color: #e8f5e9;
+    border: 1px solid #a5d6a7;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 10px;
+    transition: background-color 0.15s;
+}
+
+.family-member:hover {
+    background-color: #c8e6c9;
+}
+
+.family-member-dead {
+    background-color: #ffebee;
+    border-color: #ef9a9a;
+}
+
+.family-member-dead:hover {
+    background-color: #ffcdd2;
+}
+
+.family-member-self {
+    background-color: #fff3e0;
+    border-color: #ffcc80;
+    font-weight: bold;
+}
+
+.family-member-self:hover {
+    background-color: #ffe0b2;
+}
+
+.family-label {
+    color: #888;
+    font-size: 9px;
+    margin-right: 4px;
+}
+
+.family-name {
+    font-family: monospace;
+}
+
+.family-sibling-row,
+.family-child-row {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    margin-bottom: 4px;
+}
+
+.family-niblings,
+.family-grandchildren {
+    display: flex;
+    flex-wrap: wrap;
+    margin-left: 8px;
+    padding-left: 8px;
+    border-left: 2px solid #ddd;
+}
+
+/* * * * * * * * * * * * * UPLOT * * * * * * * * * * * * */
+

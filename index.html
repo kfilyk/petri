@@ -1,104 +1,130 @@
 <!DOCTYPE html>
 <html>
-  <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
-  <script
-    src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.4/Chart.js">
-  </script>
-  <title>Petri</title>
-
   <head>
+    <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+    <title>Petri</title>
     <link rel="stylesheet" href="style.css">
   </head>
-  <body onload="init()" oncontextmenu="return false;" style="margin:0px;">
-    <canvas id="map" style="z-index: 1; height:100%; width:100%"></canvas>    
+  <body oncontextmenu="return false;" style="margin:0px;">
+    <canvas id="map" style="z-index: 1; height:100%"></canvas>
     <div id="dashboard">
+
       <div id="dashboard-content">
-        <div id="dashboard-info">
-          <b>PETRI 2.19</b></br></br>
-          <span id="dash-live-info"></span></br>
-          <span id="dash-newest" onclick="highlight_newest()" >NEW: </span></br>
-          <span id="dash-time"></span></br>
-          <span id="dash-highlighted"></span></br>
-          <div class="dash-medallist" onclick="highlight_gold()"><img src="icons/gold-medal.png"><span id="dash-gold"></span></img></div>
-          <div class="dash-medallist" onclick="highlight_silver()"><img src="icons/silver-medal.png"><span id="dash-silver"></span></img></div>
-          <div class="dash-medallist" onclick="highlight_bronze()"><img src="icons/bronze-medal.png"><span id="dash-bronze"></span></img></div>
-          <br>
-        </div>
 
-        <div id="dashboard-buttons">
-          <img src="icons/on_restart.png" onclick="newSimulation()"> <!-- on / reset -->
-          <img id="play-button" src="icons/play.png" onclick="pauseSimulation()">
-          <img id="load-button" onclick="load()" src="icons/load.png">
-          <img src="icons/fast_forward.png" onclick="accelerateMutations()">
-          <a id="save-button" onclick="save()"><img src="icons/save.png"/></a>
-          <br>
-          <br>
+        <span id="dashboard-resize-handle" >
+            <img src="icons/chevron.svg"/>
 
-          <img src="icons/food.png"> <!-- on / reset -->
-          <img src="icons/fitness.png">
-          <img src="icons/energy.png">
-          <img src="icons/lifespan.png">
-          <img src="icons/children.png">
+        </span>
 
 
-        </div>
-        <div id="dashboard-stats">
-          <span id="stats-close-button" onclick="(() => {  
-            highlighted=null; 
-            leftPressed=false; 
-            document.getElementById('dashboard-stats').style.display='none';
-            document.getElementById('brain').style.display='none';
+
+
+        <div id="dashboard-content-right">
+
+          <div id="dashboard-info">
+
+
             
-          })()">X</span>
-
-          <!--         this.kill(); -->
-          <!--         this.reincarnate(); -->
-
-          <div id="stats-left">
-            <b id="stats-name"></b><br/>
-            <span id="stats-idx"></span><br/>
-            <span id="stats-parent" onclick="(() => {
-              var a = null;
-              if(highlighted < 0){
-                a = graveyard[-(highlighted+1)]
-              } else {
-                a = animals[highlighted]
-              }
-              highlighted=a.parent; 
-
-            })()"></span><br/>
-            <span id="stats-sibling-idx"></span><br/>
-            <span id="stats-descendants"></span><br/>
-            <span id="stats-energy"></span><br/>
-            <span id="stats-size"></span><br/>
-            <span id="stats-damage"></span><br/>
+            <b>PETRI 2.20</b> <span id="fps-counter"></span><span id="x-y"></span></br></br>
+            <span id="dash-live-info"></span></br>
+            <span id="dash-newest" onclick="highlight_newest()" >NEW: </span></br>
+            <span id="dash-time"></span></br>
+            <span id="dash-highlighted"></span></br>
+            <div class="dash-medallist" onclick="highlight_gold()"><img src="icons/gold-medal.png"><span id="dash-gold"></span></img></div>
+            <div class="dash-medallist" onclick="highlight_silver()"><img src="icons/silver-medal.png"><span id="dash-silver"></span></img></div>
+            <div class="dash-medallist" onclick="highlight_bronze()"><img src="icons/bronze-medal.png"><span id="dash-bronze"></span></img></div>
+            <br>
           </div>
-          <div id="stats-right">
-            <span class="bold-stat" id="stats-red"></span><br/>
-            <span class="bold-stat" id="stats-green"></span><br/>
-            <span class="bold-stat" id="stats-blue"></span><br/>
-            <span id="stats-sensors"></span><br/>
-            <span class="bold-stat" id="stats-velocity"></span><br/>
-            <span class="bold-stat" id="stats-rotation"></span><br/>
-            <span class="bold-stat" id="stats-mutation"></span><br/>
 
-         </div>
-        </div>
-        <div id="dashboard-charts">
-          <canvas id="brain" style="width:100%"></canvas>
-          <canvas class="chart" id="foodPopChart" style="width:100%"></canvas>
-          <canvas class="chart" id="optimizationChart" style="width:100%"></canvas>
+          <div id="dashboard-buttons">
+            <img src="icons/on_restart.png" onclick="newSimulation()"> <!-- on / reset -->
+            <img id="play-button" src="icons/play.png" onclick="pauseSimulation()">
+            <img id="load-button" onclick="load()" src="icons/load.png">
+            <img src="icons/fast_forward.png" onclick="accelerateMutations()">
+            <a id="save-button" onclick="save()"><img src="icons/save.png"/></a>
+            <br>
+            <br>
 
+            <img src="icons/food.png"> <!-- on / reset -->
+            <img src="icons/fitness.png">
+            <img src="icons/energy.png">
+            <img src="icons/lifespan.png">
+            <img src="icons/children.png">
+
+
+          </div>
+            <div id="amoeb-stats">
+              <div>
+                <div id="amoeb-stats-header">
+                  <div id="amoeb-stats-title">
+                    <b id="stats-name"></b>
+                    <span id="stats-idx"></span>
+                  </div>
+                  <div id="amoeb-stats-buttons">
+                    <button onclick="toggleTracking()">
+                      <img src="icons/track.png"/>
+                    </button>
+                    <button onclick="toggleBrainDisplay()">
+                      <img src="icons/brain.png"/>
+                    </button>
+                    <button onclick="toggleFamilyDisplay()">
+                      <img src="icons/family.png"/>
+                    </button>
+                    <button onclick="(() => {
+                      highlighted=null;
+                      leftPressed=false;
+                      document.getElementById('amoeb-stats').style.display='none';
+                      document.getElementById('brain').style.display='none';
+                      document.getElementById('family-tree').style.display='none';
+                    })()">
+                      <img src="icons/x.svg"/>
+                    </button>
+                  </div>
+                </div>
+
+                <div id="amoeb-stats-left">
+                  <!-- <span id="stats-parent" onclick="(() => {
+                    var a = null;
+                    if(highlighted < 0){
+                      a = graveyard[-(highlighted+1)]
+                    } else {
+                      a = amoebs[highlighted]
+                    }
+                    highlighted=a.parent;
+
+                  })()"></span><br/> -->
+                  <span id="stats-sibling-idx"></span><br/>
+                  <span id="stats-descendants"></span><br/>
+                  <span id="stats-size"></span><br/>
+                  <span id="stats-damage"></span><br/>
+                </div>
+                <div id="amoeb-stats-right">
+                  <span class="gauge-stat" id="stats-energy"></span>
+                  <span class="gauge-stat" id="stats-red"></span>
+                  <span class="gauge-stat" id="stats-green"></span>
+                  <span class="gauge-stat" id="stats-blue"></span>
+                  <span id="stats-sensors"></span><br/>
+                  <span class="gauge-stat" id="stats-velocity"></span>
+                  <span class="gauge-stat" id="stats-rotation"></span>
+                  <span class="gauge-stat" id="stats-mutation"></span>
+
+              </div>
+            </div>
+            <div id="amoeb-stats-separator"></div>
+
+            <canvas id="brain" style="width:100%"></canvas>
+            <div id="neuron-weights" style="display:none;"></div>
+            <div id="family-tree" style="display:none;"></div>
+
+          </div>
+          <div id="dash-charts">
+            <div class="chart" id="foodPopChart"></div>
+            <div class="chart" id="optimizationChart"></div>
+            <div class="chart" id="lifespanChart"></div>
+          </div>
         </div>
       </div>
     </div>
-    <script src="lodash.js"></script>
-    <script src="./components/animal.js"></script>
-    <script src="./components/eye.js"></script>
-    <script src="./components/mouth.js"></script>
-    <script src="./components/neuron.js"></script>
-    <script src="petri.js"></script>
-    <script src="genalgs.js"></script>
-    <script src="save.js"></script>
+    <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

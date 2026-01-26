@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Eye Drawing Benchmark</title>
+</head>
+<body>
+  <canvas id="canvas" width="1000" height="1000"></canvas>
+  <pre id="results"></pre>
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const TWOPI = Math.PI * 2;
+    const ITERATIONS = 10000;
+
+    // Mock eye positions
+    const eyes = [];
+    for (let i = 0; i < 5; i++) {
+      eyes.push({ x: 100 + i * 50, y: 100 + i * 30 });
+    }
+    const size = 20;
+
+    // Method 1: Batched (single beginPath/fill)
+    function drawEyesBatched() {
+      ctx.fillStyle = '#FF0000';
+      ctx.beginPath();
+      for (let i = 0; i < 5; i++) {
+        ctx.moveTo(eyes[i].x + size/8, eyes[i].y);
+        ctx.arc(eyes[i].x, eyes[i].y, size / 8, 0, TWOPI);
+      }
+      ctx.fill();
+    }
+
+    // Method 2: Individual (beginPath/fill per eye)
+    function drawEyesIndividual() {
+      ctx.fillStyle = '#FF0000';
+      for (let i = 0; i < 5; i++) {
+        ctx.beginPath();
+        ctx.arc(eyes[i].x, eyes[i].y, size / 8, 0, TWOPI);
+        ctx.fill();
+      }
+    }
+
+    // Color methods
+    function rgbToHex(r, g, b) {
+      return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+    }
+
+    function drawWithHex() {
+      ctx.fillStyle = rgbToHex(200, 100, 50);
+      ctx.beginPath();
+      ctx.arc(100, 100, 10, 0, TWOPI);
+      ctx.fill();
+    }
+
+    function drawWithRgb() {
+      ctx.fillStyle = `rgb(200,100,50)`;
+      ctx.beginPath();
+      ctx.arc(100, 100, 10, 0, TWOPI);
+      ctx.fill();
+    }
+
+    function drawWithRgbConcat() {
+      ctx.fillStyle = 'rgb(' + 200 + ',' + 100 + ',' + 50 + ')';
+      ctx.beginPath();
+      ctx.arc(100, 100, 10, 0, TWOPI);
+      ctx.fill();
+    }
+
+    // Warmup
+    for (let i = 0; i < 1000; i++) {
+      drawEyesBatched();
+      drawEyesIndividual();
+      drawWithHex();
+      drawWithRgb();
+      drawWithRgbConcat();
+    }
+
+    // Benchmark batched
+    const t1 = performance.now();
+    for (let i = 0; i < ITERATIONS; i++) {
+      drawEyesBatched();
+    }
+    const batchedTime = performance.now() - t1;
+
+    // Benchmark individual
+    const t2 = performance.now();
+    for (let i = 0; i < ITERATIONS; i++) {
+      drawEyesIndividual();
+    }
+    const individualTime = performance.now() - t2;
+
+    // Benchmark hex color
+    const t3 = performance.now();
+    for (let i = 0; i < ITERATIONS; i++) {
+      drawWithHex();
+    }
+    const hexTime = performance.now() - t3;
+
+    // Benchmark rgb template literal
+    const t4 = performance.now();
+    for (let i = 0; i < ITERATIONS; i++) {
+      drawWithRgb();
+    }
+    const rgbTime = performance.now() - t4;
+
+    // Benchmark rgb concat
+    const t5 = performance.now();
+    for (let i = 0; i < ITERATIONS; i++) {
+      drawWithRgbConcat();
+    }
+    const rgbConcatTime = performance.now() - t5;
+
+    // Results
+    const colorWinner = Math.min(hexTime, rgbTime, rgbConcatTime);
+    const results = `
+Iterations: ${ITERATIONS}
+
+=== EYE DRAWING ===
+BATCHED (single beginPath/fill):
+  Total: ${batchedTime.toFixed(2)}ms
+  Per call: ${(batchedTime / ITERATIONS).toFixed(4)}ms
+
+INDIVIDUAL (beginPath/fill per eye):
+  Total: ${individualTime.toFixed(2)}ms
+  Per call: ${(individualTime / ITERATIONS).toFixed(4)}ms
+
+Winner: ${batchedTime < individualTime ? 'BATCHED' : 'INDIVIDUAL'}
+Speedup: ${(Math.max(batchedTime, individualTime) / Math.min(batchedTime, individualTime)).toFixed(2)}x
+
+=== COLOR FORMAT ===
+rgbToHex (#RRGGBB):
+  Total: ${hexTime.toFixed(2)}ms
+
+rgb() template literal:
+  Total: ${rgbTime.toFixed(2)}ms
+
+rgb() concatenation:
+  Total: ${rgbConcatTime.toFixed(2)}ms
+
+Winner: ${colorWinner === hexTime ? 'HEX' : colorWinner === rgbTime ? 'RGB TEMPLATE' : 'RGB CONCAT'}
+`;
+    document.getElementById('results').textContent = results;
+    console.log(results);
+  </script>
+</body>
+</html>
