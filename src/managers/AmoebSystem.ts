@@ -60,15 +60,15 @@ export const amoebSystem = {
       // Update medal displays
       if (state.gold !== null && dashGold) {
         const g = amoebs[state.gold];
-        dashGold.innerHTML = g.name + '-' + g.gen + 'A' + g.children.length;
+        dashGold.innerHTML = g.name + '-' + g.gen + 'A' + g.descendants;
       }
       if (state.silver !== null && dashSilver) {
         const s = amoebs[state.silver];
-        dashSilver.innerHTML = s.name + '-' + s.gen + 'A' + s.children.length;
+        dashSilver.innerHTML = s.name + '-' + s.gen + 'A' + s.descendants;
       }
       if (state.bronze !== null && dashBronze) {
         const b = amoebs[state.bronze];
-        dashBronze.innerHTML = b.name + '-' + b.gen + 'A' + b.children.length;
+        dashBronze.innerHTML = b.name + '-' + b.gen + 'A' + b.descendants;
       }
     }
 
@@ -107,7 +107,7 @@ export const amoebSystem = {
                   '-' +
                   amoebs[state.highlighted].gen +
                   'A' +
-                  amoebs[state.highlighted].children.length;
+                  amoebs[state.highlighted].descendants;
               }
               state.mouse.leftPressed = false;
             }

@@ -12,6 +12,8 @@
     "vite": "^5.0.10"
   },
   "dependencies": {
+    "@types/three": "^0.182.0",
+    "three": "^0.182.0",
     "uplot": "^1.6.32"
   }
 }

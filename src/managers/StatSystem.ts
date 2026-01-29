@@ -18,17 +18,26 @@ function formatNumber(val: number): string {
   if (abs >= 1_000) {
     return (val / 1_000).toFixed(1).replace(/\.0$/, '') + 'K';
   }
-  if (abs < 1 && abs > 0) {  
-    return val.toFixed(4);  
+  if (abs < 1 && abs > 0) {
+    return val.toFixed(4);
   }
 
   return val.toFixed(0);
+}
+
+/**
+ * Format numbers in scientific notation (e.g. 3.2e-5)
+ */
+function formatSci(val: number): string {
+  if (val === 0) return '0';
+  return val.toExponential(1);
 }
 
 // Chart references
 let foodPopChart: uPlot | null = null;
 let optimizationChart: uPlot | null = null;
 let lifespanChart: uPlot | null = null;
+let mutationStratChart: uPlot | null = null;
 
 // Data arrays (columnar format for uPlot)
 // foodPopData: [time, red, green, blue, population]
@@ -37,6 +46,8 @@ let foodPopData: number[][] = [[], [], [], [], []];
 let optimizationData: number[][] = [[], [], []];
 // lifespanData: [time, avgLifespan]
 let lifespanData: number[][] = [[], []];
+// mutationStratData: [time, mutationRate, avgAdvWeight, avgDisWeight]
+let mutationStratData: number[][] = [[], [], [], []];
 
 /**
  * Stack data for stacked area chart
@@ -67,6 +78,10 @@ export function initFoodPopChart(container: HTMLElement): uPlot {
       y: { auto: true },
       pop: { auto: true },
     },
+    legend: {                                                                                                                                        
+      show: true,                                                                                                                                    
+      live: true,  // updates on hover (default)                                                                                                     
+    },     
     axes: [
       { show: true, size: 16, font: '10px sans-serif', gap: 4, ticks: { show: false } },
       { scale: 'y', size: 32, font: '10px sans-serif', side: 3, gap: 2, ticks: { show: false }, values: (_, vals) => vals.map(formatNumber) },
@@ -108,7 +123,6 @@ export function initFoodPopChart(container: HTMLElement): uPlot {
       { series: [2, 1], fill: 'rgba(80, 220, 80, 0.8)' },
       { series: [3, 2], fill: 'rgba(80, 80, 255, 0.8)' },
     ],
-    legend: { show: false },
   };
 
   foodPopChart = new uPlot(opts, foodPopData, container);
@@ -127,17 +141,20 @@ export function initOptimizationChart(container: HTMLElement): uPlot {
       desc: { auto: true },
       eat: { auto: true },
     },
+    legend: {                                                                                                                                        
+      show: true,                                                                                                                                    
+      live: true,  // updates on hover (default)                                                                                                     
+    },     
     axes: [
       { show: true, size: 16, font: '10px sans-serif', gap: 4, ticks: { show: false } },
       { scale: 'desc', size: 32, font: '10px sans-serif', gap: 2, ticks: { show: false }, side: 3, values: (_, vals) => vals.map(formatNumber) },
-      { scale: 'eat', size: 32, font: '10px sans-serif', gap: 2, ticks: { show: false }, side: 1, values: (_, vals) => vals.map(formatNumber) },
+      { scale: 'eat', size: 32, font: '10px sans-serif', gap: 2, ticks: { show: false }, side: 1, values: (_, vals) => vals },
     ],
     series: [
       {},
-      { label: 'Descendants', stroke: 'rgb(50, 50, 50)', scale: 'desc', width: 1, points: { show: false } },
-      { label: 'Eating', stroke: 'rgb(0, 196, 0)', scale: 'eat', width: 1, points: { show: false } },
+      { label: 'Avg Children', stroke: 'rgb(50, 50, 50)', scale: 'desc', width: 1, points: { show: false } },
+      { label: 'R Eat Efficiency', stroke: 'rgb(0, 196, 0)', scale: 'eat', width: 1, points: { show: false } },
     ],
-    legend: { show: false },
   };
 
   optimizationChart = new uPlot(opts, optimizationData, container);
@@ -155,6 +172,11 @@ export function initLifespanChart(container: HTMLElement): uPlot {
       x: { time: false },
       life: { auto: true },
     },
+    legend: {
+      show: true,
+      live: true,  // updates on hover (default)
+    },
+
     axes: [
       { show: true, size: 16, font: '10px sans-serif', gap: 4, ticks: { show: false } },
       { scale: 'life', size: 32, font: '10px sans-serif', gap: 2, ticks: { show: false }, side: 3, values: (_, vals) => vals.map(formatNumber) },
@@ -163,11 +185,41 @@ export function initLifespanChart(container: HTMLElement): uPlot {
       {},
       { label: 'Avg Lifespan', stroke: 'rgb(196, 0, 196)', scale: 'life', width: 1, points: { show: false } },
     ],
-    legend: { show: false },
   };
 
   lifespanChart = new uPlot(opts, lifespanData, container);
   return lifespanChart;
+}
+
+/**
+ * Initialize the mutation strategy chart
+ */
+export function initMutationStratChart(container: HTMLElement): uPlot {
+  const opts: uPlot.Options = {
+    width: container.clientWidth || 300,
+    height: 150,
+    scales: {
+      x: { time: false },
+      y: { auto: true },
+    },
+    legend: {
+      show: true,
+      live: true,
+    },
+    axes: [
+      { show: true, size: 16, font: '10px sans-serif', gap: 4, ticks: { show: false } },
+      { scale: 'y', size: 32, font: '10px sans-serif', gap: 2, ticks: { show: false }, side: 3, values: (_, vals) => vals.map(val => val.toFixed(2)) },
+    ],
+    series: [
+      {},
+      // { label: 'Mut Rate', stroke: 'rgb(255, 140, 0)', scale: 'y', width: 1, points: { show: false } },
+      { label: 'Adv Weight', stroke: 'rgb(60, 180, 60)', scale: 'y', width: 1, points: { show: false } },
+      { label: 'Dis Weight', stroke: 'rgb(220, 60, 60)', scale: 'y', width: 1, points: { show: false } },
+    ],
+  };
+
+  mutationStratChart = new uPlot(opts, mutationStratData, container);
+  return mutationStratChart;
 }
 
 /**
@@ -177,6 +229,7 @@ export function resetChartData(): void {
   foodPopData = [[], [], [], [], []];
   optimizationData = [[], [], []];
   lifespanData = [[], []];
+  mutationStratData = [[], [], [], []];
 
   if (foodPopChart) {
     foodPopChart.setData(stackFoodData(foodPopData));
@@ -187,6 +240,9 @@ export function resetChartData(): void {
   if (lifespanChart) {
     lifespanChart.setData(lifespanData);
   }
+  if (mutationStratChart) {
+    mutationStratChart.setData(mutationStratData);
+  }
 }
 
 /**
@@ -196,6 +252,7 @@ export function resizeCharts(): void {
   const foodPopContainer = document.getElementById('foodPopChart');
   const optimizationContainer = document.getElementById('optimizationChart');
   const lifespanContainer = document.getElementById('lifespanChart');
+  const mutationStratContainer = document.getElementById('mutationStratChart');
 
   if (foodPopChart && foodPopContainer) {
     foodPopChart.setSize({ width: foodPopContainer.clientWidth, height: 150 });
@@ -206,6 +263,9 @@ export function resizeCharts(): void {
   if (lifespanChart && lifespanContainer) {
     lifespanChart.setSize({ width: lifespanContainer.clientWidth, height: 150 });
   }
+  if (mutationStratChart && mutationStratContainer) {
+    mutationStratChart.setSize({ width: mutationStratContainer.clientWidth, height: 150 });
+  }
 }
 
 export const statSystem = {
@@ -214,37 +274,39 @@ export const statSystem = {
    */
   update(): void {
     // Update history
-    state.history.aveChildren.push(state.stats.aveChildren);
-    if (state.stats.aveChildren > state.stats.maxAveChildren) {
-      state.stats.maxAveChildren = state.stats.aveChildren;
-    }
-    state.stats.aveChildren = 0;
-
     state.history.aveLifespan.push(state.stats.aveLifespan);
     state.history.avePosNRG.push(state.stats.avePosNRG);
 
     // Collect animal stats
     let totalDescendants = 0;
+    let totalChildren = 0;
     if (state.stats.livePop !== 0) {
       for (let i = 0; i <= state.HIGHESTINDEX; i++) {
         const a = state.amoebs[i];
         if (a.alive) {
           state.stats.netEatenRatio += (a.redEaten + a.greenEaten + a.blueEaten) / a.netEaten;
           totalDescendants += a.descendants;
+          totalChildren += a.children.length;
         }
       }
       state.stats.netEatenRatio /= state.stats.livePop;
     } else {
       state.stats.netEatenRatio = 0;
     }
-    const avgDescendants = state.stats.livePop > 0 ? totalDescendants / state.stats.livePop : 0;
+    state.stats.aveChildren = state.stats.livePop > 0 ? totalChildren / state.stats.livePop : 0;
+    state.history.aveChildren.push(state.stats.aveChildren);
+    if (state.stats.aveChildren > state.stats.maxAveChildren) {
+      state.stats.maxAveChildren = state.stats.aveChildren;
+    }
 
     // Collect tile stats
+    let totalFoodCap = 0;
     for (let i = 0; i < TILENUMBER; i++) {
       if (!state.pause) {
         state.stats.redAgarOnMap += state.tiles[i].R;
         state.stats.greenAgarOnMap += state.tiles[i].G;
         state.stats.blueAgarOnMap += state.tiles[i].B;
+        totalFoodCap += state.tiles[i].RCap + state.tiles[i].GCap + state.tiles[i].BCap;
       }
     }
 
@@ -266,9 +328,12 @@ export const statSystem = {
     }
 
     // Update optimization chart
+    const totalFood = state.stats.redAgarOnMap + state.stats.greenAgarOnMap + state.stats.blueAgarOnMap;
+    const foodFraction = totalFoodCap > 0 ? totalFood / totalFoodCap : 1;
+    const eatEfficiency = foodFraction > 0 ? state.stats.netEatenRatio / foodFraction : 0;
     optimizationData[0].push(timeLabel);
-    optimizationData[1].push(avgDescendants);
-    optimizationData[2].push(state.stats.netEatenRatio);
+    optimizationData[1].push(state.stats.aveChildren);
+    optimizationData[2].push(eatEfficiency);
 
     if (optimizationChart) {
       optimizationChart.setData(optimizationData);
@@ -282,11 +347,25 @@ export const statSystem = {
       lifespanChart.setData(lifespanData);
     }
 
+    // Update mutation strategy chart
+    const pop = state.stats.livePop;
+    mutationStratData[0].push(timeLabel);
+    // mutationStratData[1].push(state.stats.mitoses > 0 ? state.stats.mutationRate / state.stats.mitoses : 0);
+    mutationStratData[1].push(state.stats.mitoses > 0 ? state.stats.advWeight / state.stats.mitoses : 0);
+    mutationStratData[2].push(state.stats.mitoses > 0 ? state.stats.disWeight / state.stats.mitoses : 0);
+
+    if (mutationStratChart) {
+      mutationStratChart.setData(mutationStratData);
+    }
+
     // Reset per-frame stats
     state.stats.netEatenRatio = 0;
     state.stats.redAgarOnMap = 0;
     state.stats.greenAgarOnMap = 0;
     state.stats.blueAgarOnMap = 0;
+    state.stats.mitoses = 0;
+    state.stats.advWeight = 0;
+    state.stats.disWeight = 0;
 
     if (state.stats.aveLifespan > state.stats.maxAveLifespan) {
       state.stats.maxAveLifespan = state.stats.aveLifespan;

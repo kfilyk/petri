@@ -9,10 +9,10 @@ export const NUM_OUTPUT_NEURONS = 35;
 export const EATING_CONSTANT = 2;
 
 // World configuration
-export const FIELDX = 1000;
-export const FIELDY = 1000;
+export const FIELDX = 1200;
+export const FIELDY = 1200;
 export const TILE_SIZE = 25;
-export const TILENUMBER = (FIELDX / TILE_SIZE) * (FIELDY / TILE_SIZE); // 1600
+export const TILENUMBER = (FIELDX / TILE_SIZE) * (FIELDY / TILE_SIZE); 
 
 // Population configuration
 export const POPCAP = 1000;

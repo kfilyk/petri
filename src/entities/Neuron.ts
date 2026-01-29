@@ -4,6 +4,8 @@ export class Neuron {
   // One connection for every other neuron in brain
   weights1: Float32Array = new Float32Array(0);
   weights2: Float32Array = new Float32Array(0);
+  sigmas1: Float32Array = new Float32Array(0); // Per-synapse mutation rate for weights1
+  sigmas2: Float32Array = new Float32Array(0); // Per-synapse mutation rate for weights2
 
   in: number = 0;
   out: number = 0;
@@ -16,6 +18,8 @@ export class Neuron {
   init(connections: number, initialized: number): void {
     this.weights1 = new Float32Array(connections).fill(0);
     this.weights2 = new Float32Array(connections).fill(0);
+    this.sigmas1 = new Float32Array(connections).fill(0);
+    this.sigmas2 = new Float32Array(connections).fill(0);
 
     for (let i = 0; i < initialized; i++) {
       this.weights1[i] = Math.random() + Math.random() - 1;

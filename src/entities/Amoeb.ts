@@ -12,15 +12,19 @@ import {
   FIELDY,
   POPCAP,
   ALPH,
+  TILE_SIZE,
 } from '../constants';
 import { round, abs, generateName } from '../utils/math';
 import { state } from '../state';
 import { Neuron } from './Neuron';
 import { Eye } from './Eye';
 import { Mouth } from './Mouth';
-import { drawBrain } from '../components/BrainDisplay';
+// Old 2D brain display (deprecated)
+// import { drawBrain } from '../components/BrainDisplay';
+import { drawBrain3D } from '../components/BrainDisplay3D';
 import { updateFamilyDisplay } from '../components/FamilyDisplay';
 import type { RenderContext, WeightDeltas } from '../types';
+import { GRID_H, GRID_TILES, GRID_W } from '@/managers/TileSystem';
 
 export class Amoeb {
   index: number;
@@ -31,7 +35,8 @@ export class Amoeb {
   size: number = START_SIZE;
   health: number = 0;
   gen: number = 0;
-  birthTime: number = 0;
+  born: number = 0;
+  age: number = 0;
   parent: number | null = null;
   sibling_idx: number | null = null;
   children: number[] = [];
@@ -65,6 +70,7 @@ export class Amoeb {
   damageReceived: number = 0;
   damageCaused: number = 0;
 
+
   // Pre-allocated color array for drawing
   cols: Uint8ClampedArray = new Uint8ClampedArray(9);
   lr: number = 0;
@@ -78,7 +84,7 @@ export class Amoeb {
     this.y = y;
     this.name = generateName(ALPH);
     this.direction = round(Math.random() * 360);
-    this.birthTime = state.stats.time;
+    this.born = state.stats.time;
 
     // Initialize eyes
     this.eyes = new Array(5);
@@ -151,9 +157,9 @@ export class Amoeb {
     }
 
     // Update current tile using bitwise floor for performance
-    let ct = (~~(this.y / 25) * 40) + (~~(this.x / 25));
-    if (ct >= 1600) {
-      this.tile = 1599;
+    let ct = (~~(this.y / TILE_SIZE) * GRID_W) + (~~(this.x / TILE_SIZE));
+    if (ct >= GRID_W*GRID_H) {
+      this.tile = GRID_TILES-1;
     } else if (ct < 0) {
       this.tile = 0;
     }
@@ -340,7 +346,7 @@ export class Amoeb {
     ) {
       ctx.fillStyle = '#FFFFFF';
       ctx.fillText(
-        this.name + '-' + this.gen + (this.alive ? 'A' : 'D') + this.children.length,
+        this.name + '-' + this.gen + (this.alive ? 'A' : 'D') + this.descendants,
         this.x + 2 * this.size,
         this.y - 2 * this.size + 2
       );
@@ -380,7 +386,6 @@ export class Amoeb {
       this.maxEnergy = this.energy;
     }
 
-    state.stats.aveChildren += this.children.length / state.stats.livePop;
     this.health = (this.energy - this.maxEnergy / 2) / (this.maxEnergy / 2);
 
     // Check for death
@@ -389,7 +394,7 @@ export class Amoeb {
       state.stats.livePop--;
 
       // Track lifespan
-      const lifespan = state.stats.time - this.birthTime;
+      const lifespan = state.stats.time - this.born;
       state.stats.netLifespan += lifespan;
       state.stats.deathCount++;
 
@@ -575,6 +580,9 @@ export class Amoeb {
       this.outputs[idx++].clamp(); // eye left/right
       this.outputs[idx++].clamp(); // eye front/back
     }
+    this.outputs[idx++].clamp(); // adv weight
+    this.outputs[idx++].clamp(); // dis weight
+
   }
 
   /**
@@ -588,7 +596,7 @@ export class Amoeb {
     this.sibling_idx = parent.children.length;
     this.name = parent.name;
     this.maxEnergy = parent.energy;
-    this.birthTime = state.stats.time;
+    this.born = state.stats.time;
     this.redEaten = 0.003;
     this.greenEaten = 0.003;
     this.blueEaten = 0.003;
@@ -614,90 +622,258 @@ export class Amoeb {
       }
     }
 
-    const mutationRate = 0.01;
-    state.stats.mitosis += 1;
-    state.stats.mutationRate += mutationRate;
+    //     ---                                                                                                                                              
+    // CMA-ES (Covariance Matrix Adaptation)                                                                                                            
+                                                                                                                                                    
+    // Core idea: Like NES, but also learns correlations between weights.                                                                               
+                                                                                                                                                    
+    // If weights 3 and 7 should increase together for success, CMA-ES learns this and samples them in a correlated way. It maintains a full covariance 
+    // matrix.                                                                                                                                          
+                                                                                                                                                    
+    // The gold standard for black-box optimization up to ~1000 parameters. Beyond that, the O(n²) covariance matrix becomes impractical.               
+                                                                                                                                                    
+    // ---                  
+
+    state.stats.mitoses += 1; 
+    // const advWeight = parent.outputs[20].out;
+    // const disWeight = parent.outputs[21].out;
+    const advWeight = 1;
+    const disWeight = 1;
+
+    state.stats.advWeight += advWeight; // if advWeight becomes negative, indicates that NOTHING about this mutation strategy is actually being effective
+    state.stats.disWeight += disWeight;
 
     // Get descendants for weighted mutation
-    const _descendants = this.getDescendants(this.parent!, this.parent!);
+    const _descendants = this.getDescendantIndices(this.parent!, this.parent!);
 
     // Calculate advantageous mutations
     const advantageous: WeightDeltas[] = [];
     const disadvantageous: WeightDeltas[] = [];
-    // console.log('\n\n\n\n\n\nMY NAME:', this.name + '-' + this.gen + 'A' + this.children.length)
 
-    for (let i = 0; i < _descendants.length; i++) {
-      const idx = _descendants[i];
-      const current = idx >= 0 ? state.amoebs[idx] : state.graveyard[-(idx + 1)];
 
-      // if(idx >=0)  {
-      //   console.log('D NAME (ALIVE): ', current.name + '-' + current.gen + 'A' + current.children.length)
-      // } else {
-      //   console.log('D NAME (DEAD): ', current.name + '-' + current.gen + 'D' + current.children.length)
-      // }
 
-      if (current.descendants > 0) {
-        const weightDeltas = this.getWeightDeltas(current, parent)
-        for(let d = 0; d < current.descendants; d++ ) {
-          advantageous.push(weightDeltas);
-        }
-      } else if(idx < 0) { // if dead without descendants
-        disadvantageous.push(this.getWeightDeltas(current, parent));
-      }
-    }
 
-    // Apply random mutations -these TEND toward zero
+    // FIRST PLACE
+    for (let i = 0; i < _descendants.length; i++) {                                                                                                  
+      const idx = _descendants[i];                                                                                                                   
+      const current = idx >= 0 ? state.amoebs[idx] : state.graveyard[-(idx + 1)];                                                                    
+                                                                                                                                                                                                                                                                                          
+      if (current.children.length > 0) {                                                                    
+        const weightDeltas = this.getWeightDeltas(current, parent);                                                                         
+        for (let c = 0; c < current.children.length; c++) {    
+          advantageous.push(weightDeltas);                                                                                            
+        }                                                                                                                                            
+      } else if (idx < 0) {                                                                                                                          
+        disadvantageous.push(this.getWeightDeltas(current, parent));                                                                        
+      }                                                                                                                                              
+    }      
+
+    // for (let i = 0; i < _descendants.length; i++) {                                                                                                  
+    //   const idx = _descendants[i];                                                                                                                   
+    //   const current = idx >= 0 ? state.amoebs[idx] : state.graveyard[-(idx + 1)];                                                                    
+                                                                                                                                                    
+    //   if (current.parent === null) continue;                                                                                                         
+    //   const immediateParent = current.parent >= 0 ? state.amoebs[current.parent] : state.graveyard[-(current.parent + 1)];                                                                                                    
+                                                                                                                                                    
+    //   if (current.children.length > 0) {                                                                    
+    //     const weightDeltas = this.getWeightDeltas(current, immediateParent);                                                                         
+    //     for (let c = 0; c < current.children.length; c++) {                                                 
+    //       advantageous.push(weightDeltas);                                                                                                           
+    //     }                                                                                                                                            
+    //   } else if (idx < 0) {                                                                                                                          
+    //     disadvantageous.push(this.getWeightDeltas(current, immediateParent));                                                                        
+    //   }                                                                                                                                              
+    // }         
+
+
+    // for (let i = 0; i < _descendants.length; i++) {                                                                                                  
+    //   const idx = _descendants[i];                                                                                                                   
+    //   const current = idx >= 0 ? state.amoebs[idx] : state.graveyard[-(idx + 1)];                                                                    
+                                                                                                                                                                                                                                
+    //   if (current.parent === null) continue;                                                                                                         
+    //   const immediateParent = current.parent >= 0 ? state.amoebs[current.parent] : state.graveyard[-(current.parent + 1)];                                                                                                    
+                                                                                                                                                    
+    //   if (current.descendants > 0) {                                                                                                                 
+    //     const weightDeltas = this.getWeightDeltas(current, immediateParent);                                                        
+    //     for(let d = 0; d < current.descendants; d++) {                                                                                               
+    //       advantageous.push(weightDeltas);                                                                                                           
+    //     }                                                                                                                                            
+    //   } else if(idx < 0) {                                                                                                                           
+    //     disadvantageous.push(this.getWeightDeltas(current, immediateParent));                                                          
+    //   }                                                                                                                                              
+    // }  
+
+    // SECOND PLACE
+    // for (let i = 0; i < _descendants.length; i++) {
+    //   const idx = _descendants[i];
+    //   const current = idx >= 0 ? state.amoebs[idx] : state.graveyard[-(idx + 1)];
+    //   if (current.descendants > 0) {
+    //     const weightDeltas = this.getWeightDeltas(current, parent)
+    //     for(let d = 0; d < current.descendants; d++ ) {
+    //       advantageous.push(weightDeltas);
+    //     }
+    //   } else if(idx < 0) { // if dead without descendants
+    //     disadvantageous.push(this.getWeightDeltas(current, parent));
+    //   }
+    // }
+
+
+    // Add average of advantageous deltas
+    const advCount = advantageous.length;
+    const disCount = disadvantageous.length;
+
+    const SIGMA_RATE = 0.02;
+
+    // 1. Mutate per-synapse sigmas first (they gate everything else)
+    //    Uses same bias-toward-zero formula: sigma tends toward 0 unless selection maintains it
     for (let i = 0; i < NUM_INPUT_NEURONS; i++) {
       for (let j = 0; j < NUM_OUTPUT_NEURONS; j++) {
-        this.inputs[i].weights1[j] += (2 * Math.random() - 1 - this.inputs[i].weights1[j]) * mutationRate;
-        this.inputs[i].weights2[j] += (2 * Math.random() - 1 - this.inputs[i].weights2[j]) * mutationRate;
+        this.inputs[i].sigmas1[j] += (2 * Math.random() - 1 - this.inputs[i].sigmas1[j]) * SIGMA_RATE / (advCount+1);
+        this.inputs[i].sigmas2[j] += (2 * Math.random() - 1 - this.inputs[i].sigmas2[j]) * SIGMA_RATE / (advCount+1);
+
       }
     }
 
     for (let i = 0; i < NUM_OUTPUT_NEURONS; i++) {
       for (let j = 0; j < NUM_OUTPUT_NEURONS; j++) {
-        this.outputs[i].weights1[j] += (2 * Math.random() - 1 - this.outputs[i].weights1[j]) * mutationRate;
-        this.outputs[i].weights2[j] += (2 * Math.random() - 1 - this.outputs[i].weights2[j]) * mutationRate;
+        this.outputs[i].sigmas1[j] += (2 * Math.random() - 1 - this.outputs[i].sigmas1[j]) * SIGMA_RATE / (advCount+1);
+        this.outputs[i].sigmas2[j] += (2 * Math.random() - 1 - this.outputs[i].sigmas2[j]) * SIGMA_RATE / (advCount+1);
+
       }
     }
 
-    // Add average of advantageous deltas
-    const advCount = advantageous.length;
+    // 2. Apply adv/dis sigma deltas (learn which sigmas led to success/failure)
     for (let a = 0; a < advCount; a++) {
       const adv = advantageous[a];
       for (let i = 0; i < NUM_INPUT_NEURONS; i++) {
         for (let j = 0; j < NUM_OUTPUT_NEURONS; j++) {
-          this.inputs[i].weights1[j] += adv.in_weights1_deltas[i][j] / advCount;
-          this.inputs[i].weights2[j] += adv.in_weights2_deltas[i][j] / advCount;
+          this.inputs[i].sigmas1[j] += adv.in_sigmas1_deltas[i][j] / (advCount+1);
+          this.inputs[i].sigmas2[j] += adv.in_sigmas2_deltas[i][j] / (advCount+1);
         }
       }
-
       for (let i = 0; i < NUM_OUTPUT_NEURONS; i++) {
         for (let j = 0; j < NUM_OUTPUT_NEURONS; j++) {
-          this.outputs[i].weights1[j] += adv.out_weights1_deltas[i][j] / advCount;
-          this.outputs[i].weights2[j] += adv.out_weights2_deltas[i][j] / advCount;
+          this.outputs[i].sigmas1[j] += adv.out_sigmas1_deltas[i][j] / (advCount+1);
+          this.outputs[i].sigmas2[j] += adv.out_sigmas2_deltas[i][j] / (advCount+1);
         }
       }
     }
 
-    const disCount = disadvantageous.length;
+    // TEST IDEA: on very negative sigma: try:
+    // 1) regressing towards parent's value? like backwards progress
+    // 2) Clamp the negative for processing below, but STORE the negative value in neuron.sigmas1/2, and DO NOT FORGET: 
+    //    negative value 'debt' is to be removed by slowly adding positive values (mutation above) and trending towards zero, at which point the neuron can be flexible again
+    // 3) negative value is an indicator telling us to increase mutation elsewhere?
+
     for (let d = 0; d < disCount; d++) {
       const dis = disadvantageous[d];
       for (let i = 0; i < NUM_INPUT_NEURONS; i++) {
         for (let j = 0; j < NUM_OUTPUT_NEURONS; j++) {
-          this.inputs[i].weights1[j] -= dis.in_weights1_deltas[i][j] / disCount;
-          this.inputs[i].weights2[j] -= dis.in_weights2_deltas[i][j] / disCount;
+          this.inputs[i].sigmas1[j] -= dis.in_sigmas1_deltas[i][j] / disCount;
+          this.inputs[i].sigmas2[j] -= dis.in_sigmas2_deltas[i][j] / disCount;
+        }
+      }
+      for (let i = 0; i < NUM_OUTPUT_NEURONS; i++) {
+        for (let j = 0; j < NUM_OUTPUT_NEURONS; j++) {
+          this.outputs[i].sigmas1[j] -= dis.out_sigmas1_deltas[i][j] / disCount;
+          this.outputs[i].sigmas2[j] -= dis.out_sigmas2_deltas[i][j] / disCount;
+        }
+      }
+    }
+
+    // Clamp sigmas to >= 0 - VERY IMPORTANT! tells our weights NOT to move!
+    for (let i = 0; i < NUM_INPUT_NEURONS; i++) {
+      for (let j = 0; j < NUM_OUTPUT_NEURONS; j++) {
+        if (this.inputs[i].sigmas1[j] < 0) this.inputs[i].sigmas1[j] = 0;
+        if (this.inputs[i].sigmas2[j] < 0) this.inputs[i].sigmas2[j] = 0;
+      }
+    }
+    for (let i = 0; i < NUM_OUTPUT_NEURONS; i++) {
+      for (let j = 0; j < NUM_OUTPUT_NEURONS; j++) {
+        if (this.outputs[i].sigmas1[j] < 0) this.outputs[i].sigmas1[j] = 0;
+        if (this.outputs[i].sigmas2[j] < 0) this.outputs[i].sigmas2[j] = 0;
+      }
+    }
+
+    /* * * * * * * * * * * * WORKS DAMN WELL * * * * * * * * * */
+    // FIRST PLACE!
+
+    for (let i = 0; i < NUM_INPUT_NEURONS; i++) {                                                                                                                                                     
+      for (let j = 0; j < NUM_OUTPUT_NEURONS; j++) {                                                                                                                                                  
+        const s1 = this.inputs[i].sigmas1[j];                                                                                                                                                         
+        const s2 = this.inputs[i].sigmas2[j];                                                                                                                                                         
+        this.inputs[i].weights1[j] += Math.abs(s1) * (2 * Math.random() - 1 - this.inputs[i].weights1[j]) / (advCount+1);                                                                                                                    
+        this.inputs[i].weights2[j] += Math.abs(s2) * (2 * Math.random() - 1 - this.inputs[i].weights2[j]) / (advCount+1);                                                                                                                    
+      }                                                                                                                                                                                               
+    }                                                                                                                                                                                                 
+                                                                                                                                                                                                      
+    for (let i = 0; i < NUM_OUTPUT_NEURONS; i++) {                                                                                                                                                    
+      for (let j = 0; j < NUM_OUTPUT_NEURONS; j++) {                                                                                                                                                  
+        const s1 = this.outputs[i].sigmas1[j];                                                                                                                                                        
+        const s2 = this.outputs[i].sigmas2[j];                                                                                                                                                        
+        this.outputs[i].weights1[j] += Math.abs(s1) * (2 * Math.random() - 1 - this.outputs[i].weights1[j]) / (advCount+1);                                                                                                                   
+        this.outputs[i].weights2[j] += Math.abs(s2) * (2 * Math.random() - 1 - this.outputs[i].weights2[j]) / (advCount+1);                                                                                                                   
+      }                                                                                                                                                                                               
+    }      
+    /* * * * * * * * * * * * WORKS DAMN WELL * * * * * * * * * */ 
+
+
+    // 4. Apply advantageous weight deltas
+    for (let a = 0; a < advCount; a++) {
+      const adv = advantageous[a];
+      for (let i = 0; i < NUM_INPUT_NEURONS; i++) {
+        for (let j = 0; j < NUM_OUTPUT_NEURONS; j++) {
+          this.inputs[i].weights1[j] += advWeight * adv.in_weights1_deltas[i][j] / (advCount+1);
+          this.inputs[i].weights2[j] += advWeight * adv.in_weights2_deltas[i][j] / (advCount+1);
         }
       }
 
       for (let i = 0; i < NUM_OUTPUT_NEURONS; i++) {
         for (let j = 0; j < NUM_OUTPUT_NEURONS; j++) {
-          this.outputs[i].weights1[j] -= dis.out_weights1_deltas[i][j] / disCount;
-          this.outputs[i].weights2[j] -= dis.out_weights2_deltas[i][j] / disCount;
+          this.outputs[i].weights1[j] += advWeight * adv.out_weights1_deltas[i][j] / (advCount+1);
+          this.outputs[i].weights2[j] += advWeight * adv.out_weights2_deltas[i][j] / (advCount+1);
         }
       }
     }
 
+    
+    // THIS MAKES IT PERFORM WORSE:
+    // in high-dimensional spaces, "the opposite of wrong" is almost never "right."                                                                                                      
+                                                                                                                                                                                                        
+    //   There are ~2000 weights... There's a narrow ridge of success and a vast plain of failure surrounding it. Successful descendants cluster near the ridge — average them and you get the ridge. Failed  
+    //   descendants are scattered all over the plain — average them and you get the center of nothing useful.     
+
+    //  Adv works because success is specific. A descendant that reproduced had a working weight configuration. Multiple successes likely found similar solutions. Their deltas are coherent — they point 
+    // in roughly the same direction. Averaging reinforces the signal.                                                                                                                                   
+                                                                                                                                                                                                      
+    // Dis fails because failure is diverse. One descendant died because weight #47 was too high. Another died because weight #812 was too low. Another died from bad luck, not weights at all. Their    
+    // deltas point in random directions. Averaging them cancels out to near-zero, or worse — points somewhere arbitrary. Subtracting an arbitrary direction damages weights that were fine.             
+                                                                                                                                                                                                      
+    // The per-weight collateral damage problem. If a descendant died because 1 out of 2000 weights was catastrophic, subtracting its full delta vector "corrects" all 2000 weights — the 1999 that were 
+    // fine get pushed in a wrong direction. Adv doesn't suffer this as badly because if something reproduced, most of its weights were at least functional.                                             
+                                                                                                                                                                                                      
+    // Why dis works for sigma but not weights. Sigma asks "should this synapse keep changing?" — a magnitude question. If descendants with big deltas on synapse X keep dying, that's a clear signal:   
+    // stop changing X. You don't need direction, just "movement = bad." Weights need direction, and failure doesn't give you coherent direction.      
+
+
+    // 5. Apply disadvantageous weight deltas
+    // for (let d = 0; d < disCount; d++) {
+    //   const dis = disadvantageous[d];
+    //   for (let i = 0; i < NUM_INPUT_NEURONS; i++) {
+    //     for (let j = 0; j < NUM_OUTPUT_NEURONS; j++) {
+    //       this.inputs[i].weights1[j] -= disWeight * dis.in_weights1_deltas[i][j];
+    //       this.inputs[i].weights2[j] -= disWeight * dis.in_weights2_deltas[i][j];
+    //     }
+    //   }
+
+    //   for (let i = 0; i < NUM_OUTPUT_NEURONS; i++) {
+    //     for (let j = 0; j < NUM_OUTPUT_NEURONS; j++) {
+    //       this.outputs[i].weights1[j] -= disWeight * dis.out_weights1_deltas[i][j];
+    //       this.outputs[i].weights2[j] -= disWeight * dis.out_weights2_deltas[i][j];
+    //     }
+    //   }
+    // }
+    
     this.updateLiveInfoDisplay();
   }
 
@@ -734,21 +910,23 @@ export class Amoeb {
   /**
    * Get all descendants of an animal
    */
-  private getDescendants(idx: number, orig: number): number[] {
-    let idxs: number[] = [];
-    const current = idx >= 0 ? state.amoebs[idx] : state.graveyard[-(idx + 1)];
 
-    for (let i = 0; i < current.children.length; i++) {
-      idxs = idxs.concat(this.getDescendants(current.children[i], orig));
-    }
+  private getDescendantIndices(idx: number, orig: number): number[] {
+  const indices: number[] = [];
+  const current = idx >= 0 ? state.amoebs[idx] : state.graveyard[-(idx + 1)];
+  if (!current) return indices;
 
-    if (idx !== orig) {
-      idxs.push(idx);
-    }
-
-    return idxs;
+  for (const childIdx of current.children) {
+    indices.push(...this.getDescendantIndices(childIdx, orig));
   }
 
+  // Exclude the original starting node from results
+  if (idx !== orig) {
+    indices.push(idx);
+  }
+
+  return indices;
+}
   /**
    * Calculate weight deltas between current and base animal
    */
@@ -757,30 +935,49 @@ export class Amoeb {
     const in_weights2_deltas: number[][] = [];
     const out_weights1_deltas: number[][] = [];
     const out_weights2_deltas: number[][] = [];
+    const in_sigmas1_deltas: number[][] = [];
+    const in_sigmas2_deltas: number[][] = [];
+    const out_sigmas1_deltas: number[][] = [];
+    const out_sigmas2_deltas: number[][] = [];
 
     for (let i = 0; i < NUM_INPUT_NEURONS; i++) {
       const w1_deltas: number[] = [];
       const w2_deltas: number[] = [];
+      const s1_deltas: number[] = [];
+      const s2_deltas: number[] = [];
       for (let j = 0; j < NUM_OUTPUT_NEURONS; j++) {
         w1_deltas[j] = current.inputs[i].weights1[j] - base.inputs[i].weights1[j];
         w2_deltas[j] = current.inputs[i].weights2[j] - base.inputs[i].weights2[j];
+        s1_deltas[j] = (current.inputs[i].sigmas1?.[j] ?? 1) - (base.inputs[i].sigmas1?.[j] ?? 1);
+        s2_deltas[j] = (current.inputs[i].sigmas2?.[j] ?? 1) - (base.inputs[i].sigmas2?.[j] ?? 1);
       }
       in_weights1_deltas.push(w1_deltas);
       in_weights2_deltas.push(w2_deltas);
+      in_sigmas1_deltas.push(s1_deltas);
+      in_sigmas2_deltas.push(s2_deltas);
     }
 
     for (let i = 0; i < NUM_OUTPUT_NEURONS; i++) {
       const w1_deltas: number[] = [];
       const w2_deltas: number[] = [];
+      const s1_deltas: number[] = [];
+      const s2_deltas: number[] = [];
       for (let j = 0; j < NUM_OUTPUT_NEURONS; j++) {
         w1_deltas[j] = current.outputs[i].weights1[j] - base.outputs[i].weights1[j];
         w2_deltas[j] = current.outputs[i].weights2[j] - base.outputs[i].weights2[j];
+        s1_deltas[j] = (current.outputs[i].sigmas1?.[j] ?? 1) - (base.outputs[i].sigmas1?.[j] ?? 1);
+        s2_deltas[j] = (current.outputs[i].sigmas2?.[j] ?? 1) - (base.outputs[i].sigmas2?.[j] ?? 1);
       }
       out_weights1_deltas.push(w1_deltas);
       out_weights2_deltas.push(w2_deltas);
+      out_sigmas1_deltas.push(s1_deltas);
+      out_sigmas2_deltas.push(s2_deltas);
     }
 
-    return { in_weights1_deltas, in_weights2_deltas, out_weights1_deltas, out_weights2_deltas };
+    return {
+      in_weights1_deltas, in_weights2_deltas, out_weights1_deltas, out_weights2_deltas,
+      in_sigmas1_deltas, in_sigmas2_deltas, out_sigmas1_deltas, out_sigmas2_deltas,
+    };
   }
 
   /**
@@ -909,7 +1106,7 @@ export class Amoeb {
     const posx = this.x + 2 * s;
     let posy = this.y - 2 * s;
     if (this.alive) {
-      ctx.fillText(this.name + '-' + this.gen + (this.alive ? 'A' : 'D') + this.children.length, posx, posy + 2);
+      ctx.fillText(this.name + '-' + this.gen + (this.alive ? 'A' : 'D') + this.descendants, posx, posy + 2);
     }
     posy += 10;
 
@@ -920,7 +1117,7 @@ export class Amoeb {
     } else if (state.display === 'brain') {
       this.drawBrainDisplay();
     } else if (state.display === 'family') {
-      updateFamilyDisplay();
+      updateFamilyDisplay(false, this.descendants);
     }
   }
 
@@ -930,7 +1127,7 @@ export class Amoeb {
   private updateMainStatsDisplay(): void {
     const nameEl = document.getElementById('stats-name');
     if (nameEl) {
-      nameEl.innerHTML = this.name + '-' + this.gen + (this.alive ? 'A' : 'D') + this.children.length;
+      nameEl.innerHTML = this.name + '-' + this.gen + (this.alive ? 'A' : 'D') + this.descendants;
     }
 
     const idxEl = document.getElementById('stats-idx');
@@ -956,8 +1153,12 @@ export class Amoeb {
       siblingEl.innerHTML = 'SIBLING: ' + this.sibling_idx;
     }
 
-    const descendantsEl = document.getElementById('stats-descendants');
-    if (descendantsEl) descendantsEl.innerHTML = 'DESCENDANTS: ' + this.descendants;
+
+    const bornEl = document.getElementById('stats-born');
+    if (bornEl) bornEl.innerHTML = '<b>' + this.born + '</b>';
+
+    // const descendantsEl = document.getElementById('stats-descendants');
+    // if (descendantsEl) descendantsEl.innerHTML = 'DESCENDANTS: ' + this.descendants;
 
     // Energy stat
     const stat = round((5 * this.energyChange) / (this.size * 10 + 5));
@@ -1058,7 +1259,7 @@ export class Amoeb {
    * Draw brain visualization
    */
   private drawBrainDisplay(): void {
-    drawBrain(this);
+    drawBrain3D(this);
   }
 
   /**
@@ -1124,6 +1325,8 @@ export class Amoeb {
       clone.inputs[i] = new Neuron();
       clone.inputs[i].weights1 = new Float32Array(this.inputs[i].weights1);
       clone.inputs[i].weights2 = new Float32Array(this.inputs[i].weights2);
+      clone.inputs[i].sigmas1 = new Float32Array(this.inputs[i].sigmas1);
+      clone.inputs[i].sigmas2 = new Float32Array(this.inputs[i].sigmas2);
       clone.inputs[i].in = this.inputs[i].in;
       clone.inputs[i].out = this.inputs[i].out;
     }
@@ -1132,6 +1335,8 @@ export class Amoeb {
       clone.outputs[i] = new Neuron();
       clone.outputs[i].weights1 = new Float32Array(this.outputs[i].weights1);
       clone.outputs[i].weights2 = new Float32Array(this.outputs[i].weights2);
+      clone.outputs[i].sigmas1 = new Float32Array(this.outputs[i].sigmas1);
+      clone.outputs[i].sigmas2 = new Float32Array(this.outputs[i].sigmas2);
       clone.outputs[i].in = this.outputs[i].in;
       clone.outputs[i].out = this.outputs[i].out;
     }

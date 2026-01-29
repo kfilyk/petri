@@ -84,6 +84,10 @@ export interface WeightDeltas {
   in_weights2_deltas: number[][];
   out_weights1_deltas: number[][];
   out_weights2_deltas: number[][];
+  in_sigmas1_deltas: number[][];
+  in_sigmas2_deltas: number[][];
+  out_sigmas1_deltas: number[][];
+  out_sigmas2_deltas: number[][];
 }
 
 // Canvas rendering context type

@@ -8,10 +8,8 @@ let familyContainer: HTMLElement | null = null;
 // Navigation history stack
 const navHistory: number[] = [];
 
-// Throttle updates to once per second
-let lastUpdateTime = 0;
 let lastHighlighted: number | null = null;
-
+let lastDescendants: number | undefined = undefined;
 /**
  * Initialize the family display container
  */
@@ -34,7 +32,7 @@ function getAmoeb(idx: number): Amoeb | null {
  * Format amoeb name for display
  */
 function formatName(amoeb: Amoeb): string {
-  return `${amoeb.name}-${amoeb.gen}${amoeb.alive ? 'A' : 'D'}${amoeb.children.length}`;
+  return `${amoeb.name}-${amoeb.gen}${amoeb.alive ? 'A' : 'D'}${amoeb.descendants}`;
 }
 
 /**
@@ -83,22 +81,26 @@ function createSection(title: string): HTMLElement {
  * Update the family display for the currently highlighted amoeb
  * @param force - Force update even if throttle time hasn't elapsed
  */
-export function updateFamilyDisplay(force: boolean = false): void {
+export function updateFamilyDisplay(force: boolean = false, descendants:number | undefined = undefined): void {
   if (!familyContainer) {
     familyContainer = document.getElementById('family-tree');
   }
   if (!familyContainer) return;
 
-  const now = Date.now();
   const highlightedChanged = state.highlighted !== lastHighlighted;
+  const descendantsChanged = descendants !== lastDescendants
 
-  // Throttle updates to once per second unless forced or highlighted changed
-  if (!force && !highlightedChanged && now - lastUpdateTime < 1000) {
-    return;
+  // only proceed to render family display if was forced, or highlighted changed, or # descendants changed
+  if (!force && !highlightedChanged && !descendantsChanged) {
+    return; // dont rerender
+    // otherwise, update ! change in number of descendants -> need rerender of fam tree
   }
 
-  lastUpdateTime = now;
+
+  console.log("RERENDERING FAM TREE")
   lastHighlighted = state.highlighted;
+  lastDescendants = descendants;
+
 
   if (state.highlighted === null) {
     familyContainer.innerHTML = '<div class="family-empty">No amoeb selected</div>';

@@ -49,8 +49,9 @@ export interface SimulationStats {
   redAgarOnMap: number;
   greenAgarOnMap: number;
   blueAgarOnMap: number;
-  mutationRate: number;
-  mitosis: number;
+  advWeight: number,
+  disWeight: number,
+  mitoses: number;
   netEatenRatio: number;
 }
 
@@ -143,8 +144,9 @@ class State {
     redAgarOnMap: 0,
     greenAgarOnMap: 0,
     blueAgarOnMap: 0,
-    mutationRate: 0,
-    mitosis: 0,
+    advWeight: 0,
+    disWeight: 0,
+    mitoses: 0,
     netEatenRatio: 0,
   };
 

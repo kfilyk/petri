@@ -1,7 +1,7 @@
 // System and handler exports
 export { tileSystem } from './TileSystem';
 export { amoebSystem, initAmoebSystemDom } from './AmoebSystem';
-export { statSystem, initFoodPopChart, initOptimizationChart, initLifespanChart, resetChartData, resizeCharts } from './StatSystem';
+export { statSystem, initFoodPopChart, initOptimizationChart, initLifespanChart, initMutationStratChart, resetChartData, resizeCharts } from './StatSystem';
 export {
   inputHandler,
   initInputHandlerDom,

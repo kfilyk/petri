@@ -30,10 +30,10 @@ export const dashboard = {
     if (state.newest !== null && dashNewest) {
       if (state.newest < 0) {
         const n = state.graveyard[-(state.newest + 1)];
-        dashNewest.innerHTML = 'NEW: ' + n.name + '-' + n.gen + 'D' + n.children.length;
+        dashNewest.innerHTML = 'NEW: ' + n.name + '-' + n.gen + 'D' + n.descendants;
       } else {
         const n = state.amoebs[state.newest];
-        dashNewest.innerHTML = 'NEW: ' + n.name + '-' + n.gen + 'A' + n.children.length;
+        dashNewest.innerHTML = 'NEW: ' + n.name + '-' + n.gen + 'A' + n.descendants;
       }
     }
 

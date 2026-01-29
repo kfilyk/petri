@@ -1,7 +1,7 @@
 // Main entry point for Petri simulation
 // Wires together all modules and starts the simulation loop
 
-import { BRAINX, BRAINY, FIELDX, FIELDY, POPCAP, SCORESCAP } from './constants';
+import { FIELDX, FIELDY, POPCAP, SCORESCAP } from './constants';
 import { round } from './utils/math';
 import { state } from './state';
 import { Amoeb } from './entities/Amoeb';
@@ -21,13 +21,17 @@ import {
   initFoodPopChart,
   initOptimizationChart,
   initLifespanChart,
+  initMutationStratChart,
   resetChartData,
   resizeCharts,
 } from './managers';
 import { accelerateMutations } from './genetics/mutations';
 import { initFPSCounter, updateFPS } from './components/FPSCounter';
-import { getNeuronAtPosition, displayNeuronWeights, updateBrainCursor } from './components/BrainDisplay';
+import { downloadState, loadStateFromFile } from './utils/saveLoad';
+// Old 2D brain display (deprecated, kept for reference)
+// import { getNeuronAtPosition, displayNeuronWeights, updateBrainCursor } from './components/BrainDisplay';
 import { initFamilyDisplay, toggleFamilyDisplay, updateFamilyDisplay } from './components/FamilyDisplay';
+import { initBrain3D, drawBrain3D, resizeBrain3D, clearBrain3DSelection } from './components/BrainDisplay3D';
 
 // Import uPlot CSS
 import 'uplot/dist/uPlot.min.css';
@@ -38,31 +42,32 @@ import 'uplot/dist/uPlot.min.css';
 function init(): void {
   // Get canvas elements
   const mapCanvas = document.getElementById('map') as HTMLCanvasElement;
-  const brainCanvas = document.getElementById('brain') as HTMLCanvasElement;
 
-  if (!mapCanvas || !brainCanvas) {
-    console.error('Canvas elements not found');
+  if (!mapCanvas) {
+    console.error('Map canvas not found');
     return;
   }
 
   // Set canvas dimensions
   mapCanvas.width = window.innerWidth;
   mapCanvas.height = 1000;
-  brainCanvas.width = BRAINX;
-  brainCanvas.height = BRAINY;
 
   // Get rendering contexts
   state.ctx.map = mapCanvas.getContext('2d');
-  state.ctx.stats = brainCanvas.getContext('2d');
 
-  if (!state.ctx.map || !state.ctx.stats) {
-    console.error('Could not get canvas contexts');
+  if (!state.ctx.map) {
+    console.error('Could not get map canvas context');
     return;
+  }
+
+  // Initialize 3D brain display
+  const brain3dContainer = document.getElementById('brain3d-container');
+  if (brain3dContainer) {
+    initBrain3D(brain3dContainer);
   }
 
   // Set fonts
   state.ctx.map.font = '10px Arial';
-  state.ctx.stats.font = '10px Arial';
 
   // Initialize uPlot charts
   initCharts();
@@ -80,7 +85,7 @@ function init(): void {
   initDashboardDom();
 
   // Set up event listeners
-  setupEventListeners(mapCanvas, brainCanvas);
+  setupEventListeners(mapCanvas);
 
   // Generate terrain and start simulation
   tileSystem.generate();
@@ -111,59 +116,21 @@ function initCharts(): void {
   if (lifespanContainer) {
     initLifespanChart(lifespanContainer);
   }
+
+  const mutationStratContainer = document.getElementById('mutationStratChart');
+  if (mutationStratContainer) {
+    initMutationStratChart(mutationStratContainer);
+  }
 }
 
 /**
  * Set up all event listeners
  */
-function setupEventListeners(mapCanvas: HTMLCanvasElement, brainCanvas: HTMLCanvasElement): void {
-  // Stats canvas events
-  // brainCanvas.addEventListener('mouseover', (e) => {
-  //   handleMouseEvent('over', e, mapCanvas);
-  //   state.mouse.overConsole = true;
-  // });
-  // brainCanvas.addEventListener('mousemove', (e) => handleMouseEvent('move', e, mapCanvas));
-  // brainCanvas.addEventListener('mousedown', (e) => handleMouseEvent('down', e, mapCanvas));
-  // brainCanvas.addEventListener('mouseup', (e) => handleMouseEvent('up', e, mapCanvas));
-  // brainCanvas.addEventListener('mouseout', (e) => {
-  //   handleMouseEvent('out', e, mapCanvas);
-  //   state.mouse.overConsole = false;
-  // });
-
-  // Brain canvas click - show neuron weights
-  brainCanvas.addEventListener('click', (e) => {
-    if (state.highlighted === null) return;
-
-    const rect = brainCanvas.getBoundingClientRect();
-    const scaleX = brainCanvas.width / rect.width;
-    const scaleY = brainCanvas.height / rect.height;
-    const x = (e.clientX - rect.left) * scaleX;
-    const y = (e.clientY - rect.top) * scaleY;
-
-    const neuron = getNeuronAtPosition(x, y);
-    if (neuron) {
-      const amoeb = state.highlighted >= 0
-        ? state.amoebs[state.highlighted]
-        : state.graveyard[-(state.highlighted + 1)];
-      if (amoeb) {
-        displayNeuronWeights(amoeb, neuron.type, neuron.index);
-      }
-    }
-  });
-
-  // Brain canvas mouse tracking - show cursor position
-  brainCanvas.addEventListener('mousemove', (e) => {
-    const rect = brainCanvas.getBoundingClientRect();
-    const scaleX = brainCanvas.width / rect.width;
-    const scaleY = brainCanvas.height / rect.height;
-    const x = (e.clientX - rect.left) * scaleX;
-    const y = (e.clientY - rect.top) * scaleY;
-    updateBrainCursor(x, y);
-  });
-
-  brainCanvas.addEventListener('mouseleave', () => {
-    updateBrainCursor(null, null);
-  });
+function setupEventListeners(mapCanvas: HTMLCanvasElement): void {
+  // Old 2D brain canvas events (deprecated - 3D brain handles its own events)
+  // brainCanvas.addEventListener('click', ...);
+  // brainCanvas.addEventListener('mousemove', ...);
+  // brainCanvas.addEventListener('mouseleave', ...);
 
   // Map canvas events
   mapCanvas.addEventListener('mouseover', (e) => {
@@ -214,6 +181,7 @@ function setupDashboardResize(): void {
     if (newWidth >= minWidth && newWidth <= maxWidth) {
       dashboard.style.width = newWidth + 'px';
       resizeCharts();
+      resizeBrain3D();
     }
   });
 
@@ -222,6 +190,7 @@ function setupDashboardResize(): void {
       isResizing = false;
       handle.classList.remove('dragging');
       resizeCharts();
+      resizeBrain3D();
     }
   });
 }
@@ -337,17 +306,18 @@ function newSimulation(): void {
  */
 function showCurrentDisplay(): void {
   const statsEl = document.getElementById('amoeb-stats');
-  const brainEl = document.getElementById('brain');
+  const brain3dEl = document.getElementById('brain3d-container');
   const familyEl = document.getElementById('family-tree');
 
   if (statsEl) statsEl.style.display = 'block';
 
-  if (state.display === 'brain' && brainEl) {
-    brainEl.style.display = 'block';
+  if (state.display === 'brain' && brain3dEl) {
+    brain3dEl.style.display = 'block';
+    resizeBrain3D();
     if (familyEl) familyEl.style.display = 'none';
   } else if (state.display === 'family' && familyEl) {
     familyEl.style.display = 'block';
-    if (brainEl) brainEl.style.display = 'none';
+    if (brain3dEl) brain3dEl.style.display = 'none';
     updateFamilyDisplay(true); // Force update when highlighting new amoeb
   }
 }
@@ -388,30 +358,31 @@ function highlightBronze(): void {
  * Save simulation to file
  */
 function save(): void {
-  const animalString = JSON.stringify(state.amoebs);
-  const tileString = JSON.stringify(state.tiles);
-
-  const data = new Blob(
-    [`var amoebs= '${animalString}'; \n\nvar tiles= '${tileString}'; `],
-    { type: 'application/javascript' }
-  );
-
-  const url = window.URL.createObjectURL(data);
   console.log('SAVING...');
-
-  const link = document.getElementById('save-button') as HTMLAnchorElement;
-  if (link) {
-    link.href = url;
-    link.download = 'save.p3';
-  }
+  downloadState(`petri-save-${Date.now()}.json`);
 }
 
 /**
- * Load simulation (placeholder)
+ * Load simulation from file
  */
 function load(): void {
-  // Load functionality to be implemented
-  console.log('Load functionality not yet implemented');
+  // Create hidden file input
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = async (e) => {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (file) {
+      console.log('LOADING...');
+      try {
+        await loadStateFromFile(file);
+        console.log('Load complete!');
+      } catch (err) {
+        console.error('Failed to load:', err);
+      }
+    }
+  };
+  input.click();
 }
 
 /**
@@ -420,15 +391,19 @@ function load(): void {
 function toggleBrainDisplay(): void {
   if (state.highlighted === null) return;
 
-  const brainCanvas = document.getElementById('brain');
+  const brain3dContainer = document.getElementById('brain3d-container');
   const familyTree = document.getElementById('family-tree');
 
   if (state.display === 'brain') {
     state.display = 'default'; // Switch back to stats
-    if (brainCanvas) brainCanvas.style.display = 'none';
+    if (brain3dContainer) brain3dContainer.style.display = 'none';
+    clearBrain3DSelection();
   } else {
     state.display = 'brain'; // Switch to brain display
-    if (brainCanvas) brainCanvas.style.display = 'block';
+    if (brain3dContainer) {
+      brain3dContainer.style.display = 'block';
+      resizeBrain3D();
+    }
     if (familyTree) familyTree.style.display = 'none';
   }
 }

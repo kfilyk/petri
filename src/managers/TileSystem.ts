@@ -1,8 +1,21 @@
 // TileSystem - Handles tile generation and updates
 
-import { FIELDX, FIELDY, TILENUMBER } from '../constants';
+import { FIELDX, FIELDY, TILENUMBER, TILE_SIZE } from '../constants';
 import { state } from '../state';
 import { Tile } from '../entities/Tile';
+import { round } from '../utils/math';
+
+// Offscreen tile buffer (1 pixel per tile, scaled up on draw)
+export const GRID_W = FIELDX / TILE_SIZE;
+export const GRID_H = FIELDY / TILE_SIZE;
+export const GRID_TILES = GRID_W*GRID_H;
+
+const tileCanvas = document.createElement('canvas');
+tileCanvas.width = GRID_W;
+tileCanvas.height = GRID_H;
+const tileCtx = tileCanvas.getContext('2d')!;
+const tileImageData = tileCtx.createImageData(GRID_W, GRID_H);
+const tileBuf = tileImageData.data; // Uint8ClampedArray, length = GRID_W * GRID_H * 4
 
 export const tileSystem = {
   /**
@@ -12,13 +25,13 @@ export const tileSystem = {
     const neighbors: number[] = [];
     let pos = 0;
 
-    for (let i = 0; i < FIELDY; i += 25) {
-      for (let j = 0; j < FIELDX; j += 25) {
+    for (let i = 0; i < FIELDY; i += TILE_SIZE) {
+      for (let j = 0; j < FIELDX; j += TILE_SIZE) {
         // Determine neighbors based on position
-        if (pos >= 40) neighbors.push(pos - 40);    // not top
-        if (pos < 1560) neighbors.push(pos + 40);   // not bottom
-        if (pos % 40 !== 0) neighbors.push(pos - 1); // not left
-        if ((pos + 1) % 40 !== 0) neighbors.push(pos + 1); // not right
+        if (pos >= GRID_W) neighbors.push(pos - GRID_W);                // not top
+        if (pos < TILENUMBER - GRID_W) neighbors.push(pos + GRID_W);   // not bottom
+        if (pos % GRID_W !== 0) neighbors.push(pos - 1);               // not left
+        if ((pos + 1) % GRID_W !== 0) neighbors.push(pos + 1);         // not right
 
         state.tiles[pos] = new Tile(j, i, pos, [...neighbors]);
         pos++;
@@ -95,24 +108,52 @@ export const tileSystem = {
     const ctx = state.ctx.map;
     if (!ctx) return;
 
-    // Clear borders using untransformed coordinates
-    // Save current transform, reset to identity, clear, then restore
+    // Clear canvas using untransformed coordinates
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     ctx.restore();
 
+    // Write tile colors into the ImageData buffer (1 pixel per tile)
     for (let i = 0; i < TILENUMBER; i++) {
-      state.tiles[i].draw(
-        ctx,
-        state.mouse.overMap,
-        state.mouse.x,
-        state.mouse.y,
-        state.mouse.leftPressed
-      );
+      const t = state.tiles[i];
+      const off = i * 4;
+      // const cap = t.RCap + t.GCap + t.BCap;
+
+      tileBuf[off]     = t.R < 255 ? (t.R > 48 ? t.R : 48) : 255;
+      tileBuf[off + 1] = t.G < 255 ? (t.G > 48 ? t.G : 48) : 255;
+      tileBuf[off + 2] = t.B < 255 ? (t.B > 48 ? t.B : 48) : 255;
+      tileBuf[off + 3] = 255; // transparent when depleted
 
       if (!state.pause) {
-        state.tiles[i].regenerate();
+        t.regenerate();
+      }
+    }
+
+    // Blit the 40×40 buffer to the offscreen canvas, then scale up
+    tileCtx.putImageData(tileImageData, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(tileCanvas, 0, 0, FIELDX, FIELDY);
+
+    // Hover overlay (only for the one tile under the mouse)
+    if (state.mouse.overMap) {
+      const tx = Math.floor(state.mouse.x / TILE_SIZE);
+      const ty = Math.floor(state.mouse.y / TILE_SIZE);
+      const ti = ty * GRID_W + tx;
+      if (ti >= 0 && ti < TILENUMBER) {
+        const t = state.tiles[ti];
+        const rDark = t.R - 32;
+        const gDark = t.G - 32;
+        const bDark = t.B - 32;
+        ctx.fillStyle = `rgb(${rDark},${gDark},${bDark})`;
+
+        if (!state.mouse.leftPressed) {
+          ctx.fillText(t.num.toString(), t.x, t.y + 25);
+        } else if (state.mouse.x > t.x && state.mouse.x < t.x + TILE_SIZE && state.mouse.y > t.y && state.mouse.y < t.y + TILE_SIZE) {
+          ctx.fillText(round(t.R).toString(), t.x, t.y + 8);
+          ctx.fillText(round(t.G).toString(), t.x, t.y + 16);
+          ctx.fillText(round(t.B).toString(), t.x, t.y + 25);
+        }
       }
     }
   },

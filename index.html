@@ -49,7 +49,6 @@
             <img src="icons/fitness.png">
             <img src="icons/energy.png">
             <img src="icons/lifespan.png">
-            <img src="icons/children.png">
 
 
           </div>
@@ -68,7 +67,7 @@
                       <img src="icons/brain.png"/>
                     </button>
                     <button onclick="toggleFamilyDisplay()">
-                      <img src="icons/family.png"/>
+                      <img src="icons/children.png"/>
                     </button>
                     <button onclick="(() => {
                       highlighted=null;
@@ -94,7 +93,8 @@
 
                   })()"></span><br/> -->
                   <span id="stats-sibling-idx"></span><br/>
-                  <span id="stats-descendants"></span><br/>
+                  <span id="stats-born"></span><br/>
+                  <span id="stats-mutation-strategy"></span><br/>
                   <span id="stats-size"></span><br/>
                   <span id="stats-damage"></span><br/>
                 </div>
@@ -112,8 +112,15 @@
             </div>
             <div id="amoeb-stats-separator"></div>
 
-            <canvas id="brain" style="width:100%"></canvas>
-            <div id="neuron-weights" style="display:none;"></div>
+            <!-- Old 2D brain canvas (deprecated, kept for reference) -->
+            <!-- <canvas id="brain" style="width:100%"></canvas> -->
+            <!-- <div id="neuron-weights" style="display:none;"></div> -->
+
+            <!-- New 3D brain display -->
+            <div id="brain3d-container" style="display:none; width:100%; height:350px; position:relative;"></div>
+
+            <div id="brain3d-weights" style="display:none;"></div>
+
             <div id="family-tree" style="display:none;"></div>
 
           </div>
@@ -121,6 +128,7 @@
             <div class="chart" id="foodPopChart"></div>
             <div class="chart" id="optimizationChart"></div>
             <div class="chart" id="lifespanChart"></div>
+            <div class="chart" id="mutationStratChart"></div>
           </div>
         </div>
       </div>

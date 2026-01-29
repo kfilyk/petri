@@ -17,6 +17,7 @@ body {
     font-family: SplineSans;
     font-size: 10px;
     color:#161616aa; /*~68% opaque*/
+    background-color: #303030;
 }
 
 #dashboard {
@@ -252,6 +253,18 @@ body {
     padding:0px;
 }
 
+#brain3d-container {
+    border-top: 2px solid #00000020;
+    margin-top:8px;
+}
+
+#brain3d-weights {
+    max-height: 250px;
+    overflow-y: auto;
+    padding: 8px;
+    font-size: 8px;
+    font-family: monospace;
+}
 
 #brain {
     display:none;
@@ -329,24 +342,20 @@ button:hover {
 
 #family-tree {
     padding: 8px;
-    max-height: 400px;
-    overflow-y: auto;
+    outline:1px solid #323232;
 }
 
 .family-nav {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-bottom: 8px;
     padding-bottom: 8px;
-    border-bottom: 1px solid #ddd;
 }
 
 .family-back-btn {
     padding: 4px 8px !important;
     background-color: #e0e0e0 !important;
     border: 1px solid #bbb !important;
-    border-radius: 3px;
     cursor: pointer;
     font-size: 10px !important;
     opacity: 1 !important;
@@ -362,12 +371,12 @@ button:hover {
 }
 
 .family-history-count {
-    color: #888;
+    color: #323232;
     font-size: 9px;
 }
 
 .family-empty {
-    color: #888;
+    color: #323232;
     font-style: italic;
     padding: 16px;
     text-align: center;
@@ -383,20 +392,19 @@ button:hover {
     text-transform: uppercase;
     color: #666;
     margin-bottom: 4px;
-    border-bottom: 1px solid #ddd;
+    border-bottom: 1px solid #323232;
     padding-bottom: 2px;
 }
 
 .family-member {
     display: inline-block;
-    padding: 2px 6px;
+    padding: 2px 4px;
     margin: 2px;
     background-color: #e8f5e9;
     border: 1px solid #a5d6a7;
-    border-radius: 3px;
     cursor: pointer;
     font-size: 10px;
-    transition: background-color 0.15s;
+    white-space: nowrap;
 }
 
 .family-member:hover {
@@ -451,3 +459,10 @@ button:hover {
 
 /* * * * * * * * * * * * * UPLOT * * * * * * * * * * * * */
 
+
+
+  .uplot .u-legend {                                                                                                                               
+                                                                                                                                 
+    padding: 4px;                                                                                                                                  
+    font-size: 9px;                                                                                                                                
+  }       

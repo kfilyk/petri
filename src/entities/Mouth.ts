@@ -1,6 +1,7 @@
 // Mouth creature component - Used for eating tiles and other amoebs
 
-import { DEG_TO_RAD, FIELDX, FIELDY } from '../constants';
+import { GRID_W } from '@/managers/TileSystem';
+import { DEG_TO_RAD, FIELDX, FIELDY, TILE_SIZE } from '../constants';
 import { state } from '../state';
 
 export class Mouth {
@@ -41,7 +42,7 @@ export class Mouth {
 
     if (this.x >= 0 && this.y >= 0 && this.x < FIELDX && this.y < FIELDY) {
       // Calculate tile index using bitwise floor for performance
-      this.tile = (~~(this.y / 25) * 40) + (~~(this.x / 25));
+      this.tile = (~~(this.y / TILE_SIZE) * GRID_W) + (~~(this.x / TILE_SIZE));
       const tile = state.tiles[this.tile];
       this.r = tile.R / 150;
       this.g = tile.G / 200;
