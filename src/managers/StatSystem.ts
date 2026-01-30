@@ -125,7 +125,7 @@ export function initFoodPopChart(container: HTMLElement): uPlot {
     ],
   };
 
-  foodPopChart = new uPlot(opts, foodPopData, container);
+  foodPopChart = new uPlot(opts, foodPopData as uPlot.AlignedData, container);
   return foodPopChart;
 }
 
@@ -157,7 +157,7 @@ export function initOptimizationChart(container: HTMLElement): uPlot {
     ],
   };
 
-  optimizationChart = new uPlot(opts, optimizationData, container);
+  optimizationChart = new uPlot(opts, optimizationData as uPlot.AlignedData, container);
   return optimizationChart;
 }
 
@@ -187,7 +187,7 @@ export function initLifespanChart(container: HTMLElement): uPlot {
     ],
   };
 
-  lifespanChart = new uPlot(opts, lifespanData, container);
+  lifespanChart = new uPlot(opts, lifespanData as uPlot.AlignedData, container);
   return lifespanChart;
 }
 
@@ -218,7 +218,7 @@ export function initMutationStratChart(container: HTMLElement): uPlot {
     ],
   };
 
-  mutationStratChart = new uPlot(opts, mutationStratData, container);
+  mutationStratChart = new uPlot(opts, mutationStratData as uPlot.AlignedData, container);
   return mutationStratChart;
 }
 
@@ -232,16 +232,16 @@ export function resetChartData(): void {
   mutationStratData = [[], [], [], []];
 
   if (foodPopChart) {
-    foodPopChart.setData(stackFoodData(foodPopData));
+    foodPopChart.setData(stackFoodData(foodPopData) as uPlot.AlignedData);
   }
   if (optimizationChart) {
-    optimizationChart.setData(optimizationData);
+    optimizationChart.setData(optimizationData as uPlot.AlignedData);
   }
   if (lifespanChart) {
-    lifespanChart.setData(lifespanData);
+    lifespanChart.setData(lifespanData as uPlot.AlignedData);
   }
   if (mutationStratChart) {
-    mutationStratChart.setData(mutationStratData);
+    mutationStratChart.setData(mutationStratData as uPlot.AlignedData);
   }
 }
 
@@ -319,7 +319,7 @@ export const statSystem = {
     foodPopData[4].push(state.stats.livePop);
 
     if (foodPopChart) {
-      foodPopChart.setData(stackFoodData(foodPopData));
+      foodPopChart.setData(stackFoodData(foodPopData) as uPlot.AlignedData);
     }
 
     // Calculate average lifespan
@@ -336,7 +336,7 @@ export const statSystem = {
     optimizationData[2].push(eatEfficiency);
 
     if (optimizationChart) {
-      optimizationChart.setData(optimizationData);
+      optimizationChart.setData(optimizationData as uPlot.AlignedData);
     }
 
     // Update lifespan chart
@@ -344,7 +344,7 @@ export const statSystem = {
     lifespanData[1].push(state.stats.aveLifespan);
 
     if (lifespanChart) {
-      lifespanChart.setData(lifespanData);
+      lifespanChart.setData(lifespanData as uPlot.AlignedData);
     }
 
     // Update mutation strategy chart
@@ -355,7 +355,7 @@ export const statSystem = {
     mutationStratData[2].push(state.stats.mitoses > 0 ? state.stats.disWeight / state.stats.mitoses : 0);
 
     if (mutationStratChart) {
-      mutationStratChart.setData(mutationStratData);
+      mutationStratChart.setData(mutationStratData as uPlot.AlignedData);
     }
 
     // Reset per-frame stats
