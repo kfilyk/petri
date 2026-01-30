@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+    <title>Petri</title>
+
+    <script type="module" crossorigin src="/petri/assets/index-BDZwqh-B.js"></script>
+    <link rel="stylesheet" crossorigin href="/petri/assets/index-CCXt26Og.css">
+  </head>
+  <body oncontextmenu="return false;" style="margin:0px;">
+    <canvas id="map" style="z-index: 1; height:100%"></canvas>
+    <div id="dashboard">
+
+      <div id="dashboard-content">
+
+        <span id="dashboard-resize-handle" >
+            <img src="data:image/svg+xml,%3c?xml%20version='1.0'%20encoding='UTF-8'%20standalone='no'?%3e%3c!--%20Created%20with%20Inkscape%20(http://www.inkscape.org/)%20--%3e%3csvg%20width='256'%20height='256'%20viewBox='0%200%2067.73333%2067.733335'%20version='1.1'%20id='svg1'%20xml:space='preserve'%20xmlns='http://www.w3.org/2000/svg'%20xmlns:svg='http://www.w3.org/2000/svg'%3e%3cdefs%20id='defs1'%20/%3e%3cg%20id='layer1'%3e%3cpath%20id='rect3'%20style='opacity:1;fill:%23000000;fill-opacity:1;stroke:none;stroke-width:4.14538'%20d='M%2033.866667,12.912907%2023.389787,23.389787%200.19068644,46.588887%2010.667566,57.065767%2033.866666,33.866666%2057.065767,57.065767%2067.542647,46.588887%2044.343546,23.389786%20Z'%20/%3e%3c/g%3e%3c/svg%3e"/>
+
+        </span>
+
+
+
+
+        <div id="dashboard-content-right">
+
+          <div id="dashboard-info">
+
+
+            
+            <span id="dash-title"><b>PETRI 2.20</b></span></br>
+            <span id="fps-counter"></span><span id="x-y"></span></br></br>
+            <span id="dash-live-info"></span></br>
+            <span id="dash-newest" onclick="highlight_newest()" >NEW: </span></br>
+            <span id="dash-time"></span></br>
+            <span id="dash-highlighted"></span></br>
+            <div class="dash-medallist" onclick="highlight_gold()"><img src="/petri/assets/gold-medal-C1_CJ_kQ.png"><span id="dash-gold"></span></img></div>
+            <div class="dash-medallist" onclick="highlight_silver()"><img src="/petri/assets/silver-medal-BJEgH8vh.png"><span id="dash-silver"></span></img></div>
+            <div class="dash-medallist" onclick="highlight_bronze()"><img src="/petri/assets/bronze-medal-C4aNBfYa.png"><span id="dash-bronze"></span></img></div>
+            <br>
+          </div>
+
+          <div id="dashboard-buttons">
+            <img src="/petri/assets/on_restart-Dg3s9SIq.png" onclick="newSimulation()"> <!-- on / reset -->
+            <img id="play-button" src="/petri/assets/play-CV6IYFL2.png" onclick="pauseSimulation()">
+            <img id="load-button" onclick="load()" src="/petri/assets/load-BmwAfcfR.png">
+            <img src="/petri/assets/fast_forward-CoW6893n.png" onclick="accelerateMutations()">
+            <a id="save-button" onclick="save()"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAQAAAAEABAMAAACuXLVVAAAAA3NCSVQICAjb4U/gAAAACXBIWXMAAApnAAAKZwF8zw6+AAAAGXRFWHRTb2Z0d2FyZQB3d3cuaW5rc2NhcGUub3Jnm+48GgAAACpQTFRF////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA5lNJigAAAA10Uk5TABESFBgwWJi4u87Q2Kk1q1QAAAF3SURBVHja7dq7TcRAGIXRRVAAJbgESqAGykAipgWaIHEfdECMhNH0QrAvv4RXMjvXwbkVHH3Rr9Hsysy+dqfdlZV73C0MAAAAAKAi4CkNeG7CgJc2DeiaMKC0acBcgqqAuQR1ATMJ6gJmElQGTBNUBkwT1AZMEtQGTBJUB4wTVAeME9QHjBLUB4wSBADDBAHAMEECMEiQAAwSRAD9BBFAP0EG0EuQAfQShADnBCHAOUEKcEqQApwSxADHBDHAMUEOcEiQAxwSBAH7BEHAPkES0DVhQGmXAbefK/fwF6BrFgH/uSmgtGlA14QBpU0DujSgAAAAAAAAAABsE/D9epW9XwyoOQAAAAAAAAAAAAAAAAAAAAAAAAAAgG0Cft6uso+LAfHnegAAAAAAAAAAAIAtAW7W3uL3KwHX/dwOAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACwBcAvfd+zTLmpVOIAAAAASUVORK5CYII="/></a>
+            <br>
+            <br>
+
+            <img src="/petri/assets/food-BiCTaAaH.png"> <!-- on / reset -->
+            <img src="/petri/assets/fitness-BeDUYCxT.png">
+            <img src="/petri/assets/energy-DmBKLTsp.png">
+            <img src="/petri/assets/lifespan-B0NLL3LY.png">
+
+
+          </div>
+            <div id="amoeb-stats">
+              <div>
+                <div id="amoeb-stats-header">
+                  <div id="amoeb-stats-title">
+                    <b id="stats-name"></b>
+                    <span id="stats-idx"></span>
+                  </div>
+                  <div id="amoeb-stats-buttons">
+                    <button onclick="toggleTracking()">
+                      <img src="/petri/assets/track-BO4yU0nD.png"/>
+                    </button>
+                    <button onclick="toggleBrainDisplay()">
+                      <img src="/petri/assets/brain-nAZ0bxC6.png"/>
+                    </button>
+                    <button onclick="toggleFamilyDisplay()">
+                      <img src="/petri/assets/children-DDUJsM4I.png"/>
+                    </button>
+                    <button onclick="(() => {
+                      highlighted=null;
+                      leftPressed=false;
+                      document.getElementById('amoeb-stats').style.display='none';
+                      document.getElementById('brain').style.display='none';
+                      document.getElementById('family-tree').style.display='none';
+                    })()">
+                      <img src="data:image/svg+xml,%3c?xml%20version='1.0'%20encoding='UTF-8'%20standalone='no'?%3e%3c!--%20Created%20with%20Inkscape%20(http://www.inkscape.org/)%20--%3e%3csvg%20width='256'%20height='256'%20viewBox='0%200%2067.73333%2067.733335'%20version='1.1'%20id='svg1'%20xml:space='preserve'%20xmlns='http://www.w3.org/2000/svg'%20xmlns:svg='http://www.w3.org/2000/svg'%3e%3cdefs%20id='defs1'%20/%3e%3cg%20id='layer1'%3e%3cpath%20id='path1'%20style='opacity:1;fill:%23000000;fill-opacity:1;stroke-width:4.39134'%20d='M%2033.866666,0%20A%2033.866665,33.866665%200%200%200%200,33.866666%2033.866665,33.866665%200%200%200%2033.866666,67.733332%2033.866665,33.866665%200%200%200%2067.733332,33.866666%2033.866665,33.866665%200%200%200%2033.866666,0%20Z%20M%2044.628283,17.864542%2049.823315,23.087479%2039.07255,33.837727%2049.81763,44.582808%2044.617948,49.78249%2033.866666,39.047745%2023.137606,49.776289%2017.954976,44.59366%2028.673185,33.875451%2017.891414,23.093681%2023.099365,17.88573%2033.866666,28.61014%20Z'%20/%3e%3c/g%3e%3c/svg%3e"/>
+                    </button>
+                  </div>
+                </div>
+
+                <div id="amoeb-stats-left">
+                  <!-- <span id="stats-parent" onclick="(() => {
+                    var a = null;
+                    if(highlighted < 0){
+                      a = graveyard[-(highlighted+1)]
+                    } else {
+                      a = amoebs[highlighted]
+                    }
+                    highlighted=a.parent;
+
+                  })()"></span><br/> -->
+                  <span id="stats-sibling-idx"></span><br/>
+                  <span id="stats-born"></span><br/>
+                  <span id="stats-mutation-strategy"></span><br/>
+                  <span id="stats-size"></span><br/>
+                  <span id="stats-damage"></span><br/>
+                </div>
+                <div id="amoeb-stats-right">
+                  <span class="gauge-stat" id="stats-energy"></span>
+                  <span class="gauge-stat" id="stats-red"></span>
+                  <span class="gauge-stat" id="stats-green"></span>
+                  <span class="gauge-stat" id="stats-blue"></span>
+                  <span id="stats-sensors"></span><br/>
+                  <span class="gauge-stat" id="stats-velocity"></span>
+                  <span class="gauge-stat" id="stats-rotation"></span>
+                  <span class="gauge-stat" id="stats-mutation"></span>
+
+              </div>
+            </div>
+            <div id="amoeb-stats-separator"></div>
+
+            <!-- Old 2D brain canvas (deprecated, kept for reference) -->
+            <!-- <canvas id="brain" style="width:100%"></canvas> -->
+            <!-- <div id="neuron-weights" style="display:none;"></div> -->
+
+            <!-- New 3D brain display -->
+            <div id="brain3d-container" style="display:none; width:100%; height:350px; position:relative;"></div>
+
+            <div id="brain3d-weights" style="display:none;"></div>
+
+            <div id="family-tree" style="display:none;"></div>
+
+          </div>
+          <div id="dash-charts">
+            <div class="chart" id="foodPopChart"></div>
+            <div class="chart" id="optimizationChart"></div>
+            <div class="chart" id="lifespanChart"></div>
+            <div class="chart" id="mutationStratChart"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
