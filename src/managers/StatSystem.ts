@@ -283,7 +283,7 @@ export const statSystem = {
     if (state.stats.livePop !== 0) {
       for (let i = 0; i <= state.HIGHESTINDEX; i++) {
         const a = state.amoebs[i];
-        if (a.alive) {
+        if (a.status === 'alive') {
           state.stats.netEatenRatio += (a.redEaten + a.greenEaten + a.blueEaten) / a.netEaten;
           totalDescendants += a.descendants;
           totalChildren += a.children.length;

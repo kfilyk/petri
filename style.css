@@ -138,13 +138,15 @@ body {
 #amoeb-stats {
     padding:8px;
     position:relative;
-    background-color: #ffffff88;
     overflow:hidden;
     display: none;
+    border-top: 2px solid #00000020;
 }
 
 #dash-charts {
     padding:8px;
+    border-top: 2px solid #00000020;
+
 }
 
 
@@ -152,6 +154,14 @@ body {
     position: relative;
     width:min-content;
     white-space: nowrap;
+}
+#dash-title {
+    font-size: 14px;
+}
+
+#fps-counter {
+    font-family: "Roboto Mono", monospace;
+    color: red;
 }
 
 #dash-live-info {
@@ -205,7 +215,7 @@ body {
 }
 
 #stats-energy {
-    color: #FFD000;
+    color: #EED000;
     text-shadow: #FF0000 0.5px 0.5px;
 }
 
@@ -342,7 +352,7 @@ button:hover {
 
 #family-tree {
     padding: 8px;
-    outline:1px solid #323232;
+    border-top: 2px solid #00000020;
 }
 
 .family-nav {

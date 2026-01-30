@@ -29,7 +29,7 @@ export const inputHandler = {
         if (state.stats.livePop < POPCAP) {
           let i = 0;
           while (state.amoebs[i] != null) {
-            if (state.amoebs[i].alive) {
+            if (state.amoebs[i].status !== 'dead') {
               i++;
             } else {
               break;

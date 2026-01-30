@@ -73,7 +73,7 @@ interface SerializedAmoeb {
   index: number;
   x: number;
   y: number;
-  alive: boolean;
+  status: 'alive' | 'decaying' | 'dead';
   tile: number | null;
   size: number;
   health: number;
@@ -238,7 +238,7 @@ function serializeAmoeb(amoeb: Amoeb): SerializedAmoeb {
     index: amoeb.index,
     x: amoeb.x,
     y: amoeb.y,
-    alive: amoeb.alive,
+    status: amoeb.status,
     tile: amoeb.tile,
     size: amoeb.size,
     health: amoeb.health,
@@ -280,7 +280,7 @@ function serializeAmoeb(amoeb: Amoeb): SerializedAmoeb {
 function deserializeAmoeb(data: SerializedAmoeb): Amoeb {
   const amoeb = new Amoeb(data.x, data.y, data.index);
 
-  amoeb.alive = data.alive;
+  amoeb.status = data.status;
   amoeb.tile = data.tile;
   amoeb.size = data.size;
   amoeb.health = data.health;

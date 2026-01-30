@@ -34,6 +34,7 @@ export interface TileData {
 
 export interface AmoebData {
   index: number;
+  grave?: number;
   x: number;
   y: number;
   alive: boolean;

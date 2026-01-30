@@ -1,11 +1,10 @@
 // Amoeb class - Core entity for the simulation
 
 import {
-  START_SIZE,
+  MIN_SIZE,
   MAX_SIZE,
   NUM_INPUT_NEURONS,
   NUM_OUTPUT_NEURONS,
-  EATING_CONSTANT,
   DEG_TO_RAD,
   TWOPI,
   FIELDX,
@@ -13,8 +12,10 @@ import {
   POPCAP,
   ALPH,
   TILE_SIZE,
+  HUSK_DECAY_RATE,
+  HUSK_ENERGY_FACTOR,
 } from '../constants';
-import { round, abs, generateName } from '../utils/math';
+import { round, abs, generateName, clamp } from '../utils/math';
 import { state } from '../state';
 import { Neuron } from './Neuron';
 import { Eye } from './Eye';
@@ -28,15 +29,15 @@ import { GRID_H, GRID_TILES, GRID_W } from '@/managers/TileSystem';
 
 export class Amoeb {
   index: number;
+  grave?: number;
   x: number;
   y: number;
-  alive: boolean = true;
+  status: 'alive' | 'decaying' | 'dead' = 'alive';
   tile: number | null = null;
-  size: number = START_SIZE;
+  size: number = MIN_SIZE;
   health: number = 0;
   gen: number = 0;
   born: number = 0;
-  age: number = 0;
   parent: number | null = null;
   sibling_idx: number | null = null;
   children: number[] = [];
@@ -114,7 +115,7 @@ export class Amoeb {
     }
 
     // Initialize energy
-    this.energy = START_SIZE * 1000;
+    this.energy = MIN_SIZE * 1000;
     this.maxEnergy = this.energy;
   }
 
@@ -124,11 +125,11 @@ export class Amoeb {
    * Move the animal based on neural network outputs
    */
   move(): void {
-    this.velocityX = (this.outputs[0].out * 2) / (1 + this.currDamage / this.size);
-    this.velocityY = (this.outputs[1].out * 2) / (1 + this.currDamage / this.size);
+    this.velocityX = (this.outputs[0].out * 2) / (1 + this.currDamage + this.size/4);
+    this.velocityY = (this.outputs[1].out * 2) / (1 + this.currDamage + this.size/4);
 
     // console.log("VEL: ", this.velocity)
-    this.rotation = (this.outputs[2].out * 10) / (1 + this.currDamage / this.size);
+    this.rotation = (this.outputs[2].out * 10) / (1 + this.currDamage + this.size/4);
     // console.log("ROT: ", this.rotation)
 
     this.direction += this.rotation;
@@ -197,18 +198,19 @@ export class Amoeb {
       this.eyes[i].sense();
     }
 
-    // Check for animal collisions
+    // Check for amoeb collisions
     for (let j = 0; j <= state.HIGHESTINDEX; j++) {
-      if (state.amoebs[j].alive && j !== this.index) {
+      if (state.amoebs[j].status !== 'dead' && j !== this.index) {
         const other = state.amoebs[j];
-
+        const isHusk = state.amoebs[j].status === 'decaying';
         // Check mouth collision
         if (this.mouth.detected === -1) {
           if (
             abs(this.mouth.x - other.x) <= (other.size / 2) + (s1 / 4) &&
             abs(this.mouth.y - other.y) <= (other.size / 2) + (s1 / 4)
           ) {
-            this.mouth.s = ((2 * other.size) / MAX_SIZE) - 1;
+            this.mouth.s = (isHusk ? -1 : 1) * (other.size - MIN_SIZE) / (MAX_SIZE-MIN_SIZE);   // (-1 , 0): reserved for 'husks': (0, 1): reserved for living
+            // reserve (-1, 0) range for DEAD creatures
             this.mouth.r = other.outputs[3].out;
             this.mouth.g = other.outputs[4].out;
             this.mouth.b = other.outputs[5].out;
@@ -223,11 +225,11 @@ export class Amoeb {
               abs(this.eyes[i].x - other.x) <= (s1 / 4) + other.size / 2 &&
               abs(this.eyes[i].y - other.y) <= (s1 / 4) + other.size / 2
             ) {
-              this.eyes[i].s = ((2 * other.size) / MAX_SIZE) - 1;
+              this.eyes[i].s = (isHusk ? -1 : 1) * (other.size - MIN_SIZE) / (MAX_SIZE-MIN_SIZE);  // (-1 , 0): reserved for 'husks': (0, 1): reserved for living
               this.eyes[i].r = other.outputs[3].out;
               this.eyes[i].g = other.outputs[4].out;
               this.eyes[i].b = other.outputs[5].out;
-              this.eyes[i].detected = j;
+              this.eyes[i].detected =  j;
             }
           }
         }
@@ -241,39 +243,70 @@ export class Amoeb {
    * Eat from tiles or other creatures
    */
   eat(): void {
-    const s1 = this.size;
+    const _size = this.size;
     this.currEaten = 0;
     let r = 0;
     let g = 0;
     let b = 0;
 
     if (this.mouth.detected !== -1) {
-      // Carnivore: eating another animal
-      const prey = state.amoebs[this.mouth.detected];
-      if (prey.alive) {
-        r = this.outputs[3].out > 0 ? 0 : -this.outputs[3].out * (abs(prey.outputs[3].out) + 1) * s1 * EATING_CONSTANT;
-        g = this.outputs[4].out > 0 ? 0 : -this.outputs[4].out * (abs(prey.outputs[4].out) + 1) * s1 * EATING_CONSTANT;
-        b = this.outputs[5].out > 0 ? 0 : -this.outputs[5].out * (abs(prey.outputs[5].out) + 1) * s1 * EATING_CONSTANT;
+      // Interacting with (feeding/attacking) another animal
+      const other = state.amoebs[this.mouth.detected];
+      if (other.status === 'alive') {
+        r = this.outputs[3].out > 0 ? 0 : (1 - abs(-this.outputs[3].out - abs(other.outputs[3].out))) * _size;
+        g = this.outputs[4].out > 0 ? 0 : (1 - abs(-this.outputs[4].out - abs(other.outputs[4].out))) * _size;
+        b = this.outputs[5].out > 0 ? 0 : (1 - abs(-this.outputs[5].out - abs(other.outputs[5].out))) * _size;
 
         this.redEaten += r;
         this.greenEaten += g;
         this.blueEaten += b;
         this.currEaten = r + g + b;
         this.netEaten += this.currEaten;
-        prey.currDamage += this.currEaten;
-        prey.damageReceived += this.currEaten;
+        other.currDamage += this.currEaten * _size;
+        other.damageReceived += this.currEaten;
         this.damageCaused += this.currEaten;
+      } else if (other.status === 'decaying') {
+        r = this.outputs[3].out > 0 ? 0 : (1 - abs(-this.outputs[3].out - abs(other.outputs[3].out))) * _size;
+        g = this.outputs[4].out > 0 ? 0 : (1 - abs(-this.outputs[4].out - abs(other.outputs[4].out))) * _size;
+        b = this.outputs[5].out > 0 ? 0 : (1 - abs(-this.outputs[5].out - abs(other.outputs[5].out))) * _size;
+
+        // console.log("R: ", r)
+        // console.log("G: ", g)
+        // console.log("B: ", b)
+        // console.log("NAME / SIZE: ", this.name + " | " + _size)
+
+        const totalEat = r + g + b;
+        // console.log("TOTAL EAT: ", totalEat)
+
+        const available = Math.min(totalEat, other.size * HUSK_ENERGY_FACTOR);
+        // console.log("AVAILABLE: ", available)
+
+        const ratio = totalEat > 0 ? available / totalEat : 0;
+        r *= ratio;
+        g *= ratio;
+        b *= ratio;
+        // console.log("HUSK SIZE BEFORE SCAVENGE: ", other.size)
+        other.size -= available / HUSK_ENERGY_FACTOR;
+        other.size = clamp(other.size, 0, other.size)
+        // console.log("HUSK SIZE AFTER SCAVENGE: ", other.size)
+        this.redEaten += r;
+        this.greenEaten += g;
+        this.blueEaten += b;
+        this.currEaten = r + g + b;
+        // console.log("EATEN: ", this.currEaten)
+
+        this.netEaten += this.currEaten;
       }
     } else if (this.mouth.tile !== null) {
       // Herbivore: eating from tile
       const t = this.mouth.tile;
       const tile = state.tiles[t];
 
-      r = this.outputs[3].out < 0 ? 0 : this.outputs[3].out * s1 * EATING_CONSTANT;
-      g = this.outputs[4].out < 0 ? 0 : this.outputs[4].out * s1 * EATING_CONSTANT;
-      b = this.outputs[5].out < 0 ? 0 : this.outputs[5].out * s1 * EATING_CONSTANT;
+      r = this.outputs[3].out < 0 ? 0 : this.outputs[3].out * _size;
+      g = this.outputs[4].out < 0 ? 0 : this.outputs[4].out * _size;
+      b = this.outputs[5].out < 0 ? 0 : this.outputs[5].out * _size;
 
-      // Remove food from tile - can dip into negative - in which case POISONS creature
+      // Remove food from tile - can dip into negative - in which case eating more starts POISONING 
       if (tile.R > -tile.RCap) tile.R -= r / 1.5;
       if (tile.G > -tile.GCap) tile.G -= g;
       if (tile.B > -tile.BCap) tile.B -= b / 2;
@@ -316,10 +349,11 @@ export class Amoeb {
     c[8] = c[2] + 80;
 
     // Draw eyes
+    const er = this.size / 8;                                                                                                                                                                         
     ctx.fillStyle = `rgb(${c[6]},${c[7]},${c[8]})`;
     for (let i = 0; i < 5; i++) {
       ctx.beginPath();
-      ctx.arc(this.eyes[i].x, this.eyes[i].y, this.size / 8, 0, TWOPI);
+      ctx.arc(this.eyes[i].x, this.eyes[i].y, er, 0, TWOPI);
       ctx.fill();
     }
 
@@ -346,7 +380,7 @@ export class Amoeb {
     ) {
       ctx.fillStyle = '#FFFFFF';
       ctx.fillText(
-        this.name + '-' + this.gen + (this.alive ? 'A' : 'D') + this.descendants,
+        this.name + '-' + this.gen + (this.status === 'alive' ? 'A' : 'D') + this.descendants,
         this.x + 2 * this.size,
         this.y - 2 * this.size + 2
       );
@@ -356,7 +390,7 @@ export class Amoeb {
   /**
    * Process energy decay and death
    */
-  decay(): void {
+  age(): void {
     // Calculate energy change
     const outputCost =
       abs(this.outputs[0].out) + // velocity x
@@ -388,9 +422,9 @@ export class Amoeb {
 
     this.health = (this.energy - this.maxEnergy / 2) / (this.maxEnergy / 2);
 
-    // Check for death
+    // Check for death — begin decaying as a husk
     if (this.energy <= 0) {
-      this.alive = false;
+      this.status = 'decaying';
       state.stats.livePop--;
 
       // Track lifespan
@@ -398,19 +432,12 @@ export class Amoeb {
       state.stats.netLifespan += lifespan;
       state.stats.deathCount++;
 
-      // Roll back highest index
-      if (this.index === state.HIGHESTINDEX) {
-        let i = this.index;
-        while (i > -1 && !state.amoebs[i].alive) {
-          i--;
-        }
-        state.HIGHESTINDEX = i;
-      }
+      // Don't roll back HIGHESTINDEX — slot still occupied by decaying husk
 
-      // Create dead copy for graveyard using structuredClone
+      // Clone to graveyard immediately for genealogy tracking
       const dead = this.clone();
       dead.index = -(state.graveyard.length + 1);
-
+      this.grave = dead.index;
       // Update parent references
       if (this.parent !== null) {
         if (this.parent < 0) {
@@ -449,7 +476,6 @@ export class Amoeb {
         state.newest = dead.index;
       }
 
-      state.stats.globalNetNRG += this.totalEnergyGain;
       state.graveyard.push(dead);
 
       this.updateLiveInfoDisplay();
@@ -457,25 +483,74 @@ export class Amoeb {
   }
 
   /**
+   * Decay a dead husk — bleed size into surrounding tiles as nutrients
+   */
+  decay(): void {
+    if(Math.random() * 100 < 1) {
+      this.size = round((this.size - HUSK_DECAY_RATE)*10)/10;
+
+      // Distribute lost nutrients to surrounding tiles
+      const tile = state.tiles[this.tile!];
+      if (tile) {
+        const neighbors = tile.neighbors;
+        const tileCount = neighbors.length + 1;
+        const perTile = 10 / tileCount;
+        tile.R = Math.min(tile.R + perTile, tile.RCap);
+        tile.G = Math.min(tile.G + perTile, tile.GCap);
+        tile.B = Math.min(tile.B + perTile, tile.BCap);
+        for (const n of neighbors) {
+          const nt = state.tiles[n];
+          nt.R = Math.min(nt.R + perTile, nt.RCap);
+          nt.G = Math.min(nt.G + perTile, nt.GCap);
+          nt.B = Math.min(nt.B + perTile, nt.BCap);
+        }
+      }
+
+      this.updateLiveInfoDisplay();
+
+      if (this.size <= 0) {
+        this.cleanup();
+      }
+    }
+  }
+
+  /**
+   * Finalize death — move to graveyard, roll back HIGHESTINDEX, free slot
+   */
+  cleanup(): void {
+    this.status = 'dead';
+
+    // Roll back highest index if this was the highest
+    if (this.index === state.HIGHESTINDEX) {
+      let i = this.index;
+      while (i > -1 && (state.amoebs[i] == null || state.amoebs[i].status === 'dead')) {
+        i--;
+      }
+      state.HIGHESTINDEX = i;
+    }
+  }
+
+  /**
    * Grow and potentially reproduce
    */
   grow(): void {
-    this.size = round(this.energy / 100) / 10;
+    // forced to grow as energy consumed; can only shrink via mitosis
+    const sizeCeiling = round(this.energy / 100) / 10;
+    if(sizeCeiling > this.size) {
+      this.size = sizeCeiling;
+    }
     if (this.size > MAX_SIZE) {
       this.size = MAX_SIZE;
     } else if (this.size < 1) {
       this.size = 1;
     }
 
-    // Check for reproduction
-    if (
-      this.energy > (this.outputs[6].out + 1) * 18000 + 2000 &&
-      state.stats.livePop < POPCAP
-    ) {
-      // Find empty slot
+    // Check for reproduction: outputs[6] maps to size between (2000, 20000) where meeb may choose to split
+    if ( this.size > (this.outputs[6].out + 1)/2 * 18 + 2 && state.stats.livePop < POPCAP ) {
+      // Find empty slot (skip alive and decaying — only reuse 'dead' slots)
       let i = 0;
       while (state.amoebs[i] != null) {
-        if (state.amoebs[i].alive) {
+        if (state.amoebs[i].status !== 'dead') {
           i++;
         } else {
           break;
@@ -524,8 +599,8 @@ export class Amoeb {
     this.inputs[idx++].in = this.velocityX / 2;
     this.inputs[idx++].in = this.velocityY / 2;
     this.inputs[idx++].in = this.rotation / 10;
-    this.inputs[idx++].in = this.currEaten / (this.size * EATING_CONSTANT * 6);
-    this.inputs[idx++].in = (2 * this.size) / MAX_SIZE - 1;
+    this.inputs[idx++].in = this.currEaten / (this.size * 3);
+    this.inputs[idx++].in = (2 * (this.size - MIN_SIZE) / (MAX_SIZE - MIN_SIZE))-1;
     this.inputs[idx++].in = this.energyChange / (this.size * 10);
     
     this.inputs[idx++].in = this.mouth.r;
@@ -815,7 +890,7 @@ export class Amoeb {
         this.outputs[i].weights2[j] += Math.abs(s2) * (2 * Math.random() - 1 - this.outputs[i].weights2[j]) / (advCount+1);                                                                                                                   
       }                                                                                                                                                                                               
     }      
-    /* * * * * * * * * * * * WORKS DAMN WELL * * * * * * * * * */ 
+    /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */ 
 
 
     // 4. Apply advantageous weight deltas
@@ -984,7 +1059,7 @@ export class Amoeb {
    * Kill this animal
    */
   kill(): void {
-    if (this.alive) {
+    if (this.status === 'alive') {
       this.energy = -1;
     }
   }
@@ -993,10 +1068,10 @@ export class Amoeb {
    * Reincarnate a dead animal
    */
   reincarnate(): void {
-    if (!this.alive && state.stats.livePop < POPCAP) {
+    if (this.status !== 'alive' && state.stats.livePop < POPCAP) {
       let i = 0;
       while (state.amoebs[i] != null) {
-        if (state.amoebs[i].alive) {
+        if (state.amoebs[i].status !== 'dead') {
           i++;
         } else {
           break;
@@ -1037,7 +1112,7 @@ export class Amoeb {
     const ctx = state.ctx.map;
     if (!ctx) return;
 
-    if (!this.alive) {
+    if (this.status !== 'alive') {
       this.draw(this.cols);
     }
 
@@ -1105,8 +1180,8 @@ export class Amoeb {
     // Draw name
     const posx = this.x + 2 * s;
     let posy = this.y - 2 * s;
-    if (this.alive) {
-      ctx.fillText(this.name + '-' + this.gen + (this.alive ? 'A' : 'D') + this.descendants, posx, posy + 2);
+    if (this.status === 'alive') {
+      ctx.fillText(this.name + '-' + this.gen + 'A' + this.descendants, posx, posy + 2);
     }
     posy += 10;
 
@@ -1127,7 +1202,7 @@ export class Amoeb {
   private updateMainStatsDisplay(): void {
     const nameEl = document.getElementById('stats-name');
     if (nameEl) {
-      nameEl.innerHTML = this.name + '-' + this.gen + (this.alive ? 'A' : 'D') + this.descendants;
+      nameEl.innerHTML = this.name + '-' + this.gen + (this.status === 'alive' ? 'A' : 'D') + this.descendants;
     }
 
     const idxEl = document.getElementById('stats-idx');
@@ -1270,7 +1345,7 @@ export class Amoeb {
     const clone = new Amoeb(this.x, this.y, this.index);
 
     // Copy primitive properties
-    clone.alive = this.alive;
+    clone.status = this.status;
     clone.tile = this.tile;
     clone.size = this.size;
     clone.health = this.health;

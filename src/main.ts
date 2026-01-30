@@ -235,7 +235,7 @@ function updateTracking(): void {
   // Get the tracked animal
   const animal = state.tracking >= 0 ? state.amoebs[state.tracking] : state.graveyard[-(state.tracking + 1)];
 
-  if (!animal || !animal.alive) {
+  if (!animal || animal.status !== 'alive') {
     state.tracking = null;
     return;
   }
@@ -279,7 +279,6 @@ function newSimulation(): void {
   state.scores = new Array(SCORESCAP);
   state.amoebs = new Array(POPCAP);
   state.graveyard = [];
-
   // Create initial population
   for (let i = 0; i < 100; i++) {
     state.amoebs[i] = new Amoeb(

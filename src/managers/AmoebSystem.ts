@@ -26,7 +26,8 @@ export const amoebSystem = {
    */
   update(): void {
 
-    const amoebs = state.amoebs;                                                                                                                   
+    const amoebs = state.amoebs;    
+                                                                                                                   
     // const tiles = state.tiles;                                                                                                                       
     const highest = state.HIGHESTINDEX; 
 
@@ -35,12 +36,12 @@ export const amoebSystem = {
       state.silver = null;
       state.bronze = null;
 
-      // First pass: decay, move, sense, find top performers
+      // First pass: age/decay, move, sense, find top performers
       for (let i = 0; i <= highest; i++) {
         const a = amoebs[i];
-        if (a.alive) {
-          a.decay();
-          if (a.alive) {
+        if (a.status === 'alive') {
+          a.age();
+          if (a.status === 'alive') {
             a.move();
             a.currDamage = 0; // important: do BEFORE eat(), AFTER move() (affects move/rotation speed, caused by attack from other creatures)
             a.sense();
@@ -54,6 +55,8 @@ export const amoebSystem = {
               state.bronze = i;
             }
           }
+        } else if (a.status === 'decaying') {
+          a.decay();
         }
       }
 
@@ -75,10 +78,10 @@ export const amoebSystem = {
     // Second pass: draw, think, eat, grow
     for (let i = 0; i <= highest; i++) {
       const a = amoebs[i];
-      if (a.alive) {
+      if (a.status !== 'dead') {
         a.draw(a.cols);
 
-        if (!state.pause) {
+        if (a.status === 'alive' && !state.pause) {
           a.think();
           a.eat();
           a.grow();
@@ -92,12 +95,33 @@ export const amoebSystem = {
           if (Math.abs(a.x - mouseX) <= a.size + 1 && Math.abs(a.y - mouseY) <= a.size + 1) {
 
             if (state.highlighted !== i) {
-              state.highlighted = i;
+              if(a.status === 'decaying' && a.grave) {
+                console.log("A GRAVE: ", a.grave)
+                state.highlighted = a.grave;
+                state.tracking = null;
+
+                if (dashStats) dashStats.style.display = 'block';
+                if (dashHighlighted) {
+                  dashHighlighted.innerHTML =
+                    'HIGHLIGHTED: ' +
+                    state.graveyard[-(state.highlighted+1)].name +
+                    '-' +
+                    state.graveyard[-(state.highlighted+1)].gen +
+                    'D' +
+                    state.graveyard[-(state.highlighted+1)].descendants;
+                }
+                state.mouse.leftPressed = false;
+
+
+                return;
+              } else {
+                state.highlighted = i;
+              }
               // If tracking was on, switch to tracking the new amoeb
               if (state.tracking !== null) {
                 state.tracking = i;
               }
-              console.log(amoebs[i]);
+              // console.log(amoebs[i]);
 
               if (dashStats) dashStats.style.display = 'block';
               if (dashHighlighted) {
@@ -113,7 +137,7 @@ export const amoebSystem = {
             }
           }
         }
-      }
+      }  
     }
 
     // If click was on canvas but not on any amoeb, stop tracking

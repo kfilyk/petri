@@ -32,7 +32,7 @@ function getAmoeb(idx: number): Amoeb | null {
  * Format amoeb name for display
  */
 function formatName(amoeb: Amoeb): string {
-  return `${amoeb.name}-${amoeb.gen}${amoeb.alive ? 'A' : 'D'}${amoeb.descendants}`;
+  return `${amoeb.name}-${amoeb.gen}${amoeb.status === 'alive' ? 'A' : 'D'}${amoeb.descendants}`;
 }
 
 /**
@@ -41,7 +41,7 @@ function formatName(amoeb: Amoeb): string {
 function createAmoebElement(amoeb: Amoeb, label: string): HTMLElement {
   const el = document.createElement('div');
   el.className = 'family-member';
-  if (!amoeb.alive) {
+  if (amoeb.status !== 'alive') {
     el.className += ' family-member-dead';
   }
   if (amoeb.index === state.highlighted) {

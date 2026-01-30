@@ -1,12 +1,13 @@
 // Global constants for Petri simulation
 
 // Amoeb configuration
-export const START_SIZE = 1;
+export const MIN_SIZE = 1;
 export const MAX_SIZE = 20;
 export const BRAIN_SIZE = 50;
 export const NUM_INPUT_NEURONS = 32;
 export const NUM_OUTPUT_NEURONS = 35;
-export const EATING_CONSTANT = 2;
+export const HUSK_DECAY_RATE = 0.1;
+export const HUSK_ENERGY_FACTOR = 100;
 
 // World configuration
 export const FIELDX = 1200;

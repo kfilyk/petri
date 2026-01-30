@@ -113,7 +113,7 @@ export const tileSystem = {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     ctx.restore();
-
+    ctx.font = '8px monospace';
     // Write tile colors into the ImageData buffer (1 pixel per tile)
     for (let i = 0; i < TILENUMBER; i++) {
       const t = state.tiles[i];
@@ -135,24 +135,29 @@ export const tileSystem = {
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(tileCanvas, 0, 0, FIELDX, FIELDY);
 
-    // Hover overlay (only for the one tile under the mouse)
+    // Hover overlay for tile under mouse + its neighbors (up to 9 tiles)
     if (state.mouse.overMap) {
       const tx = Math.floor(state.mouse.x / TILE_SIZE);
       const ty = Math.floor(state.mouse.y / TILE_SIZE);
       const ti = ty * GRID_W + tx;
       if (ti >= 0 && ti < TILENUMBER) {
-        const t = state.tiles[ti];
-        const rDark = t.R - 32;
-        const gDark = t.G - 32;
-        const bDark = t.B - 32;
-        ctx.fillStyle = `rgb(${rDark},${gDark},${bDark})`;
+        const center = state.tiles[ti];
+        const tilesToShow = [ti, ...center.neighbors];
 
-        if (!state.mouse.leftPressed) {
-          ctx.fillText(t.num.toString(), t.x, t.y + 25);
-        } else if (state.mouse.x > t.x && state.mouse.x < t.x + TILE_SIZE && state.mouse.y > t.y && state.mouse.y < t.y + TILE_SIZE) {
-          ctx.fillText(round(t.R).toString(), t.x, t.y + 8);
-          ctx.fillText(round(t.G).toString(), t.x, t.y + 16);
-          ctx.fillText(round(t.B).toString(), t.x, t.y + 25);
+        for (const idx of tilesToShow) {
+          const t = state.tiles[idx];
+          const rDark = t.R - 32;
+          const gDark = t.G - 32;
+          const bDark = t.B - 32;
+          ctx.fillStyle = `rgb(${rDark},${gDark},${bDark})`;
+
+          if (state.mouse.leftPressed) {
+            ctx.fillText(t.num.toString(), t.x+2, t.y + 25);
+          } else {
+            ctx.fillText(round(t.R).toString(), t.x+2, t.y + 9);
+            ctx.fillText(round(t.G).toString(), t.x+2, t.y + 16);
+            ctx.fillText(round(t.B).toString(), t.x+2, t.y + 23);
+          }
         }
       }
     }

@@ -39,7 +39,6 @@ export interface SimulationStats {
   netParents: number;
   netLifespan: number;
   deathCount: number;
-  globalNetNRG: number;
   aveChildren: number;
   aveLifespan: number;
   avePosNRG: number;
@@ -134,7 +133,6 @@ class State {
     netParents: 0,
     netLifespan: 0,
     deathCount: 0,
-    globalNetNRG: 0,
     aveChildren: 0,
     aveLifespan: 0,
     avePosNRG: 0,
@@ -185,7 +183,6 @@ class State {
     this.stats.time = 0;
     this.stats.netLifespan = 0;
     this.stats.deathCount = 0;
-    this.stats.globalNetNRG = 0;
     this.stats.aveChildren = 0;
     this.stats.aveLifespan = 0;
     this.stats.avePosNRG = 0;
@@ -198,7 +195,7 @@ class State {
     // Recalculate live population
     for (let i = 0; i < this.amoebs.length; i++) {
       const a = this.amoebs[i];
-      if (a != null && a.alive) {
+      if (a != null && a.status === 'alive') {
         this.stats.livePop++;
         this.HIGHESTINDEX = i;
       }
