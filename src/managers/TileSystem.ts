@@ -1,21 +1,8 @@
-// TileSystem - Handles tile generation and updates
+// TileSystem - Tile generation and regeneration (simulation side, no rendering)
 
-import { FIELDX, FIELDY, TILENUMBER, TILE_SIZE } from '../constants';
+import { FIELDX, FIELDY, TILENUMBER, TILE_SIZE, GRID_W } from '../constants';
 import { state } from '../state';
 import { Tile } from '../entities/Tile';
-import { round } from '../utils/math';
-
-// Offscreen tile buffer (1 pixel per tile, scaled up on draw)
-export const GRID_W = FIELDX / TILE_SIZE;
-export const GRID_H = FIELDY / TILE_SIZE;
-export const GRID_TILES = GRID_W*GRID_H;
-
-const tileCanvas = document.createElement('canvas');
-tileCanvas.width = GRID_W;
-tileCanvas.height = GRID_H;
-const tileCtx = tileCanvas.getContext('2d', { alpha: false })!;
-const tileImageData = tileCtx.createImageData(GRID_W, GRID_H);
-const tileBuf = tileImageData.data; // Uint8ClampedArray, length = GRID_W * GRID_H * 4
 
 export const tileSystem = {
   /**
@@ -102,66 +89,11 @@ export const tileSystem = {
   },
 
   /**
-   * Update all tiles - draw and regenerate
+   * Regenerate food on every tile (one simulation tick)
    */
-  update(): void {
-    const ctx = state.ctx.map;
-    if (!ctx) return;
-
-    // Clear canvas using untransformed coordinates
-    ctx.save();
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = '#303030'; // or whatever your bg color is                                                          
-    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);   
-
-    ctx.restore();
-    ctx.font = '8px monospace';
-    // Write tile colors into the ImageData buffer (1 pixel per tile)
+  regenerate(): void {
     for (let i = 0; i < TILENUMBER; i++) {
-      const t = state.tiles[i];
-      const off = i * 4;
-      // const cap = t.RCap + t.GCap + t.BCap;
-
-      tileBuf[off]     = t.R < 255 ? (t.R > 48 ? t.R : 48) : 255;
-      tileBuf[off + 1] = t.G < 255 ? (t.G > 48 ? t.G : 48) : 255;
-      tileBuf[off + 2] = t.B < 255 ? (t.B > 48 ? t.B : 48) : 255;
-      tileBuf[off + 3] = 255; // transparent when depleted
-
-      if (!state.pause) {
-        t.regenerate();
-      }
-    }
-
-    // Blit the 40×40 buffer to the offscreen canvas, then scale up
-    tileCtx.putImageData(tileImageData, 0, 0);
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(tileCanvas, 0, 0, FIELDX, FIELDY);
-
-    // Hover overlay for tile under mouse + its neighbors (up to 9 tiles)
-    if (state.mouse.overMap) {
-      const tx = Math.floor(state.mouse.x / TILE_SIZE);
-      const ty = Math.floor(state.mouse.y / TILE_SIZE);
-      const ti = ty * GRID_W + tx;
-      if (ti >= 0 && ti < TILENUMBER) {
-        const center = state.tiles[ti];
-        const tilesToShow = [ti, ...center.neighbors];
-
-        for (const idx of tilesToShow) {
-          const t = state.tiles[idx];
-          const rDark = t.R - 32;
-          const gDark = t.G - 32;
-          const bDark = t.B - 32;
-          ctx.fillStyle = `rgb(${rDark},${gDark},${bDark})`;
-
-          if (state.mouse.leftPressed) {
-            ctx.fillText(t.num.toString(), t.x+2, t.y + 25);
-          } else {
-            ctx.fillText(round(t.R).toString(), t.x+2, t.y + 9);
-            ctx.fillText(round(t.G).toString(), t.x+2, t.y + 16);
-            ctx.fillText(round(t.B).toString(), t.x+2, t.y + 23);
-          }
-        }
-      }
+      state.tiles[i].regenerate();
     }
   },
 };

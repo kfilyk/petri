@@ -1,4 +1,5 @@
-// FPS Counter component - measures and displays frame rate
+// FPS Counter component - measures render frame rate; also shows the
+// simulation tick rate reported by the worker.
 
 let lastTime = performance.now();
 let frameCount = 0;
@@ -15,8 +16,9 @@ export function initFPSCounter(el: HTMLElement): void {
 /**
  * Call this every frame to update FPS calculation
  * Updates display every 500ms for stability
+ * @param tps - measured simulation ticks per second (from the latest frame)
  */
-export function updateFPS(): void {
+export function updateFPS(tps: number = 0): void {
   frameCount++;
   const now = performance.now();
   const delta = now - lastTime;
@@ -28,7 +30,7 @@ export function updateFPS(): void {
     lastTime = now;
 
     if (element) {
-      element.textContent = `${fps | 0} FPS`;
+      element.textContent = `${fps | 0} FPS | ${tps | 0} TPS`;
     }
   }
 }

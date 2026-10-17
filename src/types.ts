@@ -83,12 +83,5 @@ export interface ChartDataset {
   yAxisID: string;
 }
 
-export interface WeightDeltas {
-  in_weights1_deltas: number[][];
-  in_weights2_deltas: number[][];
-  out_weights1_deltas: number[][];
-  out_weights2_deltas: number[][];
-}
-
 // Canvas rendering context type
 export type RenderContext = CanvasRenderingContext2D;

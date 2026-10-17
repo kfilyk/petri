@@ -1,10 +1,17 @@
-// System and handler exports
-export { tileSystem } from './TileSystem';
-export { amoebSystem, initAmoebSystemDom } from './AmoebSystem';
-export { statSystem, initFoodPopChart, initOptimizationChart, initLifespanChart, initMutationStratChart, initGenDemoChart, resetChartData, resizeCharts } from './StatSystem';
+// Main-thread manager exports
+export {
+  initFoodPopChart,
+  initOptimizationChart,
+  initLifespanChart,
+  initMutationStratChart,
+  initGenDemoChart,
+  resetChartData,
+  resizeCharts,
+  pushStatsSample,
+} from './StatSystem';
 export {
   inputHandler,
-  initInputHandlerDom,
+  handleSelection,
   handleMouseEvent,
   handleMouseWheel,
   handleKeyDown,

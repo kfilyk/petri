@@ -3,9 +3,14 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { NUM_INPUT_NEURONS, NUM_OUTPUT_NEURONS } from '../constants';
-import type { Amoeba } from '../entities/Amoeba';
-import { state } from '../state';
-import { collectKinDeltas } from '@/utils/math';
+import {
+  BRAIN_INS_OFF,
+  BRAIN_OUTS_OFF,
+  BRAIN_IN_W_OFF,
+  BRAIN_OUT_W_OFF,
+  type KinTable,
+  type NeuronRef,
+} from '../sim/protocol';
 
 // Labels
 const INPUT_LABELS = [
@@ -69,8 +74,8 @@ const BRAIN_RADIUS = 2;
 const NEURON_RADIUS = 0.08;
 const LABEL_OFFSET = 0.1; // How far above neuron the label floats
 
-// Current animal reference
-let currentAnimal: Amoeba | null = null;
+// Asks the simulation worker for kin-delta data for the selected neurons
+let requestKinTable: ((neurons: NeuronRef[]) => void) | null = null;
 
 // Store canvases to prevent garbage collection
 const spriteCanvases: HTMLCanvasElement[] = [];
@@ -234,8 +239,12 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
 /**
  * Initialize the 3D brain display
  */
-export function initBrain3D(canvasContainer: HTMLElement): void {
+export function initBrain3D(
+  canvasContainer: HTMLElement,
+  onRequestKinTable: (neurons: NeuronRef[]) => void
+): void {
   container = canvasContainer;
+  requestKinTable = onRequestKinTable;
 
   // Create scene
   scene = new THREE.Scene();
@@ -432,7 +441,7 @@ let synapseMaterial: THREE.MeshBasicMaterial | null = null;
  * Create synapse quads between neurons with width = |weight| (reuses buffers)
  * Uses weight1 when neuron activation > 0, weight2 otherwise (mirrors synapse() logic)
  */
-function updateSynapseLines(animal: Amoeba): void {
+function updateSynapseLines(brain: Float32Array): void {
   if (!brainGroup) return;
 
   // Create geometry and material once
@@ -457,10 +466,11 @@ function updateSynapseLines(animal: Amoeba): void {
 
   // Input to output connections
   for (let i = 0; i < NUM_INPUT_NEURONS; i++) {
-    const neuron = animal.inputs[i];
+    const inAct = brain[BRAIN_INS_OFF + i];
+    const wBase = BRAIN_IN_W_OFF + i * 2 * NUM_OUTPUT_NEURONS;
     for (let o = 0; o < NUM_OUTPUT_NEURONS; o++) {
       // Pick weight1 or weight2 based on neuron activation (same logic as synapse())
-      const rawWeight = neuron.in > 0 ? neuron.weights1[o] : neuron.weights2[o];
+      const rawWeight = inAct > 0 ? brain[wBase + o] : brain[wBase + NUM_OUTPUT_NEURONS + o];
 
       // Skip very weak connections for performance
       if (Math.abs(rawWeight) < 0.05) continue;
@@ -512,11 +522,12 @@ function updateSynapseLines(animal: Amoeba): void {
 
   // Output to output connections (recurrent)
   for (let i = 0; i < NUM_OUTPUT_NEURONS; i++) {
-    const neuron = animal.outputs[i];
+    const outAct = brain[BRAIN_OUTS_OFF + i];
+    const wBase = BRAIN_OUT_W_OFF + i * 2 * NUM_OUTPUT_NEURONS;
     for (let j = 0; j < NUM_OUTPUT_NEURONS; j++) {
       if (i === j) continue; // Skip self-connections
 
-      const rawWeight = neuron.in > 0 ? neuron.weights1[j] : neuron.weights2[j];
+      const rawWeight = outAct > 0 ? brain[wBase + j] : brain[wBase + NUM_OUTPUT_NEURONS + j];
 
       if (Math.abs(rawWeight) < 0.05) continue;
 
@@ -572,10 +583,10 @@ function updateSynapseLines(animal: Amoeba): void {
 /**
  * Update neuron colors and label sprites based on activation
  */
-function updateNeuronColors(animal: Amoeba): void {
+function updateNeuronColors(brain: Float32Array): void {
   // Update input neurons
   for (let i = 0; i < NUM_INPUT_NEURONS; i++) {
-    const activation = animal.inputs[i].in;
+    const activation = brain[BRAIN_INS_OFF + i];
     const mesh = inputNeuronMeshes[i];
     const material = mesh.material as THREE.MeshBasicMaterial;
 
@@ -595,7 +606,7 @@ function updateNeuronColors(animal: Amoeba): void {
 
   // Update output neurons
   for (let o = 0; o < NUM_OUTPUT_NEURONS; o++) {
-    const activation =  animal.outputs[o].out;
+    const activation = brain[BRAIN_OUTS_OFF + o];
     const mesh = outputNeuronMeshes[o];
     const material = mesh.material as THREE.MeshBasicMaterial;
 
@@ -647,7 +658,7 @@ function onCanvasClick(event: MouseEvent): void {
     }
 
     // Update weight display
-    updateWeightDisplay();
+    notifySelectionChanged();
   } else {
     // Clicked empty space - deselect all and close table
     for (const sel of selectedNeurons) {
@@ -658,16 +669,38 @@ function onCanvasClick(event: MouseEvent): void {
       }
     }
     selectedNeurons.length = 0;
-    updateWeightDisplay();
+    notifySelectionChanged();
   }
 }
 
 /**
- * Update weight display for selected neurons
+ * Selection changed: hide the table, or ask the worker for fresh kin data
  */
-function updateWeightDisplay(): void {
-  if (!currentAnimal) return;
+function notifySelectionChanged(): void {
+  const weightsDiv = document.getElementById('brain3d-weights');
+  if (selectedNeurons.length === 0) {
+    if (weightsDiv) weightsDiv.style.display = 'none';
+    return;
+  }
+  if (weightsDiv) {
+    weightsDiv.style.display = 'block';
+    if (!weightsDiv.innerHTML) weightsDiv.innerHTML = 'Loading…';
+  }
+  requestKinTable?.(selectedNeurons.slice());
+}
 
+/**
+ * Re-request kin data for the current selection (call when the highlighted
+ * amoeba or its descendant count changes)
+ */
+export function refreshKinTable(): void {
+  if (selectedNeurons.length > 0) requestKinTable?.(selectedNeurons.slice());
+}
+
+/**
+ * Render the kin-delta table the worker sent back
+ */
+export function renderKinTable(table: KinTable): void {
   const weightsDiv = document.getElementById('brain3d-weights');
   if (!weightsDiv) return;
 
@@ -675,76 +708,22 @@ function updateWeightDisplay(): void {
     weightsDiv.style.display = 'none';
     return;
   }
-
   weightsDiv.style.display = 'block';
 
-  if (currentAnimal.parent === null) {
-    weightsDiv.innerHTML = 'No parent — no delta data';
+  if (table.error) {
+    weightsDiv.innerHTML = table.error;
     return;
   }
 
-  const parent = currentAnimal.parent >= 0
-    ? state.amoebs[currentAnimal.parent]
-    : state.graveyard[-(currentAnimal.parent + 1)];
-  if (!parent) {
-    weightsDiv.innerHTML = 'Parent not found';
-    return;
-  }
-
-  // Same per-edge kin deltas that mitosis uses
-  const { advantageous, disadvantageous } = collectKinDeltas(currentAnimal.parent);
-
-  const advCount = advantageous.length;
-  const disCount = disadvantageous.length;
-
+  const { advCount, disCount } = table;
   let html = '';
 
-  for (const sel of selectedNeurons) {
-    const neuron = sel.type === 'input'
-      ? currentAnimal.inputs[sel.index]
-      : currentAnimal.outputs[sel.index];
-    const label = sel.type === 'input'
-      ? (INPUT_LABELS[sel.index] || `I${sel.index}`)
-      : (OUTPUT_LABELS[sel.index] || `O${sel.index}`);
+  for (const row of table.rows) {
+    const label = row.type === 'input'
+      ? (INPUT_LABELS[row.index] || `I${row.index}`)
+      : (OUTPUT_LABELS[row.index] || `O${row.index}`);
 
-    // Extract per-weight adv/dis averages for this neuron from full deltas
-    const numWeights = NUM_OUTPUT_NEURONS;
-    const advW1 = new Array(numWeights).fill(0);
-    const advW2 = new Array(numWeights).fill(0);
-    const disW1 = new Array(numWeights).fill(0);
-    const disW2 = new Array(numWeights).fill(0);
-
-    for (const adv of advantageous) {
-      const w1d = sel.type === 'input' ? adv.in_weights1_deltas[sel.index] : adv.out_weights1_deltas[sel.index];
-      const w2d = sel.type === 'input' ? adv.in_weights2_deltas[sel.index] : adv.out_weights2_deltas[sel.index];
-      for (let j = 0; j < numWeights; j++) {
-        advW1[j] += w1d[j];
-        advW2[j] += w2d[j];
-      }
-    }
-    if (advCount > 0) {
-      for (let j = 0; j < numWeights; j++) {
-        advW1[j] /= advCount;
-        advW2[j] /= advCount;
-      }
-    }
-
-    for (const dis of disadvantageous) {
-      const w1d = sel.type === 'input' ? dis.in_weights1_deltas[sel.index] : dis.out_weights1_deltas[sel.index];
-      const w2d = sel.type === 'input' ? dis.in_weights2_deltas[sel.index] : dis.out_weights2_deltas[sel.index];
-      for (let j = 0; j < numWeights; j++) {
-        disW1[j] += w1d[j];
-        disW2[j] += w2d[j];
-      }
-    }
-    if (disCount > 0) {
-      for (let j = 0; j < numWeights; j++) {
-        disW1[j] /= disCount;
-        disW2[j] /= disCount;
-      }
-    }
-
-    html += `<b>${sel.type.toUpperCase()} ${label}</b><br>`;
+    html += `<b>${row.type.toUpperCase()} ${label}</b><br>`;
     html += '<table class="neuron-weights-table" style="width:100%; border-collapse:collapse; font-size:8px;">';
     html += `<tr>
       <th>Target</th>
@@ -761,21 +740,21 @@ function updateWeightDisplay(): void {
 
     for (let j = 0; j < NUM_OUTPUT_NEURONS; j++) {
       const targetLabel = OUTPUT_LABELS[j] || `O${j}`;
-      const w1 = neuron.weights1[j];
-      const w2 = neuron.weights2[j];
-      const finalW1 = w1 + advW1[j] - disW1[j];
-      const finalW2 = w2 + advW2[j] - disW2[j];
+      const w1 = row.w1[j];
+      const w2 = row.w2[j];
+      const finalW1 = w1 + row.advW1[j] - row.disW1[j];
+      const finalW2 = w2 + row.advW2[j] - row.disW2[j];
 
       html += `<tr>
         <td>${targetLabel}</td>
         <td>${w1.toFixed(3)}</td>
-        <td style="color:green">${advW1[j].toFixed(3)}</td>
-        <td style="color:red">${disW1[j].toFixed(3)}</td>
+        <td style="color:green">${row.advW1[j].toFixed(3)}</td>
+        <td style="color:red">${row.disW1[j].toFixed(3)}</td>
         <td><b>${finalW1.toFixed(3)}</b></td>
         <td style="border-left:1px solid #ccc"></td>
         <td>${w2.toFixed(3)}</td>
-        <td style="color:green">${advW2[j].toFixed(3)}</td>
-        <td style="color:red">${disW2[j].toFixed(3)}</td>
+        <td style="color:green">${row.advW2[j].toFixed(3)}</td>
+        <td style="color:red">${row.disW2[j].toFixed(3)}</td>
         <td><b>${finalW2.toFixed(3)}</b></td>
       </tr>`;
     }
@@ -808,21 +787,14 @@ function animate(): void {
 }
 
 /**
- * Update the 3D brain display for an animal
+ * Update the 3D brain display from a frame that carries a brain block
+ * (see sim/protocol.ts: HAS_BRAIN must be set)
  */
-export function drawBrain3D(animal: Amoeba): void {
+export function drawBrain3D(brain: Float32Array): void {
   if (!scene || !brainGroup) return;
 
-  currentAnimal = animal;
-
-  updateSynapseLines(animal);
-  updateNeuronColors(animal);
-  // updateLabelsOverlay(animal);
-
-  // Update weight display if neurons are selected
-  if (selectedNeurons.length > 0) {
-    updateWeightDisplay();
-  }
+  updateSynapseLines(brain);
+  updateNeuronColors(brain);
 }
 
 /**
@@ -895,7 +867,6 @@ export function disposeBrain3D(): void {
   controls = null;
   brainGroup = null;
   synapseMesh = null;
-  currentAnimal = null;
 }
 
 /**

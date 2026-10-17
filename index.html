@@ -71,13 +71,7 @@
                     <button onclick="toggleFamilyDisplay()">
                       <img src="icons/children.png"/>
                     </button>
-                    <button onclick="(() => {
-                      highlighted=null;
-                      leftPressed=false;
-                      document.getElementById('amoeba-stats').style.display='none';
-                      document.getElementById('brain').style.display='none';
-                      document.getElementById('family-tree').style.display='none';
-                    })()">
+                    <button onclick="closeHighlight()">
                       <img src="icons/x.svg"/>
                     </button>
                   </div>

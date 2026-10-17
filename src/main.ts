@@ -1,18 +1,21 @@
-// Main entry point for Petri simulation
-// Wires together all modules and starts the simulation loop
+// Main entry point for Petri — the render/UI thread.
+//
+// The simulation itself runs in a Web Worker (src/sim/worker.ts). This file
+// owns the canvas, camera, input, dashboard and charts, and talks to the
+// worker through SimClient. Each animation frame it draws the newest snapshot
+// the worker has published; the worker ticks on its own clock.
 
-import { FIELDX, FIELDY, POPCAP, SCORESCAP } from './constants';
-import { round } from './utils/math';
-import { state } from './state';
-import { Amoeba } from './entities/Amoeba';
+import { DEFAULT_TPS } from './constants';
+import { H, F } from './sim/protocol';
+import { SimClient } from './ui/simClient';
+import { view } from './ui/viewState';
+import { drawFrame } from './ui/renderer';
+import { downloadJson, pickTextFile } from './ui/files';
+import { type Frame, header, highlightedIdx, newestIdx, medalIdx, hasFocus, focus, hasBrain } from './ui/frame';
 import {
-  tileSystem,
-  amoebSystem,
-  statSystem,
   inputHandler,
+  handleSelection,
   dashboard,
-  initAmoebSystemDom,
-  initInputHandlerDom,
   initDashboardDom,
   handleMouseEvent,
   handleMouseWheel,
@@ -25,149 +28,144 @@ import {
   initGenDemoChart,
   resetChartData,
   resizeCharts,
+  pushStatsSample,
 } from './managers';
 import { initFPSCounter, updateFPS } from './components/FPSCounter';
-import { downloadState, loadStateFromFile } from './utils/saveLoad';
-// Old 2D brain display (deprecated, kept for reference)
-// import { getNeuronAtPosition, displayNeuronWeights, updateBrainCursor } from './components/BrainDisplay';
-import { initFamilyDisplay, toggleFamilyDisplay, updateFamilyDisplay } from './components/FamilyDisplay';
-import { initBrain3D, drawBrain3D, resizeBrain3D, clearBrain3DSelection } from './components/BrainDisplay3D';
+import {
+  initFamilyDisplay,
+  toggleFamilyDisplay,
+  updateFamilyDisplay,
+  handleFamilyMessage,
+  handleAlikenessMessage,
+} from './components/FamilyDisplay';
+import {
+  initBrain3D,
+  drawBrain3D,
+  resizeBrain3D,
+  clearBrain3DSelection,
+  renderKinTable,
+  refreshKinTable,
+} from './components/BrainDisplay3D';
 
 // Import uPlot CSS
 import 'uplot/dist/uPlot.min.css';
 
+const client = new SimClient();
+
+// Change detection for the detail panels (brain kin table, family tree)
+let lastDetailHighlighted: number | null = null;
+let lastDetailDescendants = -1;
+
 /**
- * Initialize the simulation
+ * Initialize the UI and start the simulation worker
  */
 function init(): void {
-  // Get canvas elements
   const mapCanvas = document.getElementById('map') as HTMLCanvasElement;
-
   if (!mapCanvas) {
     console.error('Map canvas not found');
     return;
   }
 
-  // Set canvas dimensions
   mapCanvas.width = window.innerWidth;
   mapCanvas.height = 1000;
 
-  // Get rendering contexts
-  state.ctx.map = mapCanvas.getContext('2d', { alpha: false });
-
-  if (!state.ctx.map) {
+  view.ctx = mapCanvas.getContext('2d', { alpha: false });
+  if (!view.ctx) {
     console.error('Could not get map canvas context');
     return;
   }
+  view.ctx.font = '10px Arial';
 
-  // Initialize 3D brain display
+  // 3D brain display; neuron clicks ask the worker for kin-delta data
   const brain3dContainer = document.getElementById('brain3d-container');
   if (brain3dContainer) {
-    initBrain3D(brain3dContainer);
+    initBrain3D(brain3dContainer, (neurons) => {
+      if (view.highlighted !== null) client.requestKinTable(view.highlighted, neurons);
+    });
   }
 
-  // Set fonts
-  state.ctx.map.font = '10px Arial';
-
-  // Initialize uPlot charts
   initCharts();
 
-  // Initialize FPS counter
   const fpsEl = document.getElementById('fps-counter');
   if (fpsEl) initFPSCounter(fpsEl);
 
-  // Initialize family display
-  initFamilyDisplay();
-
-  // Initialize cached DOM elements
-  initAmoebSystemDom();
-  initInputHandlerDom();
+  initFamilyDisplay(client);
   initDashboardDom();
-
-  // Set up event listeners
   setupEventListeners(mapCanvas);
 
-  // Generate terrain and start simulation
-  tileSystem.generate();
-  dashboard.setup();
+  // Worker replies
+  client.on('stats', (m) => pushStatsSample(m.sample));
+  client.on('kinTable', (m) => renderKinTable(m.table));
+  client.on('family', (m) => handleFamilyMessage(m.idx, m.tree));
+  client.on('alikeness', (m) => handleAlikenessMessage(m.a, m.b, m.value));
+  client.on('save', (m) => downloadJson(m.json, `petri-save-${Date.now()}.json`));
+  client.on('loaded', (m) => {
+    if (m.ok) {
+      console.log('Load complete!');
+      resetChartData();
+    } else {
+      console.error('Failed to load:', m.error);
+    }
+  });
+
+  client.start(DEFAULT_TPS);
   cycle();
 
   // Initial zoom
-  state.canvas.scale = 3;
-  state.ctx.map.scale(3, 3);
+  view.canvas.scale = 3;
+  view.ctx.scale(3, 3);
 }
 
 /**
  * Initialize uPlot charts
  */
 function initCharts(): void {
-  const foodPopContainer = document.getElementById('foodPopChart');
-  const optimizationContainer = document.getElementById('optimizationChart');
-  const lifespanContainer = document.getElementById('lifespanChart');
+  const byId = (id: string) => document.getElementById(id);
+  const foodPop = byId('foodPopChart');
+  const optimization = byId('optimizationChart');
+  const lifespan = byId('lifespanChart');
+  const mutationStrat = byId('mutationStratChart');
+  const genDemo = byId('genDemoChart');
 
-  if (foodPopContainer) {
-    initFoodPopChart(foodPopContainer);
-  }
-
-  if (optimizationContainer) {
-    initOptimizationChart(optimizationContainer);
-  }
-
-  if (lifespanContainer) {
-    initLifespanChart(lifespanContainer);
-  }
-
-  const mutationStratContainer = document.getElementById('mutationStratChart');
-  if (mutationStratContainer) {
-    initMutationStratChart(mutationStratContainer);
-  }
-
-  const genDemoContainer = document.getElementById('genDemoChart');
-  if (genDemoContainer) {
-    initGenDemoChart(genDemoContainer);
-  }
+  if (foodPop) initFoodPopChart(foodPop);
+  if (optimization) initOptimizationChart(optimization);
+  if (lifespan) initLifespanChart(lifespan);
+  if (mutationStrat) initMutationStratChart(mutationStrat);
+  if (genDemo) initGenDemoChart(genDemo);
 }
 
 /**
  * Set up all event listeners
  */
 function setupEventListeners(mapCanvas: HTMLCanvasElement): void {
-  // Old 2D brain canvas events (deprecated - 3D brain handles its own events)
-  // brainCanvas.addEventListener('click', ...);
-  // brainCanvas.addEventListener('mousemove', ...);
-  // brainCanvas.addEventListener('mouseleave', ...);
-
-  // Map canvas events
   mapCanvas.addEventListener('mouseover', (e) => {
     handleMouseEvent('over', e, mapCanvas);
-    state.mouse.overMap = true;
+    view.mouse.overMap = true;
   });
   mapCanvas.addEventListener('mousemove', (e) => handleMouseEvent('move', e, mapCanvas));
   mapCanvas.addEventListener('mousedown', (e) => handleMouseEvent('down', e, mapCanvas));
   mapCanvas.addEventListener('mouseup', (e) => handleMouseEvent('up', e, mapCanvas));
   mapCanvas.addEventListener('mouseout', (e) => {
     handleMouseEvent('out', e, mapCanvas);
-    state.mouse.overMap = false;
+    view.mouse.overMap = false;
   });
   mapCanvas.addEventListener('wheel', (e) => handleMouseWheel(e, mapCanvas), { passive: false });
 
-  // Keyboard events
   document.addEventListener('keydown', (e) => handleKeyDown(e, pauseSimulation));
   document.addEventListener('keyup', (e) => handleKeyUp(e));
 
   // Window resize — update canvas size and restore transform
   window.addEventListener('resize', () => {
-    const ctx = state.ctx.map;
+    const ctx = view.ctx;
     if (!ctx) return;
     mapCanvas.width = window.innerWidth;
     mapCanvas.height = 1000;
     ctx.font = '10px Arial';
-    ctx.setTransform(state.canvas.scale, 0, 0, state.canvas.scale, state.mouse.originalX, state.mouse.originalY);
+    ctx.setTransform(view.canvas.scale, 0, 0, view.canvas.scale, view.mouse.originalX, view.mouse.originalY);
     resizeCharts();
     resizeBrain3D();
   });
 
-  // Dashboard resize handle
   setupDashboardResize();
 }
 
@@ -175,10 +173,9 @@ function setupEventListeners(mapCanvas: HTMLCanvasElement): void {
  * Set up dashboard resize functionality
  */
 function setupDashboardResize(): void {
-  const dashboard = document.getElementById('dashboard');
+  const dashboardEl = document.getElementById('dashboard');
   const handle = document.getElementById('dashboard-resize-handle');
-
-  if (!dashboard || !handle) return;
+  if (!dashboardEl || !handle) return;
 
   let isResizing = false;
 
@@ -190,13 +187,11 @@ function setupDashboardResize(): void {
 
   document.addEventListener('mousemove', (e) => {
     if (!isResizing) return;
-
     const newWidth = window.innerWidth - e.clientX;
     const minWidth = 200;
     const maxWidth = window.innerWidth * 0.8;
-
     if (newWidth >= minWidth && newWidth <= maxWidth) {
-      dashboard.style.width = newWidth + 'px';
+      dashboardEl.style.width = newWidth + 'px';
       resizeCharts();
       resizeBrain3D();
     }
@@ -213,235 +208,193 @@ function setupDashboardResize(): void {
 }
 
 /**
- * Main simulation loop
+ * Render loop. Runs at display refresh regardless of the simulation tick rate.
  */
 function cycle(): void {
-  updateFPS();
-  tileSystem.update();
-  amoebSystem.update();
-  inputHandler.update();
+  client.swapFrame();
+  const f = client.frame;
 
-  // Update camera to follow tracked animal
-  updateTracking();
+  updateFPS(f ? header(f, H.TPS_MEASURED) : 0);
 
-  if (!state.pause && state.stats.time % 1000 === 0) {
-    statSystem.update();
+  if (f) {
+    view.highlighted = highlightedIdx(f);
+    handleSelection(f, client);
   }
+  inputHandler.update(client);
+  updateTracking(f);
 
-  dashboard.update();
+  drawFrame(f);
 
-  if (!state.pause) {
-    state.stats.time++;
+  if (f) {
+    dashboard.update(f);
+    updateDetailPanels(f);
   }
 
   requestAnimationFrame(cycle);
 }
 
 /**
- * Update camera position to follow tracked animal
+ * Keep the brain / family panels in sync with the highlighted amoeba
  */
-function updateTracking(): void {
-  if (state.tracking === null) return;
-
-  const ctx = state.ctx.map;
-  if (!ctx) return;
-
-  if(state.highlighted && state.highlighted > 0 && state.tracking !== null) {
-    state.tracking = state.highlighted;
-  }
-  // Get the tracked animal
-  const animal = state.tracking >= 0 ? state.amoebs[state.tracking] : state.graveyard[-(state.tracking + 1)];
-
-  if (!animal || animal.status !== 'alive') {
-    state.tracking = null;
+function updateDetailPanels(f: Frame): void {
+  if (!hasFocus(f)) {
+    lastDetailHighlighted = null;
+    lastDetailDescendants = -1;
     return;
   }
 
-  // Get canvas dimensions
+  const descendants = focus(f, F.DESCENDANTS);
+  const kinChanged = view.highlighted !== lastDetailHighlighted || descendants !== lastDetailDescendants;
+
+  if (view.display === 'brain') {
+    if (hasBrain(f)) drawBrain3D(f);
+    if (kinChanged) refreshKinTable();
+  } else if (view.display === 'family') {
+    updateFamilyDisplay(false, view.highlighted, descendants);
+  }
+
+  lastDetailHighlighted = view.highlighted;
+  lastDetailDescendants = descendants;
+}
+
+/**
+ * Update camera position to follow the highlighted amoeba
+ */
+function updateTracking(f: Frame | null): void {
+  if (!view.tracking) return;
+  const ctx = view.ctx;
+  if (!ctx || !f || !hasFocus(f)) return;
+
+  if (focus(f, F.STATUS) !== 0) {
+    view.tracking = false;
+    return;
+  }
+
   const canvas = ctx.canvas;
-  const centerX = canvas.width / 2 / state.canvas.scale;
-  const centerY = canvas.height / 2 / state.canvas.scale;
+  const centerX = canvas.width / 2 / view.canvas.scale;
+  const centerY = canvas.height / 2 / view.canvas.scale;
 
-  // Calculate translation needed to center the animal
-  const dx = centerX - animal.x - state.mouse.originalX / state.canvas.scale;
-  const dy = centerY - animal.y - state.mouse.originalY / state.canvas.scale;
+  const dx = centerX - focus(f, F.X) - view.mouse.originalX / view.canvas.scale;
+  const dy = centerY - focus(f, F.Y) - view.mouse.originalY / view.canvas.scale;
 
-  // Apply translation
   ctx.translate(dx, dy);
-  state.mouse.originalX += dx * state.canvas.scale;
-  state.mouse.originalY += dy * state.canvas.scale;
+  view.mouse.originalX += dx * view.canvas.scale;
+  view.mouse.originalY += dy * view.canvas.scale;
 }
 
-/**
- * Toggle simulation pause state
- */
+// ─── Actions wired to the HTML buttons ──────────────────────────────────────
+
 function pauseSimulation(): void {
-  if (state.pause) {
-    state.pause = false;
-    const btn = document.getElementById('play-button') as HTMLImageElement;
-    if (btn) btn.src = 'icons/play.png';
-  } else {
-    state.pause = true;
-    const btn = document.getElementById('play-button') as HTMLImageElement;
-    if (btn) btn.src = 'icons/pause.png';
-  }
+  view.paused = !view.paused;
+  client.setPaused(view.paused);
+  const btn = document.getElementById('play-button') as HTMLImageElement | null;
+  if (btn) btn.src = view.paused ? 'icons/pause.png' : 'icons/play.png';
 }
 
-/**
- * Start a new simulation
- */
+/** Fast-forward: run the simulation as fast as the worker can tick */
+function accelerateMutations(): void {
+  view.fastForward = !view.fastForward;
+  client.setTps(view.fastForward ? 0 : DEFAULT_TPS);
+}
+
 function newSimulation(): void {
-  state.highlighted = null;
-  state.newest = null;
-  state.scores = new Array(SCORESCAP);
-  state.amoebs = new Array(POPCAP);
-  state.graveyard = [];
-  // Create initial population
-  for (let i = 0; i < 100; i++) {
-    state.amoebs[i] = new Amoeba(
-      round(Math.random() * FIELDX),
-      round(Math.random() * FIELDY),
-      i
-    );
-  }
-
-  state.resetStats();
+  view.tracking = false;
+  client.newSimulation();
   resetChartData();
-
-  dashboard.setup();
-  tileSystem.generate();
-
-  const el = document.getElementById('dash-live-info');
-  if (el) {
-    el.innerHTML = 'LIVE: ' + state.stats.livePop + '     DEAD: ' + state.graveyard.length;
-  }
 }
 
-/**
- * Show the correct display panel based on current display mode
- */
 function showCurrentDisplay(): void {
-  const statsEl = document.getElementById('amoeba-stats');
   const brain3dEl = document.getElementById('brain3d-container');
   const familyEl = document.getElementById('family-tree');
 
-  if (statsEl) statsEl.style.display = 'block';
-
-  if (state.display === 'brain' && brain3dEl) {
+  if (view.display === 'brain' && brain3dEl) {
     brain3dEl.style.display = 'block';
     resizeBrain3D();
     if (familyEl) familyEl.style.display = 'none';
-  } else if (state.display === 'family' && familyEl) {
+  } else if (view.display === 'family' && familyEl) {
     familyEl.style.display = 'block';
     if (brain3dEl) brain3dEl.style.display = 'none';
-    updateFamilyDisplay(true); // Force update when highlighting new amoeba
   }
 }
 
-/**
- * Highlight newest creature
- */
 function highlightNewest(): void {
-  state.highlighted = state.newest;
+  const f = client.frame;
+  if (!f) return;
+  client.highlight(newestIdx(f));
   showCurrentDisplay();
 }
 
-/**
- * Highlight gold medal holder
- */
-function highlightGold(): void {
-  state.highlighted = state.gold;
+function highlightMedal(key: number): void {
+  const f = client.frame;
+  if (!f) return;
+  const idx = medalIdx(f, key);
+  if (idx === null) return;
+  client.highlight(idx);
   showCurrentDisplay();
 }
 
-/**
- * Highlight silver medal holder
- */
-function highlightSilver(): void {
-  state.highlighted = state.silver;
-  showCurrentDisplay();
-}
-
-/**
- * Highlight bronze medal holder
- */
-function highlightBronze(): void {
-  state.highlighted = state.bronze;
-  showCurrentDisplay();
-}
-
-/**
- * Save simulation to file
- */
 function save(): void {
   console.log('SAVING...');
-  downloadState(`petri-save-${Date.now()}.json`);
+  client.save();
 }
 
-/**
- * Load simulation from file
- */
 function load(): void {
-  // Create hidden file input
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.accept = '.json';
-  input.onchange = async (e) => {
-    const file = (e.target as HTMLInputElement).files?.[0];
-    if (file) {
-      console.log('LOADING...');
-      try {
-        await loadStateFromFile(file);
-        console.log('Load complete!');
-      } catch (err) {
-        console.error('Failed to load:', err);
+  pickTextFile('.json')
+    .then((json) => {
+      if (json) {
+        console.log('LOADING...');
+        client.load(json);
       }
-    }
-  };
-  input.click();
+    })
+    .catch((err) => console.error('Failed to read file:', err));
 }
 
-/**
- * Toggle between stats display and brain display
- */
 function toggleBrainDisplay(): void {
-  if (state.highlighted === null) return;
+  if (view.highlighted === null) return;
 
   const brain3dContainer = document.getElementById('brain3d-container');
   const familyTree = document.getElementById('family-tree');
 
-  if (state.display === 'brain') {
-    state.display = 'default'; // Switch back to stats
+  if (view.display === 'brain') {
+    view.display = 'default';
     if (brain3dContainer) brain3dContainer.style.display = 'none';
     clearBrain3DSelection();
   } else {
-    state.display = 'brain'; // Switch to brain display
+    view.display = 'brain';
     if (brain3dContainer) {
       brain3dContainer.style.display = 'block';
       resizeBrain3D();
     }
     if (familyTree) familyTree.style.display = 'none';
   }
+  client.setDisplay(view.display);
 }
 
-/**
- * Toggle tracking of highlighted animal
- */
 function toggleTracking(): void {
-  if (state.tracking !== null) {
-    // Turn off tracking
-    state.tracking = null;
-  } else if (state.highlighted !== null) {
-    // Start tracking highlighted animal
-    state.tracking = state.highlighted;
+  if (view.tracking) {
+    view.tracking = false;
+  } else if (view.highlighted !== null) {
+    view.tracking = true;
   }
 }
 
-/**
- * Stop tracking (called on ESC or canvas click)
- */
 function stopTracking(): void {
-  state.tracking = null;
+  view.tracking = false;
+}
+
+/** The X button on the stats panel */
+function closeHighlight(): void {
+  view.tracking = false;
+  view.mouse.leftPressed = false;
+  client.highlight(null);
+
+  const brain3dContainer = document.getElementById('brain3d-container');
+  const familyTree = document.getElementById('family-tree');
+  if (brain3dContainer) brain3dContainer.style.display = 'none';
+  if (familyTree) familyTree.style.display = 'none';
+  if (view.display === 'brain') clearBrain3DSelection();
+  view.display = 'default';
+  client.setDisplay('default');
 }
 
 // Expose functions to window for HTML onclick handlers
@@ -450,52 +403,36 @@ declare global {
     init: typeof init;
     newSimulation: typeof newSimulation;
     pauseSimulation: typeof pauseSimulation;
+    accelerateMutations: typeof accelerateMutations;
     save: typeof save;
     load: typeof load;
     highlight_newest: typeof highlightNewest;
-    highlight_gold: typeof highlightGold;
-    highlight_silver: typeof highlightSilver;
-    highlight_bronze: typeof highlightBronze;
+    highlight_gold: () => void;
+    highlight_silver: () => void;
+    highlight_bronze: () => void;
     toggleBrainDisplay: typeof toggleBrainDisplay;
     toggleFamilyDisplay: typeof toggleFamilyDisplay;
     toggleTracking: typeof toggleTracking;
     stopTracking: typeof stopTracking;
-    highlighted: number | null;
-    leftPressed: boolean;
-    graveyard: Amoeba[];
-    amoebs: Amoeba[];
+    closeHighlight: typeof closeHighlight;
   }
 }
 
 window.init = init;
 window.newSimulation = newSimulation;
 window.pauseSimulation = pauseSimulation;
+window.accelerateMutations = accelerateMutations;
 window.save = save;
 window.load = load;
 window.highlight_newest = highlightNewest;
-window.highlight_gold = highlightGold;
-window.highlight_silver = highlightSilver;
-window.highlight_bronze = highlightBronze;
+window.highlight_gold = () => highlightMedal(H.GOLD);
+window.highlight_silver = () => highlightMedal(H.SILVER);
+window.highlight_bronze = () => highlightMedal(H.BRONZE);
 window.toggleBrainDisplay = toggleBrainDisplay;
 window.toggleFamilyDisplay = toggleFamilyDisplay;
 window.toggleTracking = toggleTracking;
 window.stopTracking = stopTracking;
-
-// Expose state for inline script handlers
-Object.defineProperty(window, 'highlighted', {
-  get: () => state.highlighted,
-  set: (v) => { state.highlighted = v; },
-});
-Object.defineProperty(window, 'leftPressed', {
-  get: () => state.mouse.leftPressed,
-  set: (v) => { state.mouse.leftPressed = v; },
-});
-Object.defineProperty(window, 'graveyard', {
-  get: () => state.graveyard,
-});
-Object.defineProperty(window, 'amoebs', {
-  get: () => state.amoebs,
-});
+window.closeHighlight = closeHighlight;
 
 // Auto-initialize when DOM is ready
 if (document.readyState === 'loading') {

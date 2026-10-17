@@ -8,7 +8,10 @@ export class Neuron {
 
   in: number = 0;
   out: number = 0;
-  sustain:number = 0; // sustain of 0.9: neuron output changes VERY slowly ... systain of 0: neuron output changes VERY quickly to reflect new incoming input signals
+  // Learnable output memory (output neurons only): out = sustain·out + (1−sustain)·in.
+  // 0 = output tracks input instantly; 1 = output never changes.
+  // Mutated like a weight (noise + erosion toward 0), clamped to [0, 1].
+  sustain: number = 0;
 
   /**
    * Initialize neuron with specified number of connections

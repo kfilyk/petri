@@ -1,43 +1,36 @@
-// FamilyDisplay - Shows family tree for highlighted amoeba
+// FamilyDisplay - Shows family tree for highlighted amoeba (main thread)
+//
+// Tree data comes from the worker on request; this module only renders it.
 
-import { state } from '../state';
-import type { Amoeba } from '../entities/Amoeba';
-import { getAlikeness, getBrainWeight } from '../utils/math';
+import { formatLabel, type FamilyNode, type FamilyTree } from '../sim/protocol';
+import type { SimClient } from '../ui/simClient';
+import { view } from '../ui/viewState';
 
 let familyContainer: HTMLElement | null = null;
+let client: SimClient | null = null;
 
 // Navigation history stack
 const navHistory: number[] = [];
 
 let lastHighlighted: number | null = null;
 let lastDescendants: number | undefined = undefined;
+
+// Hover state for the alikeness tooltip
+let tooltip: HTMLElement | null = null;
+let hoverIdx: number | null = null;
+let hoverEl: HTMLElement | null = null;
+
 /**
  * Initialize the family display container
  */
-export function initFamilyDisplay(): void {
+export function initFamilyDisplay(simClient: SimClient): void {
+  client = simClient;
   familyContainer = document.getElementById('family-tree');
 }
 
-/**
- * Get amoeba by index (handles both alive and dead)
- */
-function getAmoeb(idx: number): Amoeba | null {
-  if (idx >= 0) {
-    return state.amoebs[idx] || null;
-  } else {
-    return state.graveyard[-(idx + 1)] || null;
-  }
+function formatName(n: FamilyNode): string {
+  return formatLabel(n.name, n.gen, n.alive, n.descendants);
 }
-
-/**
- * Format amoeba name for display
- */
-function formatName(amoeba: Amoeba): string {
-  return `${amoeba.name}-${amoeba.gen}${amoeba.status === 'alive' ? 'A' : 'D'}${amoeba.descendants}`;
-}
-
-// Tooltip element (shared across all family members)
-let tooltip: HTMLElement | null = null;
 
 function getTooltip(): HTMLElement {
   if (!tooltip) {
@@ -51,49 +44,49 @@ function getTooltip(): HTMLElement {
 /**
  * Create a clickable element for an amoeba
  */
-function createAmoebElement(amoeba: Amoeba, label: string): HTMLElement {
+function createAmoebElement(node: FamilyNode, label: string): HTMLElement {
   const el = document.createElement('div');
   el.className = 'family-member';
-  if (amoeba.status !== 'alive') {
-    el.className += ' family-member-dead';
-  }
-  if (amoeba.index === state.highlighted) {
-    el.className += ' family-member-self';
-  }
+  if (!node.alive) el.className += ' family-member-dead';
+  if (node.idx === view.highlighted) el.className += ' family-member-self';
 
-  el.innerHTML = `<span class="family-label">${label}</span><span class="family-name">${formatName(amoeba)}</span>`;
+  el.innerHTML = `<span class="family-label">${label}</span><span class="family-name">${formatName(node)}</span>`;
 
-  // Show alikeness tooltip on hover (compared to highlighted creature)
-  el.addEventListener('mouseenter', (e) => {
-    const highlighted = getAmoeb(state.highlighted!);
-    if (highlighted && amoeba.index !== state.highlighted) {
-      const alikeness = getAlikeness(highlighted, amoeba);
-      const tip = getTooltip();
-      tip.textContent = `${alikeness.toFixed(1)}% alike`;
-      tip.style.display = 'block';
-
-      // Position tooltip near cursor
-      const rect = el.getBoundingClientRect();
-      tip.style.left = `${rect.right + 8}px`;
-      tip.style.top = `${rect.top}px`;
+  // Ask the sim for alikeness vs the highlighted creature; shown when the reply arrives
+  el.addEventListener('mouseenter', () => {
+    if (view.highlighted !== null && node.idx !== view.highlighted && client) {
+      hoverIdx = node.idx;
+      hoverEl = el;
+      client.requestAlikeness(view.highlighted, node.idx);
     }
   });
 
   el.addEventListener('mouseleave', () => {
-    const tip = getTooltip();
-    tip.style.display = 'none';
+    hoverIdx = null;
+    hoverEl = null;
+    getTooltip().style.display = 'none';
   });
 
   el.addEventListener('click', () => {
-    // Push current to history before navigating
-    if (state.highlighted !== null && state.highlighted !== amoeba.index) {
-      navHistory.push(state.highlighted);
+    if (!client) return;
+    if (view.highlighted !== null && view.highlighted !== node.idx) {
+      navHistory.push(view.highlighted);
     }
-    state.highlighted = amoeba.index;
-    updateFamilyDisplay(true); // Force immediate update on click
+    client.highlight(node.idx); // the next frame re-renders the tree for the new selection
   });
 
   return el;
+}
+
+/** Worker reply to an alikeness request */
+export function handleAlikenessMessage(a: number, b: number, value: number): void {
+  if (hoverIdx !== b || view.highlighted !== a || !hoverEl) return;
+  const tip = getTooltip();
+  tip.textContent = `${value.toFixed(1)}% alike`;
+  tip.style.display = 'block';
+  const rect = hoverEl.getBoundingClientRect();
+  tip.style.left = `${rect.right + 8}px`;
+  tip.style.top = `${rect.top}px`;
 }
 
 /**
@@ -112,37 +105,42 @@ function createSection(title: string): HTMLElement {
 }
 
 /**
- * Update the family display for the currently highlighted amoeba
- * @param force - Force update even if throttle time hasn't elapsed
+ * Request a fresh tree when the selection or its descendant count changed
+ * @param force - Request even if nothing changed
  */
-export function updateFamilyDisplay(force: boolean = false, descendants:number | undefined = undefined): void {
-  if (!familyContainer) {
-    familyContainer = document.getElementById('family-tree');
-  }
-  if (!familyContainer) return;
+export function updateFamilyDisplay(
+  force: boolean,
+  highlighted: number | null,
+  descendants: number | undefined = undefined
+): void {
+  if (!familyContainer) familyContainer = document.getElementById('family-tree');
+  if (!familyContainer || !client) return;
 
-  const highlightedChanged = state.highlighted !== lastHighlighted;
-  const descendantsChanged = descendants !== lastDescendants
+  const highlightedChanged = highlighted !== lastHighlighted;
+  const descendantsChanged = descendants !== lastDescendants;
+  if (!force && !highlightedChanged && !descendantsChanged) return;
 
-  // only proceed to render family display if was forced, or highlighted changed, or # descendants changed
-  if (!force && !highlightedChanged && !descendantsChanged) {
-    return; // dont rerender
-    // otherwise, update ! change in number of descendants -> need rerender of fam tree
-  }
-
-
-  console.log("RERENDERING FAM TREE")
-  lastHighlighted = state.highlighted;
+  lastHighlighted = highlighted;
   lastDescendants = descendants;
 
-
-  if (state.highlighted === null) {
+  if (highlighted === null) {
     familyContainer.innerHTML = '<div class="family-empty">No amoeba selected</div>';
     return;
   }
 
-  const self = getAmoeb(state.highlighted);
-  if (!self) {
+  client.requestFamily(highlighted);
+}
+
+/** Worker reply to a family request */
+export function handleFamilyMessage(idx: number, tree: FamilyTree | null): void {
+  if (idx !== view.highlighted) return; // stale reply
+  render(tree);
+}
+
+function render(tree: FamilyTree | null): void {
+  if (!familyContainer) return;
+
+  if (!tree) {
     familyContainer.innerHTML = '<div class="family-empty">Amoeba not found</div>';
     return;
   }
@@ -158,9 +156,8 @@ export function updateFamilyDisplay(force: boolean = false, descendants:number |
   backBtn.innerHTML = '&larr; Back';
   backBtn.disabled = navHistory.length === 0;
   backBtn.addEventListener('click', () => {
-    if (navHistory.length > 0) {
-      state.highlighted = navHistory.pop()!;
-      updateFamilyDisplay(true); // Force immediate update on back
+    if (navHistory.length > 0 && client) {
+      client.highlight(navHistory.pop()!);
     }
   });
   navBar.appendChild(backBtn);
@@ -173,78 +170,54 @@ export function updateFamilyDisplay(force: boolean = false, descendants:number |
   familyContainer.appendChild(navBar);
 
   // Parent section
-  if (self.parent !== null) {
-    const parent = getAmoeb(self.parent);
-    if (parent) {
-      const parentSection = createSection('Parent');
-      parentSection.appendChild(createAmoebElement(parent, ''));
-      familyContainer.appendChild(parentSection);
+  if (tree.parent) {
+    const parentSection = createSection('Parent');
+    parentSection.appendChild(createAmoebElement(tree.parent, ''));
+    familyContainer.appendChild(parentSection);
 
-      // Siblings section (parent's other children)
-      const siblings: Amoeba[] = [];
-      for (const childIdx of parent.children) {
-        if (childIdx !== self.index) {
-          const sibling = getAmoeb(childIdx);
-          if (sibling) {
-            siblings.push(sibling);
+    // Siblings section (parent's other children)
+    if (tree.siblings.length > 0) {
+      const siblingsSection = createSection(`Siblings (${tree.siblings.length})`);
+      for (const sibling of tree.siblings) {
+        const siblingRow = document.createElement('div');
+        siblingRow.className = 'family-sibling-row';
+        siblingRow.appendChild(createAmoebElement(sibling, ''));
+
+        // Sibling's children (niblings)
+        if (sibling.children && sibling.children.length > 0) {
+          const niblings = document.createElement('div');
+          niblings.className = 'family-niblings';
+          for (const nibling of sibling.children) {
+            niblings.appendChild(createAmoebElement(nibling, ''));
           }
+          siblingRow.appendChild(niblings);
         }
+
+        siblingsSection.appendChild(siblingRow);
       }
-
-      if (siblings.length > 0) {
-        const siblingsSection = createSection(`Siblings (${siblings.length})`);
-        for (const sibling of siblings) {
-          const siblingRow = document.createElement('div');
-          siblingRow.className = 'family-sibling-row';
-
-          siblingRow.appendChild(createAmoebElement(sibling, ''));
-
-          // Sibling's children (nieces/nephews)
-          if (sibling.children.length > 0) {
-            const niblings = document.createElement('div');
-            niblings.className = 'family-niblings';
-            for (const niblingIdx of sibling.children) {
-              const nibling = getAmoeb(niblingIdx);
-              if (nibling) {
-                niblings.appendChild(createAmoebElement(nibling, ''));
-              }
-            }
-            siblingRow.appendChild(niblings);
-          }
-
-          siblingsSection.appendChild(siblingRow);
-        }
-        familyContainer.appendChild(siblingsSection);
-      }
+      familyContainer.appendChild(siblingsSection);
     }
   }
 
   // Children section
-  if (self.children.length > 0) {
-    const childrenSection = createSection(`Children (${self.children.length})`);
-    for (const childIdx of self.children) {
-      const child = getAmoeb(childIdx);
-      if (child) {
-        const childRow = document.createElement('div');
-        childRow.className = 'family-child-row';
+  if (tree.children.length > 0) {
+    const childrenSection = createSection(`Children (${tree.children.length})`);
+    for (const child of tree.children) {
+      const childRow = document.createElement('div');
+      childRow.className = 'family-child-row';
+      childRow.appendChild(createAmoebElement(child, ''));
 
-        childRow.appendChild(createAmoebElement(child, ''));
-
-        // Grandchildren
-        if (child.children.length > 0) {
-          const grandchildren = document.createElement('div');
-          grandchildren.className = 'family-grandchildren';
-          for (const grandchildIdx of child.children) {
-            const grandchild = getAmoeb(grandchildIdx);
-            if (grandchild) {
-              grandchildren.appendChild(createAmoebElement(grandchild, ''));
-            }
-          }
-          childRow.appendChild(grandchildren);
+      // Grandchildren
+      if (child.children && child.children.length > 0) {
+        const grandchildren = document.createElement('div');
+        grandchildren.className = 'family-grandchildren';
+        for (const grandchild of child.children) {
+          grandchildren.appendChild(createAmoebElement(grandchild, ''));
         }
-
-        childrenSection.appendChild(childRow);
+        childRow.appendChild(grandchildren);
       }
+
+      childrenSection.appendChild(childRow);
     }
     familyContainer.appendChild(childrenSection);
   }
@@ -254,24 +227,22 @@ export function updateFamilyDisplay(force: boolean = false, descendants:number |
  * Toggle family display visibility
  */
 export function toggleFamilyDisplay(): void {
-  if (state.highlighted === null) return;
+  if (view.highlighted === null || !client) return;
 
-  const brainCanvas = document.getElementById('brain');
-  const neuronWeights = document.getElementById('neuron-weights');
+  const brain3d = document.getElementById('brain3d-container');
+  const brainWeights = document.getElementById('brain3d-weights');
+  if (!familyContainer) familyContainer = document.getElementById('family-tree');
 
-  if (!familyContainer) {
-    familyContainer = document.getElementById('family-tree');
-  }
-
-  if (state.display === 'family') {
-    state.display = 'default';
+  if (view.display === 'family') {
+    view.display = 'default';
     if (familyContainer) familyContainer.style.display = 'none';
     navHistory.length = 0; // Clear history when closing
   } else {
-    state.display = 'family';
-    if (brainCanvas) brainCanvas.style.display = 'none';
-    if (neuronWeights) neuronWeights.style.display = 'none';
+    view.display = 'family';
+    if (brain3d) brain3d.style.display = 'none';
+    if (brainWeights) brainWeights.style.display = 'none';
     if (familyContainer) familyContainer.style.display = 'block';
-    updateFamilyDisplay(true); // Force update when opening
+    updateFamilyDisplay(true, view.highlighted);
   }
+  client.setDisplay(view.display);
 }

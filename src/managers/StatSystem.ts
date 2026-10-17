@@ -1,7 +1,6 @@
 // StatSystem - Handles simulation statistics collection
 
-import { TILENUMBER, MUTATION_RATE } from '../constants';
-import { state } from '../state';
+import type { StatsSample } from '../sim/protocol';
 import uPlot from 'uplot';
 
 /**
@@ -366,152 +365,47 @@ export function resizeCharts(): void {
   }
 }
 
-export const statSystem = {
-  /**
-   * Collect and update statistics
-   */
-  update(): void {
-    // Update history
-    state.history.avePosNRG.push(state.stats.avePosNRG);
+/**
+ * Append one statistics sample (computed in the worker, see sim/stats.ts)
+ * to every chart.
+ */
+export function pushStatsSample(s: StatsSample): void {
+  // Food / population
+  foodPopData[0].push(s.timeLabel);
+  foodPopData[1].push(s.redAgar);
+  foodPopData[2].push(s.greenAgar);
+  foodPopData[3].push(s.blueAgar);
+  foodPopData[4].push(s.livePop);
+  if (foodPopChart) {
+    foodPopChart.setData(stackFoodData(foodPopData) as uPlot.AlignedData);
+  }
 
-    // Collect animal stats
-    let totalDescendants = 0;
-    let totalChildren = 0;
-    let totalLivingAge = 0;
-    let totalEfficiency = 0;
-    if (state.stats.livePop !== 0) {
-      for (let i = 0; i <= state.HIGHESTINDEX; i++) {
-        const a = state.amoebs[i];
-        if (a.status === 'alive') {
-          state.stats.netEatenRatio += (a.redEaten + a.greenEaten + a.blueEaten) / a.netEaten;
-          totalDescendants += a.descendants;
-          totalChildren += a.children.length;
-          totalLivingAge += state.stats.time - a.born;
-          if (a.totalEnergyCost > 0) {
-            totalEfficiency += a.totalEnergyGain / a.totalEnergyCost;
-          }
-        }
-      }
-      state.stats.netEatenRatio /= state.stats.livePop;
-    } else {
-      state.stats.netEatenRatio = 0;
-    }
-    state.stats.aveChildren = state.stats.livePop > 0 ? totalChildren / state.stats.livePop : 0;
-    state.history.aveChildren.push(state.stats.aveChildren);
-    if (state.stats.aveChildren > state.stats.maxAveChildren) {
-      state.stats.maxAveChildren = state.stats.aveChildren;
-    }
+  // Optimization
+  optimizationData[0].push(s.timeLabel);
+  optimizationData[1].push(s.aveChildren);
+  optimizationData[2].push(s.eatEfficiency);
+  if (optimizationChart) {
+    optimizationChart.setData(optimizationData as uPlot.AlignedData);
+  }
 
-    // Collect tile stats
-    let totalAgarOnMap = 0;
-    for (let i = 0; i < TILENUMBER; i++) {
-      if (!state.pause) {
-        state.stats.redAgarOnMap += state.tiles[i].R;
-        state.stats.greenAgarOnMap += state.tiles[i].G;
-        state.stats.blueAgarOnMap += state.tiles[i].B;
-        totalAgarOnMap += state.tiles[i].RCap + state.tiles[i].GCap + state.tiles[i].BCap;
-      }
-    }
+  // Lifespan
+  lifespanData[0].push(s.timeLabel);
+  lifespanData[1].push(s.aveLivingLifespan);
+  lifespanData[2].push(s.avgEnergyEff);
+  if (lifespanChart) {
+    lifespanChart.setData(lifespanData as uPlot.AlignedData);
+  }
 
-    // Update food/population chart
-    const timeLabel = state.stats.time / 100;
-    foodPopData[0].push(timeLabel);
-    foodPopData[1].push(state.stats.redAgarOnMap);
-    foodPopData[2].push(state.stats.greenAgarOnMap);
-    foodPopData[3].push(state.stats.blueAgarOnMap);
-    foodPopData[4].push(state.stats.livePop);
+  // Mutation strategy
+  mutationStratData[0].push(s.timeLabel);
+  mutationStratData[1].push(s.mutationRate);
+  if (mutationStratChart) {
+    mutationStratChart.setData(mutationStratData as uPlot.AlignedData);
+  }
 
-    if (foodPopChart) {
-      foodPopChart.setData(stackFoodData(foodPopData) as uPlot.AlignedData);
-    }
-
-    // Update optimization chart
-    const totalFood = state.stats.redAgarOnMap + state.stats.greenAgarOnMap + state.stats.blueAgarOnMap;
-    const foodFraction = totalAgarOnMap > 0 ? totalFood / totalAgarOnMap : 1;
-    const eatEfficiency = foodFraction > 0 ? state.stats.netEatenRatio / foodFraction : 0;
-    optimizationData[0].push(timeLabel);
-    optimizationData[1].push(state.stats.aveChildren);
-    optimizationData[2].push(eatEfficiency);
-
-    if (optimizationChart) {
-      optimizationChart.setData(optimizationData as uPlot.AlignedData);
-    }
-
-    // Update lifespan chart
-    const aveLivingLifespan = state.stats.livePop > 0 ? totalLivingAge / state.stats.livePop : 0;
-    const avgEnergyEff = state.stats.livePop > 0 ? totalEfficiency / state.stats.livePop : 0;
-    lifespanData[0].push(timeLabel);
-    lifespanData[1].push(aveLivingLifespan);
-    lifespanData[2].push(avgEnergyEff);
-
-    if (lifespanChart) {
-      lifespanChart.setData(lifespanData as uPlot.AlignedData);
-    }
-
-    // Update mutation strategy chart
-    const pop = state.stats.livePop;
-    mutationStratData[0].push(timeLabel);
-    mutationStratData[1].push(MUTATION_RATE);
-    // mutationStratData[2].push(state.stats.mitoses > 0 ? state.stats.advWeight / state.stats.mitoses : 0);
-    // mutationStratData[3].push(state.stats.mitoses > 0 ? state.stats.disWeight / state.stats.mitoses : 0);
-
-    if (mutationStratChart) {
-      mutationStratChart.setData(mutationStratData as uPlot.AlignedData);
-    }
-
-    // Update generation demographics chart (rebuild from scratch)
-    const livingByGen: Map<number, number> = new Map();
-    const deadByGen: Map<number, number> = new Map();
-
-    for (let i = 0; i <= state.HIGHESTINDEX; i++) {
-      const a = state.amoebs[i];
-      if (a != null && a.status === 'alive') {
-        livingByGen.set(a.gen, (livingByGen.get(a.gen) || 0) + 1);
-      }
-    }
-
-    for (let i = 0; i < state.graveyard.length; i++) {
-      const g = state.graveyard[i];
-      deadByGen.set(g.gen, (deadByGen.get(g.gen) || 0) + 1);
-    }
-
-    let maxGen = 0;
-    for (const gen of livingByGen.keys()) {
-      if (gen > maxGen) maxGen = gen;
-    }
-    for (const gen of deadByGen.keys()) {
-      if (gen > maxGen) maxGen = gen;
-    }
-
-    const gens: number[] = [];
-    const deadCounts: number[] = [];
-    const stackedCounts: number[] = [];
-
-    for (let g = 0; g <= maxGen; g++) {
-      const dead = deadByGen.get(g) || 0;
-      const alive = livingByGen.get(g) || 0;
-      gens.push(g);
-      deadCounts.push(dead);
-      stackedCounts.push(dead + alive);
-    }
-
-    genDemoData = [gens, stackedCounts, deadCounts];
-
-    if (genDemoChart) {
-      genDemoChart.setData(genDemoData as uPlot.AlignedData);
-    }
-
-    // Reset per-frame stats
-    state.stats.netEatenRatio = 0;
-    state.stats.redAgarOnMap = 0;
-    state.stats.greenAgarOnMap = 0;
-    state.stats.blueAgarOnMap = 0;
-    state.stats.mitoses = 0;
-    state.stats.advWeight = 0;
-    state.stats.disWeight = 0;
-
-    if (state.stats.avePosNRG > state.stats.maxAvePosNRG) {
-      state.stats.maxAvePosNRG = state.stats.avePosNRG;
-    }
-  },
-};
+  // Generation demographics (rebuilt from scratch each sample)
+  genDemoData = [s.gens, s.stackedCounts, s.deadCounts];
+  if (genDemoChart) {
+    genDemoChart.setData(genDemoData as uPlot.AlignedData);
+  }
+}

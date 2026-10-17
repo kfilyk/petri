@@ -30,7 +30,8 @@ export class Tile {
     // this.regenRate = Math.random() * 0.1 + 0.05;
     // this.regenRate = Math.random() * 0.02 + 0.02;
     // this.regenRate = Math.random() * 0.01 + 0.01;
-    this.regenRate = Math.random() * 0.05 + 0.05;
+    this.regenRate = Math.random() * 0.05 + 0.05; // idyllic
+    this.regenRate = Math.random() * 0.05 + 0.01; // rough
 
     // Initialize capacity with random values
     this.RCap = round(Math.random() * 100) + 50;  // 50-150

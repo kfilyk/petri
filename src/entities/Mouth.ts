@@ -1,7 +1,6 @@
 // Mouth creature component - Used for eating tiles and other amoebs
 
-import { GRID_W } from '@/managers/TileSystem';
-import { DEG_TO_RAD, FIELDX, FIELDY, TILE_SIZE } from '../constants';
+import { DEG_TO_RAD, FIELDX, FIELDY, TILE_SIZE, GRID_W } from '../constants';
 import { state } from '../state';
 
 export class Mouth {

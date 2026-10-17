@@ -1,163 +1,64 @@
-// AmoebSystem - Handles amoeba updates and interactions
+// AmoebSystem - Advances every amoeba by one tick (simulation side, no rendering)
 
 import { TILENUMBER } from '../constants';
 import { state } from '../state';
 
-// Cached DOM elements
-let dashGold: HTMLElement | null = null;
-let dashSilver: HTMLElement | null = null;
-let dashBronze: HTMLElement | null = null;
-let dashStats: HTMLElement | null = null;
-let dashHighlighted: HTMLElement | null = null;
-
-/**
- * Initialize cached DOM elements
- */
-export function initAmoebSystemDom(): void {
-  dashGold = document.getElementById('dash-gold');
-  dashSilver = document.getElementById('dash-silver');
-  dashBronze = document.getElementById('dash-bronze');
-  dashStats = document.getElementById('amoeba-stats');
-  dashHighlighted = document.getElementById('dash-highlighted');
-}
-
 export const amoebSystem = {
   /**
-   * Update all amoebs - process AI, movement, interactions, and rendering
+   * Update all amoebs - AI, movement, interactions, reproduction
    */
   update(): void {
+    const amoebs = state.amoebs;
+    const highest = state.HIGHESTINDEX;
 
-    const amoebs = state.amoebs;    
-                                                                                                                   
-    // const tiles = state.tiles;                                                                                                                       
-    const highest = state.HIGHESTINDEX; 
+    state.gold = null;
+    state.silver = null;
+    state.bronze = null;
 
-    if (!state.pause) {
-      state.gold = null;
-      state.silver = null;
-      state.bronze = null;
-
-      // First pass: age/decay, move, sense, find top performers
-      for (let i = 0; i <= highest; i++) {
-        const a = amoebs[i];
-        if (a.status === 'alive') {
-          a.metabolize();
-          if (a.status === 'alive') {
-            a.move();
-            a.currDamage = 0; // important: do BEFORE eat(), AFTER move() (affects move/rotation speed, caused by attack from other creatures)
-            a.sense();
-
-            // Track medal holders
-            if (state.gold === null || a.descendants > amoebs[state.gold].descendants) {
-              state.gold = i;
-            } else if (state.silver === null || a.descendants > amoebs[state.silver].descendants) {
-              state.silver = i;
-            } else if (state.bronze === null || a.descendants > amoebs[state.bronze].descendants) {
-              state.bronze = i;
-            }
-          }
-        } else if (a.status === 'decaying') {
-          a.decay();
-        }
-      }
-
-      // Update medal displays
-      if (state.gold !== null && dashGold) {
-        const g = amoebs[state.gold];
-        dashGold.innerHTML = g.name + '-' + g.gen + 'A' + g.descendants;
-      }
-      if (state.silver !== null && dashSilver) {
-        const s = amoebs[state.silver];
-        dashSilver.innerHTML = s.name + '-' + s.gen + 'A' + s.descendants;
-      }
-      if (state.bronze !== null && dashBronze) {
-        const b = amoebs[state.bronze];
-        dashBronze.innerHTML = b.name + '-' + b.gen + 'A' + b.descendants;
-      }
-    }
-
-    // Second pass: draw, think, eat, grow
+    // First pass: age/decay, move, sense, find top performers
     for (let i = 0; i <= highest; i++) {
       const a = amoebs[i];
-      if (a.status !== 'dead') {
-        a.draw(a.cols);
+      if (!a) continue;
+      if (a.status === 'alive') {
+        a.metabolize();
+        if (a.status === 'alive') {
+          a.move();
+          a.currDamage = 0; // important: do BEFORE eat(), AFTER move() (affects move/rotation speed, caused by attack from other creatures)
+          a.sense();
 
-        if (a.status === 'alive' && !state.pause) {
-          a.think();
-          a.eat();
-          a.grow();
-        }
-
-        // Handle mouse selection
-        if (state.mouse.leftPressed && state.mouse.overMap) {
-          const mouseX = state.mouse.x;
-          const mouseY = state.mouse.y;
-
-          if (Math.abs(a.x - mouseX) <= a.size + 1 && Math.abs(a.y - mouseY) <= a.size + 1) {
-
-            if (state.highlighted !== i) {
-              if(a.status === 'decaying' && a.grave) {
-                console.log("A GRAVE: ", a.grave)
-                state.highlighted = a.grave;
-                state.tracking = null;
-
-                if (dashStats) dashStats.style.display = 'block';
-                if (dashHighlighted) {
-                  dashHighlighted.innerHTML =
-                    'HIGHLIGHTED: ' +
-                    state.graveyard[-(state.highlighted+1)].name +
-                    '-' +
-                    state.graveyard[-(state.highlighted+1)].gen +
-                    'D' +
-                    state.graveyard[-(state.highlighted+1)].descendants;
-                }
-                state.mouse.leftPressed = false;
-
-
-                return;
-              } else {
-                state.highlighted = i;
-              }
-              // If tracking was on, switch to tracking the new amoeba
-              if (state.tracking !== null) {
-                state.tracking = i;
-              }
-              // console.log(amoebs[i]);
-
-              if (dashStats) dashStats.style.display = 'block';
-              if (dashHighlighted) {
-                dashHighlighted.innerHTML =
-                  'HIGHLIGHTED: ' +
-                  amoebs[state.highlighted].name +
-                  '-' +
-                  amoebs[state.highlighted].gen +
-                  'A' +
-                  amoebs[state.highlighted].descendants;
-              }
-              state.mouse.leftPressed = false;
-            }
+          // Track medal holders
+          if (state.gold === null || a.descendants > amoebs[state.gold].descendants) {
+            state.gold = i;
+          } else if (state.silver === null || a.descendants > amoebs[state.silver].descendants) {
+            state.silver = i;
+          } else if (state.bronze === null || a.descendants > amoebs[state.bronze].descendants) {
+            state.bronze = i;
           }
         }
-      }  
+      } else if (a.status === 'decaying') {
+        a.decay();
+      }
     }
 
-    // If click was on canvas but not on any amoeba, stop tracking
-    if (state.mouse.leftPressed && state.mouse.overMap && state.tracking !== null) {
-      state.tracking = null;
-      state.mouse.leftPressed = false;
+    // Second pass: think, eat, grow
+    for (let i = 0; i <= highest; i++) {
+      const a = amoebs[i];
+      if (a && a.status === 'alive') {
+        a.think();
+        a.eat();
+        a.grow();
+      }
     }
 
     // Commit tile deltas accumulated during eat(), then reset
-    if (!state.pause) {
-      for (let i = 0; i < TILENUMBER; i++) {
-        const t = state.tiles[i];
-        t.R = Math.max(t.R + t.rDelta, -t.RCap);
-        t.G = Math.max(t.G + t.gDelta, -t.GCap);
-        t.B = Math.max(t.B + t.bDelta, -t.BCap);
-        t.rDelta = 0;
-        t.gDelta = 0;
-        t.bDelta = 0;
-      }
+    for (let i = 0; i < TILENUMBER; i++) {
+      const t = state.tiles[i];
+      t.R = Math.max(t.R + t.rDelta, -t.RCap);
+      t.G = Math.max(t.G + t.gDelta, -t.GCap);
+      t.B = Math.max(t.B + t.bDelta, -t.BCap);
+      t.rDelta = 0;
+      t.gDelta = 0;
+      t.bDelta = 0;
     }
   },
 };

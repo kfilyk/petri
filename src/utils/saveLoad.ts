@@ -91,6 +91,7 @@ function deserializeNeuron(data: Record<string, any>): Neuron {
   neuron.weights1 = new Float32Array(data.weights1 || []);
   neuron.weights2 = new Float32Array(data.weights2 || []);
   neuron.in = data.in ?? 0;
+  neuron.sustain = data.sustain ?? 0; // older saves predate sustain
   neuron.out = data.out ?? 0;
   return neuron;
 }
@@ -200,39 +201,5 @@ export function loadState(jsonString: string): void {
   console.log(`Loaded save from ${new Date(saveData.timestamp).toLocaleString()}`);
 }
 
-/**
- * Download the current state as a JSON file
- */
-export function downloadState(filename?: string): void {
-  const json = saveState();
-  const blob = new Blob([json], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename || `petri-save-${Date.now()}.json`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
-/**
- * Load state from a file input
- */
-export function loadStateFromFile(file: File): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const json = e.target?.result as string;
-        loadState(json);
-        resolve();
-      } catch (err) {
-        reject(err);
-      }
-    };
-    reader.onerror = () => reject(reader.error);
-    reader.readAsText(file);
-  });
-}
+// File download / file picking live on the main thread (see ui/files.ts);
+// this module runs inside the worker and only deals in JSON strings.

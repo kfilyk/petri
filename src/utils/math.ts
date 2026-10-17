@@ -1,7 +1,6 @@
 // Performance-optimized math utilities
-import { Amoeba } from '@/entities/Amoeba';
+import type { Amoeba } from '@/entities/Amoeba';
 import { state } from '../state';
-import { WeightDeltas } from '@/types';
 import { NUM_INPUT_NEURONS, NUM_OUTPUT_NEURONS } from '@/constants';
 
 /**
@@ -30,85 +29,88 @@ export function getAmoebaByIndex(idx: number): Amoeba | undefined {
   return idx >= 0 ? state.amoebs[idx] : state.graveyard[-(idx + 1)];
 }
 
-export function getDescendantIndices(idx: number, orig: number): number[] {
-  const indices: number[] = [];
-  const current = getAmoebaByIndex(idx);
-  if (!current) return indices;
+// ===================================================================================
+// KIN DELTA SUMS
+// ===================================================================================
+//
+// Flat layout for "one number per synapse" buffers, shared with the kin table:
+//   input neuron i:  [KIN_IN_OFF  + i*2*NO .. +NO) = weights1, then weights2
+//   output neuron i: [KIN_OUT_OFF + i*2*NO .. +NO) = weights1, then weights2
 
-  for (const childIdx of current.children) {
-    indices.push(...getDescendantIndices(childIdx, orig));
-  }
+export const KIN_IN_OFF = 0;
+export const KIN_OUT_OFF = NUM_INPUT_NEURONS * 2 * NUM_OUTPUT_NEURONS;
+export const KIN_LEN = (NUM_INPUT_NEURONS + NUM_OUTPUT_NEURONS) * 2 * NUM_OUTPUT_NEURONS;
 
-  // Exclude the original starting node from results
-  if (idx !== orig) {
-    indices.push(idx);
-  }
-
-  return indices;
+/** Offset of a neuron's weights1 block in a KIN_LEN buffer (weights2 follows at +NUM_OUTPUT_NEURONS) */
+export function kinOffset(type: 'input' | 'output', index: number): number {
+  return (type === 'input' ? KIN_IN_OFF : KIN_OUT_OFF) + index * 2 * NUM_OUTPUT_NEURONS;
 }
 
-  /**
-   * Calculate weight deltas between current and base animal
-   */
-  export function getWeightDeltas(current: Amoeba, base: Amoeba): WeightDeltas {
-    const sustain_delta:number = 0;
-    const in_weights1_deltas: number[][] = [];
-    const in_weights2_deltas: number[][] = [];
-    const out_weights1_deltas: number[][] = [];
-    const out_weights2_deltas: number[][] = [];
+/**
+ * Running sums filled by accumulateKinSums(). Preallocated once and reused, so a
+ * mitosis allocates nothing no matter how many relatives it has. Read them right
+ * after the call; the next call overwrites them.
+ */
+export const kinAdvSum = new Float32Array(KIN_LEN);
+export const kinDisSum = new Float32Array(KIN_LEN);
 
-    for (let i = 0; i < NUM_INPUT_NEURONS; i++) {
-      const w1_deltas: number[] = [];
-      const w2_deltas: number[] = [];
-      for (let j = 0; j < NUM_OUTPUT_NEURONS; j++) {
-        w1_deltas[j] = current.inputs[i].weights1[j] - base.inputs[i].weights1[j];
-        w2_deltas[j] = current.inputs[i].weights2[j] - base.inputs[i].weights2[j];
-      }
-      in_weights1_deltas.push(w1_deltas);
-      in_weights2_deltas.push(w2_deltas);
-    }
+// Reusable stack for the iterative tree walk
+const walkStack: number[] = [];
 
-    for (let i = 0; i < NUM_OUTPUT_NEURONS; i++) {
-      const w1_deltas: number[] = [];
-      const w2_deltas: number[] = [];
-      for (let j = 0; j < NUM_OUTPUT_NEURONS; j++) {
-        w1_deltas[j] = current.outputs[i].weights1[j] - base.outputs[i].weights1[j];
-        w2_deltas[j] = current.outputs[i].weights2[j] - base.outputs[i].weights2[j];
-      }
-      out_weights1_deltas.push(w1_deltas);
-      out_weights2_deltas.push(w2_deltas);
-    }
-
-    return {
-      in_weights1_deltas, in_weights2_deltas, out_weights1_deltas, out_weights2_deltas,
-    };
+/** sum += (current − base) × weight, over every synapse */
+function addWeightDelta(sum: Float32Array, current: Amoeba, base: Amoeba, weight: number): void {
+  let p = KIN_IN_OFF;
+  for (let i = 0; i < NUM_INPUT_NEURONS; i++) {
+    const c1 = current.inputs[i].weights1, b1 = base.inputs[i].weights1;
+    const c2 = current.inputs[i].weights2, b2 = base.inputs[i].weights2;
+    for (let j = 0; j < NUM_OUTPUT_NEURONS; j++) sum[p + j] += (c1[j] - b1[j]) * weight;
+    p += NUM_OUTPUT_NEURONS;
+    for (let j = 0; j < NUM_OUTPUT_NEURONS; j++) sum[p + j] += (c2[j] - b2[j]) * weight;
+    p += NUM_OUTPUT_NEURONS;
   }
+  for (let i = 0; i < NUM_OUTPUT_NEURONS; i++) {
+    const c1 = current.outputs[i].weights1, b1 = base.outputs[i].weights1;
+    const c2 = current.outputs[i].weights2, b2 = base.outputs[i].weights2;
+    for (let j = 0; j < NUM_OUTPUT_NEURONS; j++) sum[p + j] += (c1[j] - b1[j]) * weight;
+    p += NUM_OUTPUT_NEURONS;
+    for (let j = 0; j < NUM_OUTPUT_NEURONS; j++) sum[p + j] += (c2[j] - b2[j]) * weight;
+    p += NUM_OUTPUT_NEURONS;
+  }
+}
 
 /**
- * Collect PER-EDGE weight deltas across every descendant of `rootIdx`.
+ * Accumulate PER-EDGE weight deltas over EVERY descendant of `rootIdx` into
+ * kinAdvSum / kinDisSum (no depth cap).
  *
  * Each descendant's delta is measured from its OWN parent, so one delta = one
  * mutation event, and it is labelled by that descendant's own outcome:
- *   - reproduced            -> advantageous (pushed once per child, as a fitness weight)
- *   - dead without children -> disadvantageous
+ *   - reproduced             -> kinAdvSum, weighted by its number of children
+ *   - dead without children  -> kinDisSum, weight 1
  *   - alive without children -> verdict unknown, skipped
  *
- * Measuring from the direct parent (rather than from `rootIdx`) stops a dead
- * grandchild's delta from carrying its successful parent's mutation along with it.
+ * Returns the weights the sums were built from, so callers can take means:
+ *   mean adv delta = kinAdvSum / advCount,  mean dis delta = kinDisSum / disCount
  */
-export function collectKinDeltas(rootIdx: number): {
-  advantageous: WeightDeltas[];
-  disadvantageous: WeightDeltas[];
-} {
-  const advantageous: WeightDeltas[] = [];
-  const disadvantageous: WeightDeltas[] = [];
+export function accumulateKinSums(rootIdx: number): { advCount: number; disCount: number } {
+  kinAdvSum.fill(0);
+  kinDisSum.fill(0);
+  let advCount = 0;
+  let disCount = 0;
 
-  const descendants = getDescendantIndices(rootIdx, rootIdx);
-  for (let i = 0; i < descendants.length; i++) {
-    const idx = descendants[i];
+  const root = getAmoebaByIndex(rootIdx);
+  if (!root) return { advCount, disCount };
+
+  walkStack.length = 0;
+  for (let i = 0; i < root.children.length; i++) walkStack.push(root.children[i]);
+
+  while (walkStack.length > 0) {
+    const idx = walkStack.pop()!;
     const current = getAmoebaByIndex(idx);
-    if (!current || current.parent === null) continue;
+    if (!current) continue;
 
+    for (let i = 0; i < current.children.length; i++) walkStack.push(current.children[i]);
+
+    if (current.parent === null) continue;
     const reproduced = current.children.length > 0;
     const diedChildless = !reproduced && idx < 0;
     if (!reproduced && !diedChildless) continue;
@@ -116,17 +118,16 @@ export function collectKinDeltas(rootIdx: number): {
     const base = getAmoebaByIndex(current.parent);
     if (!base) continue;
 
-    const deltas = getWeightDeltas(current, base);
     if (reproduced) {
-      for (let c = 0; c < current.children.length; c++) {
-        advantageous.push(deltas);
-      }
+      addWeightDelta(kinAdvSum, current, base, current.children.length);
+      advCount += current.children.length;
     } else {
-      disadvantageous.push(deltas);
+      addWeightDelta(kinDisSum, current, base, 1);
+      disCount += 1;
     }
   }
 
-  return { advantageous, disadvantageous };
+  return { advCount, disCount };
 }
 
 // ===================================================================================
