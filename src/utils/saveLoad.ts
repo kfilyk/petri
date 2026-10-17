@@ -1,7 +1,9 @@
 // Save/Load utilities for simulation state
+// Uses generic serialization — no per-field interfaces needed.
+// Adding a new field to any entity class automatically includes it in saves.
 
 import { state } from '../state';
-import { Amoeb } from '../entities/Amoeb';
+import { Amoeba } from '../entities/Amoeba';
 import { Tile } from '../entities/Tile';
 import { Neuron } from '../entities/Neuron';
 import { Eye } from '../entities/Eye';
@@ -9,7 +11,7 @@ import { Mouth } from '../entities/Mouth';
 import { NUM_INPUT_NEURONS, NUM_OUTPUT_NEURONS, TILENUMBER } from '../constants';
 
 /**
- * Serializable representation of the simulation state
+ * Top-level save format — only this interface is maintained manually.
  */
 interface SaveData {
   version: number;
@@ -19,309 +21,128 @@ interface SaveData {
   HIGHESTINDEX: number;
   highlighted: number | null;
   newest: number | null;
-  tiles: SerializedTile[];
-  amoebs: (SerializedAmoeb | null)[];
-  graveyard: SerializedAmoeb[];
+  tiles: Record<string, any>[];
+  amoebs: (Record<string, any> | null)[];
+  graveyard: Record<string, any>[];
 }
 
-interface SerializedTile {
-  x: number;
-  y: number;
-  num: number;
-  neighbors: number[];
-  regenRate: number;
-  RCap: number;
-  GCap: number;
-  BCap: number;
-  R: number;
-  G: number;
-  B: number;
-}
+// ─── Generic helpers ────────────────────────────────────────────────
 
-interface SerializedNeuron {
-  weights1: number[];
-  weights2: number[];
-  sigmas1?: number[];
-  sigmas2?: number[];
-  in: number;
-  out: number;
-}
-
-interface SerializedEye {
-  x: number;
-  y: number;
-  tile: number | null;
-  r: number;
-  g: number;
-  b: number;
-  s: number;
-  detected: number;
-}
-
-interface SerializedMouth {
-  x: number;
-  y: number;
-  tile: number | null;
-  r: number;
-  g: number;
-  b: number;
-  s: number;
-  detected: number;
-}
-
-interface SerializedAmoeb {
-  index: number;
-  x: number;
-  y: number;
-  status: 'alive' | 'decaying' | 'dead';
-  tile: number | null;
-  size: number;
-  health: number;
-  gen: number;
-  birthTime: number;
-  parent: number | null;
-  sibling_idx: number | null;
-  children: number[];
-  descendants: number;
-  proGenes: number;
-  conGenes: number;
-  name: string;
-  velocityX: number;
-  velocityY: number;
-  rotation: number;
-  direction: number;
-  redEaten: number;
-  greenEaten: number;
-  blueEaten: number;
-  currEaten: number;
-  netEaten: number;
-  energy: number;
-  maxEnergy: number;
-  energyChange: number;
-  totalEnergyGain: number;
-  currDamage: number;
-  damageReceived: number;
-  damageCaused: number;
-  eyes: SerializedEye[];
-  mouth: SerializedMouth;
-  inputs: SerializedNeuron[];
-  outputs: SerializedNeuron[];
+/**
+ * Deep-serialize any entity instance to a plain JSON-safe object.
+ * Handles Float32Array/Uint8ClampedArray → regular arrays,
+ * plain arrays → shallow copy, and nested objects with serialize().
+ */
+function serialize(obj: any): Record<string, any> {
+  const out: Record<string, any> = {};
+  for (const key of Object.keys(obj)) {
+    const val = obj[key];
+    if (val instanceof Float32Array || val instanceof Uint8ClampedArray) {
+      out[key] = Array.from(val);
+    } else if (Array.isArray(val)) {
+      // Array of objects that have their own fields (Eye, Neuron, etc.)
+      out[key] = val.map((item: any) =>
+        item !== null && typeof item === 'object' && !(item instanceof Float32Array)
+          ? serialize(item)
+          : item
+      );
+    } else if (val !== null && typeof val === 'object') {
+      out[key] = serialize(val);
+    } else {
+      out[key] = val;
+    }
+  }
+  return out;
 }
 
 /**
- * Serialize a Neuron to plain object
+ * Copy all serialized fields onto a target instance.
+ * Reconstructs Float32Arrays from plain arrays based on what the target already has.
  */
-function serializeNeuron(neuron: Neuron): SerializedNeuron {
-  return {
-    weights1: Array.from(neuron.weights1),
-    weights2: Array.from(neuron.weights2),
-    sigmas1: Array.from(neuron.sigmas1),
-    sigmas2: Array.from(neuron.sigmas2),
-    in: neuron.in,
-    out: neuron.out,
-  };
+function deserializeInto(target: any, data: Record<string, any>): void {
+  for (const key of Object.keys(data)) {
+    if (!(key in target)) continue; // skip unknown keys from old saves
+    const val = data[key];
+    const existing = target[key];
+
+    if (existing instanceof Float32Array) {
+      target[key] = new Float32Array(val);
+    } else if (existing instanceof Uint8ClampedArray) {
+      target[key] = new Uint8ClampedArray(val);
+    } else if (Array.isArray(val) && Array.isArray(existing)) {
+      // For primitive arrays (children, neighbors, cols), shallow copy
+      // For object arrays (eyes, inputs, outputs), handled specially by caller
+      target[key] = [...val];
+    } else {
+      target[key] = val;
+    }
+  }
 }
 
-/**
- * Deserialize a Neuron from plain object
- */
-function deserializeNeuron(data: SerializedNeuron): Neuron {
+// ─── Neuron ─────────────────────────────────────────────────────────
+
+function serializeNeuron(neuron: Neuron): Record<string, any> {
+  return serialize(neuron);
+}
+
+function deserializeNeuron(data: Record<string, any>): Neuron {
   const neuron = new Neuron();
-  neuron.weights1 = new Float32Array(data.weights1);
-  neuron.weights2 = new Float32Array(data.weights2);
-  neuron.sigmas1 = data.sigmas1 ? new Float32Array(data.sigmas1) : new Float32Array(data.weights1.length).fill(0);
-  neuron.sigmas2 = data.sigmas2 ? new Float32Array(data.sigmas2) : new Float32Array(data.weights2.length).fill(0);
-  neuron.in = data.in;
-  neuron.out = data.out;
+  // Float32Arrays need reconstruction from plain arrays
+  neuron.weights1 = new Float32Array(data.weights1 || []);
+  neuron.weights2 = new Float32Array(data.weights2 || []);
+  neuron.in = data.in ?? 0;
+  neuron.out = data.out ?? 0;
   return neuron;
 }
 
-/**
- * Serialize an Eye to plain object
- */
-function serializeEye(eye: Eye): SerializedEye {
-  return {
-    x: eye.x,
-    y: eye.y,
-    tile: eye.tile,
-    r: eye.r,
-    g: eye.g,
-    b: eye.b,
-    s: eye.s,
-    detected: eye.detected,
-  };
-}
+// ─── Eye / Mouth ────────────────────────────────────────────────────
 
-/**
- * Deserialize an Eye from plain object
- */
-function deserializeEye(data: SerializedEye): Eye {
+function deserializeEye(data: Record<string, any>): Eye {
   const eye = new Eye(data.x, data.y);
-  eye.tile = data.tile;
-  eye.r = data.r;
-  eye.g = data.g;
-  eye.b = data.b;
-  eye.s = data.s;
-  eye.detected = data.detected;
+  deserializeInto(eye, data);
   return eye;
 }
 
-/**
- * Serialize a Mouth to plain object
- */
-function serializeMouth(mouth: Mouth): SerializedMouth {
-  return {
-    x: mouth.x,
-    y: mouth.y,
-    tile: mouth.tile,
-    r: mouth.r,
-    g: mouth.g,
-    b: mouth.b,
-    s: mouth.s,
-    detected: mouth.detected,
-  };
-}
-
-/**
- * Deserialize a Mouth from plain object
- */
-function deserializeMouth(data: SerializedMouth): Mouth {
+function deserializeMouth(data: Record<string, any>): Mouth {
   const mouth = new Mouth(data.x, data.y);
-  mouth.tile = data.tile;
-  mouth.r = data.r;
-  mouth.g = data.g;
-  mouth.b = data.b;
-  mouth.s = data.s;
-  mouth.detected = data.detected;
+  deserializeInto(mouth, data);
   return mouth;
 }
 
-/**
- * Serialize a Tile to plain object
- */
-function serializeTile(tile: Tile): SerializedTile {
-  return {
-    x: tile.x,
-    y: tile.y,
-    num: tile.num,
-    neighbors: [...tile.neighbors],
-    regenRate: tile.regenRate,
-    RCap: tile.RCap,
-    GCap: tile.GCap,
-    BCap: tile.BCap,
-    R: tile.R,
-    G: tile.G,
-    B: tile.B,
-  };
+// ─── Tile ───────────────────────────────────────────────────────────
+
+function serializeTile(tile: Tile): Record<string, any> {
+  return serialize(tile);
 }
 
-/**
- * Deserialize a Tile from plain object
- */
-function deserializeTile(data: SerializedTile): Tile {
-  const tile = new Tile(data.x, data.y, data.num, data.neighbors);
-  tile.regenRate = data.regenRate;
-  tile.RCap = data.RCap;
-  tile.GCap = data.GCap;
-  tile.BCap = data.BCap;
-  tile.R = data.R;
-  tile.G = data.G;
-  tile.B = data.B;
+function deserializeTile(data: Record<string, any>): Tile {
+  const tile = new Tile(data.x, data.y, data.num, data.neighbors || []);
+  deserializeInto(tile, data);
   return tile;
 }
 
-/**
- * Serialize an Amoeb to plain object
- */
-function serializeAmoeb(amoeb: Amoeb): SerializedAmoeb {
-  return {
-    index: amoeb.index,
-    x: amoeb.x,
-    y: amoeb.y,
-    status: amoeb.status,
-    tile: amoeb.tile,
-    size: amoeb.size,
-    health: amoeb.health,
-    gen: amoeb.gen,
-    birthTime: amoeb.born,
-    parent: amoeb.parent,
-    sibling_idx: amoeb.sibling_idx,
-    children: [...amoeb.children],
-    descendants: amoeb.descendants,
-    proGenes: amoeb.proGenes,
-    conGenes: amoeb.conGenes,
-    name: amoeb.name,
-    velocityX: amoeb.velocityX,
-    velocityY: amoeb.velocityY,
-    rotation: amoeb.rotation,
-    direction: amoeb.direction,
-    redEaten: amoeb.redEaten,
-    greenEaten: amoeb.greenEaten,
-    blueEaten: amoeb.blueEaten,
-    currEaten: amoeb.currEaten,
-    netEaten: amoeb.netEaten,
-    energy: amoeb.energy,
-    maxEnergy: amoeb.maxEnergy,
-    energyChange: amoeb.energyChange,
-    totalEnergyGain: amoeb.totalEnergyGain,
-    currDamage: amoeb.currDamage,
-    damageReceived: amoeb.damageReceived,
-    damageCaused: amoeb.damageCaused,
-    eyes: amoeb.eyes.map(serializeEye),
-    mouth: serializeMouth(amoeb.mouth),
-    inputs: amoeb.inputs.map(serializeNeuron),
-    outputs: amoeb.outputs.map(serializeNeuron),
-  };
+// ─── Amoeba ─────────────────────────────────────────────────────────
+
+function serializeAmoeb(amoeba: Amoeba): Record<string, any> {
+  return serialize(amoeba);
 }
 
-/**
- * Deserialize an Amoeb from plain object
- */
-function deserializeAmoeb(data: SerializedAmoeb): Amoeb {
-  const amoeb = new Amoeb(data.x, data.y, data.index);
+function deserializeAmoeb(data: Record<string, any>): Amoeba {
+  const amoeba = new Amoeba(data.x, data.y, data.index);
 
-  amoeb.status = data.status;
-  amoeb.tile = data.tile;
-  amoeb.size = data.size;
-  amoeb.health = data.health;
-  amoeb.gen = data.gen;
-  amoeb.born = data.birthTime;
-  amoeb.parent = data.parent;
-  amoeb.sibling_idx = data.sibling_idx;
-  amoeb.children = [...data.children];
-  amoeb.descendants = data.descendants;
-  amoeb.proGenes = data.proGenes;
-  amoeb.conGenes = data.conGenes;
-  amoeb.name = data.name;
-  amoeb.velocityX = data.velocityX;
-  amoeb.velocityY = data.velocityY;
-  amoeb.rotation = data.rotation;
-  amoeb.direction = data.direction;
-  amoeb.redEaten = data.redEaten;
-  amoeb.greenEaten = data.greenEaten;
-  amoeb.blueEaten = data.blueEaten;
-  amoeb.currEaten = data.currEaten;
-  amoeb.netEaten = data.netEaten;
-  amoeb.energy = data.energy;
-  amoeb.maxEnergy = data.maxEnergy;
-  amoeb.energyChange = data.energyChange;
-  amoeb.totalEnergyGain = data.totalEnergyGain;
-  amoeb.currDamage = data.currDamage;
-  amoeb.damageReceived = data.damageReceived;
-  amoeb.damageCaused = data.damageCaused;
+  // Deserialize all primitive/array fields generically
+  deserializeInto(amoeba, data);
 
-  // Deserialize eyes
-  amoeb.eyes = data.eyes.map(deserializeEye);
+  // Rebuild complex nested objects that need their constructors
+  amoeba.eyes = (data.eyes || []).map(deserializeEye);
+  amoeba.mouth = deserializeMouth(data.mouth);
+  amoeba.inputs = (data.inputs || []).map(deserializeNeuron);
+  amoeba.outputs = (data.outputs || []).map(deserializeNeuron);
 
-  // Deserialize mouth
-  amoeb.mouth = deserializeMouth(data.mouth);
-
-  // Deserialize neurons
-  amoeb.inputs = data.inputs.map(deserializeNeuron);
-  amoeb.outputs = data.outputs.map(deserializeNeuron);
-
-  return amoeb;
+  return amoeba;
 }
+
+// ─── Public API ─────────────────────────────────────────────────────
 
 /**
  * Save the current simulation state to a JSON string
@@ -333,7 +154,6 @@ export function saveState(): string {
     stats: { ...state.stats },
     history: {
       aveChildren: [...state.history.aveChildren],
-      aveLifespan: [...state.history.aveLifespan],
       avePosNRG: [...state.history.avePosNRG],
     },
     HIGHESTINDEX: state.HIGHESTINDEX,
@@ -353,36 +173,28 @@ export function saveState(): string {
 export function loadState(jsonString: string): void {
   const saveData: SaveData = JSON.parse(jsonString);
 
-  // Version check for future compatibility
   if (saveData.version !== 1) {
     console.warn(`Save version ${saveData.version} may not be compatible`);
   }
 
-  // Restore stats
   Object.assign(state.stats, saveData.stats);
 
-  // Restore history
   state.history.aveChildren = [...saveData.history.aveChildren];
-  state.history.aveLifespan = [...saveData.history.aveLifespan];
   state.history.avePosNRG = [...saveData.history.avePosNRG];
 
-  // Restore indices
   state.HIGHESTINDEX = saveData.HIGHESTINDEX;
   state.highlighted = saveData.highlighted;
   state.newest = saveData.newest;
 
-  // Restore tiles
   for (let i = 0; i < saveData.tiles.length && i < TILENUMBER; i++) {
     state.tiles[i] = deserializeTile(saveData.tiles[i]);
   }
 
-  // Restore amoebs
   for (let i = 0; i < saveData.amoebs.length; i++) {
     const data = saveData.amoebs[i];
     state.amoebs[i] = data ? deserializeAmoeb(data) : null as any;
   }
 
-  // Restore graveyard
   state.graveyard = saveData.graveyard.map(deserializeAmoeb);
 
   console.log(`Loaded save from ${new Date(saveData.timestamp).toLocaleString()}`);

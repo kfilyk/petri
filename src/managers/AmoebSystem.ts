@@ -1,5 +1,6 @@
-// AmoebSystem - Handles amoeb updates and interactions
+// AmoebSystem - Handles amoeba updates and interactions
 
+import { TILENUMBER } from '../constants';
 import { state } from '../state';
 
 // Cached DOM elements
@@ -16,7 +17,7 @@ export function initAmoebSystemDom(): void {
   dashGold = document.getElementById('dash-gold');
   dashSilver = document.getElementById('dash-silver');
   dashBronze = document.getElementById('dash-bronze');
-  dashStats = document.getElementById('amoeb-stats');
+  dashStats = document.getElementById('amoeba-stats');
   dashHighlighted = document.getElementById('dash-highlighted');
 }
 
@@ -40,7 +41,7 @@ export const amoebSystem = {
       for (let i = 0; i <= highest; i++) {
         const a = amoebs[i];
         if (a.status === 'alive') {
-          a.age();
+          a.metabolize();
           if (a.status === 'alive') {
             a.move();
             a.currDamage = 0; // important: do BEFORE eat(), AFTER move() (affects move/rotation speed, caused by attack from other creatures)
@@ -117,7 +118,7 @@ export const amoebSystem = {
               } else {
                 state.highlighted = i;
               }
-              // If tracking was on, switch to tracking the new amoeb
+              // If tracking was on, switch to tracking the new amoeba
               if (state.tracking !== null) {
                 state.tracking = i;
               }
@@ -140,10 +141,23 @@ export const amoebSystem = {
       }  
     }
 
-    // If click was on canvas but not on any amoeb, stop tracking
+    // If click was on canvas but not on any amoeba, stop tracking
     if (state.mouse.leftPressed && state.mouse.overMap && state.tracking !== null) {
       state.tracking = null;
       state.mouse.leftPressed = false;
+    }
+
+    // Commit tile deltas accumulated during eat(), then reset
+    if (!state.pause) {
+      for (let i = 0; i < TILENUMBER; i++) {
+        const t = state.tiles[i];
+        t.R = Math.max(t.R + t.rDelta, -t.RCap);
+        t.G = Math.max(t.G + t.gDelta, -t.GCap);
+        t.B = Math.max(t.B + t.bDelta, -t.BCap);
+        t.rDelta = 0;
+        t.gDelta = 0;
+        t.bDelta = 0;
+      }
     }
   },
 };

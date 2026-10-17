@@ -3,19 +3,26 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { NUM_INPUT_NEURONS, NUM_OUTPUT_NEURONS } from '../constants';
-import type { Amoeb } from '../entities/Amoeb';
+import type { Amoeba } from '../entities/Amoeba';
 import { state } from '../state';
+import { collectKinDeltas } from '@/utils/math';
 
 // Labels
 const INPUT_LABELS = [
+  // Proprioception (0-5)
   'VELX', 'VELY', 'ROT', 'EATN', 'SIZE', 'ECHG',
+  // Mouth senses (6-9)
   'MR', 'MG', 'MB', 'MS',
+  // Eye senses (10-29)
   'E1R', 'E1G', 'E1B', 'E1S',
   'E2R', 'E2G', 'E2B', 'E2S',
   'E3R', 'E3G', 'E3B', 'E3S',
   'E4R', 'E4G', 'E4B', 'E4S',
   'E5R', 'E5G', 'E5B', 'E5S',
+  // Bias (30-31)
   'B+', 'B-',
+  // Energy ratio (32)
+  'NRG%',
 ];
 
 const OUTPUT_LABELS = [
@@ -63,107 +70,7 @@ const NEURON_RADIUS = 0.08;
 const LABEL_OFFSET = 0.1; // How far above neuron the label floats
 
 // Current animal reference
-let currentAnimal: Amoeb | null = null;
-
-interface WeightDeltas {
-  advW1: number[];
-  advW2: number[];
-  disW1: number[];
-  disW2: number[];
-  advCount: number;
-  disCount: number;
-}
-
-/**
- * Calculate weight deltas from descendants (matches Amoeb.ts mitosis logic)
- * Uses: Immediate Parent + Children weighting
- */
-function calculateWeightDeltas(amoeb: Amoeb, neuronType: 'input' | 'output', neuronIndex: number): WeightDeltas {
-  const numWeights = NUM_OUTPUT_NEURONS;
-  const advW1 = new Array(numWeights).fill(0);
-  const advW2 = new Array(numWeights).fill(0);
-  const disW1 = new Array(numWeights).fill(0);
-  const disW2 = new Array(numWeights).fill(0);
-
-  if (amoeb.parent === null) {
-    return { advW1, advW2, disW1, disW2, advCount: 0, disCount: 0 };
-  }
-
-  // Get all descendants of the parent (siblings, nephews, etc.)
-  const descendants = getDescendantIndices(amoeb.parent, amoeb.parent);
-
-  let advCount = 0;
-  let disCount = 0;
-
-  for (const idx of descendants) {
-    const desc = idx >= 0 ? state.amoebs[idx] : state.graveyard[-(idx + 1)];
-    if (!desc) continue;
-
-    // Get descendant's IMMEDIATE parent (not the original ancestor)
-    if (desc.parent === null) continue;
-    const immediateParent = desc.parent >= 0
-      ? state.amoebs[desc.parent]
-      : state.graveyard[-(desc.parent + 1)];
-    if (!immediateParent) continue;
-
-    const descNeuron = neuronType === 'input' ? desc.inputs[neuronIndex] : desc.outputs[neuronIndex];
-    const immParentNeuron = neuronType === 'input' ? immediateParent.inputs[neuronIndex] : immediateParent.outputs[neuronIndex];
-
-    if (desc.children.length > 0) {
-      // Advantageous: has children - weight by children.length
-      for (let c = 0; c < desc.children.length; c++) {
-        for (let j = 0; j < numWeights; j++) {
-          advW1[j] += descNeuron.weights1[j] - immParentNeuron.weights1[j];
-          advW2[j] += descNeuron.weights2[j] - immParentNeuron.weights2[j];
-        }
-        advCount++;
-      }
-    } else if (idx < 0) {
-      // Disadvantageous: dead without children
-      for (let j = 0; j < numWeights; j++) {
-        disW1[j] += descNeuron.weights1[j] - immParentNeuron.weights1[j];
-        disW2[j] += descNeuron.weights2[j] - immParentNeuron.weights2[j];
-      }
-      disCount++;
-    }
-    // Living without children = ignored (too early to judge)
-  }
-
-  // Average the deltas
-  if (advCount > 0) {
-    for (let j = 0; j < numWeights; j++) {
-      advW1[j] /= advCount;
-      advW2[j] /= advCount;
-    }
-  }
-  if (disCount > 0) {
-    for (let j = 0; j < numWeights; j++) {
-      disW1[j] /= disCount;
-      disW2[j] /= disCount;
-    }
-  }
-
-  return { advW1, advW2, disW1, disW2, advCount, disCount };
-}
-
-
-
-function getDescendantIndices(idx: number, orig: number): number[] {
-  const indices: number[] = [];
-  const current = idx >= 0 ? state.amoebs[idx] : state.graveyard[-(idx + 1)];
-  if (!current) return indices;
-
-  for (const childIdx of current.children) {
-    indices.push(...getDescendantIndices(childIdx, orig));
-  }
-
-  // Exclude the original starting node from results
-  if (idx !== orig) {
-    indices.push(idx);
-  }
-
-  return indices;
-}
+let currentAnimal: Amoeba | null = null;
 
 // Store canvases to prevent garbage collection
 const spriteCanvases: HTMLCanvasElement[] = [];
@@ -525,7 +432,7 @@ let synapseMaterial: THREE.MeshBasicMaterial | null = null;
  * Create synapse quads between neurons with width = |weight| (reuses buffers)
  * Uses weight1 when neuron activation > 0, weight2 otherwise (mirrors synapse() logic)
  */
-function updateSynapseLines(animal: Amoeb): void {
+function updateSynapseLines(animal: Amoeba): void {
   if (!brainGroup) return;
 
   // Create geometry and material once
@@ -665,7 +572,7 @@ function updateSynapseLines(animal: Amoeb): void {
 /**
  * Update neuron colors and label sprites based on activation
  */
-function updateNeuronColors(animal: Amoeb): void {
+function updateNeuronColors(animal: Amoeba): void {
   // Update input neurons
   for (let i = 0; i < NUM_INPUT_NEURONS; i++) {
     const activation = animal.inputs[i].in;
@@ -688,7 +595,7 @@ function updateNeuronColors(animal: Amoeb): void {
 
   // Update output neurons
   for (let o = 0; o < NUM_OUTPUT_NEURONS; o++) {
-    const activation = o < 30 ? animal.outputs[o].out : animal.outputs[o].in;
+    const activation =  animal.outputs[o].out;
     const mesh = outputNeuronMeshes[o];
     const material = mesh.material as THREE.MeshBasicMaterial;
 
@@ -770,6 +677,26 @@ function updateWeightDisplay(): void {
   }
 
   weightsDiv.style.display = 'block';
+
+  if (currentAnimal.parent === null) {
+    weightsDiv.innerHTML = 'No parent — no delta data';
+    return;
+  }
+
+  const parent = currentAnimal.parent >= 0
+    ? state.amoebs[currentAnimal.parent]
+    : state.graveyard[-(currentAnimal.parent + 1)];
+  if (!parent) {
+    weightsDiv.innerHTML = 'Parent not found';
+    return;
+  }
+
+  // Same per-edge kin deltas that mitosis uses
+  const { advantageous, disadvantageous } = collectKinDeltas(currentAnimal.parent);
+
+  const advCount = advantageous.length;
+  const disCount = disadvantageous.length;
+
   let html = '';
 
   for (const sel of selectedNeurons) {
@@ -780,21 +707,53 @@ function updateWeightDisplay(): void {
       ? (INPUT_LABELS[sel.index] || `I${sel.index}`)
       : (OUTPUT_LABELS[sel.index] || `O${sel.index}`);
 
-    // Calculate weight deltas
-    const { advW1, advW2, disW1, disW2, advCount, disCount } = calculateWeightDeltas(currentAnimal, sel.type, sel.index);
+    // Extract per-weight adv/dis averages for this neuron from full deltas
+    const numWeights = NUM_OUTPUT_NEURONS;
+    const advW1 = new Array(numWeights).fill(0);
+    const advW2 = new Array(numWeights).fill(0);
+    const disW1 = new Array(numWeights).fill(0);
+    const disW2 = new Array(numWeights).fill(0);
+
+    for (const adv of advantageous) {
+      const w1d = sel.type === 'input' ? adv.in_weights1_deltas[sel.index] : adv.out_weights1_deltas[sel.index];
+      const w2d = sel.type === 'input' ? adv.in_weights2_deltas[sel.index] : adv.out_weights2_deltas[sel.index];
+      for (let j = 0; j < numWeights; j++) {
+        advW1[j] += w1d[j];
+        advW2[j] += w2d[j];
+      }
+    }
+    if (advCount > 0) {
+      for (let j = 0; j < numWeights; j++) {
+        advW1[j] /= advCount;
+        advW2[j] /= advCount;
+      }
+    }
+
+    for (const dis of disadvantageous) {
+      const w1d = sel.type === 'input' ? dis.in_weights1_deltas[sel.index] : dis.out_weights1_deltas[sel.index];
+      const w2d = sel.type === 'input' ? dis.in_weights2_deltas[sel.index] : dis.out_weights2_deltas[sel.index];
+      for (let j = 0; j < numWeights; j++) {
+        disW1[j] += w1d[j];
+        disW2[j] += w2d[j];
+      }
+    }
+    if (disCount > 0) {
+      for (let j = 0; j < numWeights; j++) {
+        disW1[j] /= disCount;
+        disW2[j] /= disCount;
+      }
+    }
 
     html += `<b>${sel.type.toUpperCase()} ${label}</b><br>`;
     html += '<table class="neuron-weights-table" style="width:100%; border-collapse:collapse; font-size:8px;">';
     html += `<tr>
       <th>Target</th>
       <th>W1</th>
-      <th>σ1</th>
       <th style="color:green">Adv(${advCount})</th>
       <th style="color:red">Dis(${disCount})</th>
       <th>W1'</th>
       <th style="border-left:1px solid #ccc"></th>
       <th>W2</th>
-      <th>σ2</th>
       <th style="color:green">Adv(${advCount})</th>
       <th style="color:red">Dis(${disCount})</th>
       <th>W2'</th>
@@ -804,21 +763,17 @@ function updateWeightDisplay(): void {
       const targetLabel = OUTPUT_LABELS[j] || `O${j}`;
       const w1 = neuron.weights1[j];
       const w2 = neuron.weights2[j];
-      const s1 = neuron.sigmas1[j];
-      const s2 = neuron.sigmas2[j];
       const finalW1 = w1 + advW1[j] - disW1[j];
       const finalW2 = w2 + advW2[j] - disW2[j];
 
       html += `<tr>
         <td>${targetLabel}</td>
         <td>${w1.toFixed(3)}</td>
-        <td style="color:#888">${s1.toFixed(3)}</td>
         <td style="color:green">${advW1[j].toFixed(3)}</td>
         <td style="color:red">${disW1[j].toFixed(3)}</td>
         <td><b>${finalW1.toFixed(3)}</b></td>
         <td style="border-left:1px solid #ccc"></td>
         <td>${w2.toFixed(3)}</td>
-        <td style="color:#888">${s2.toFixed(3)}</td>
         <td style="color:green">${advW2[j].toFixed(3)}</td>
         <td style="color:red">${disW2[j].toFixed(3)}</td>
         <td><b>${finalW2.toFixed(3)}</b></td>
@@ -855,7 +810,7 @@ function animate(): void {
 /**
  * Update the 3D brain display for an animal
  */
-export function drawBrain3D(animal: Amoeb): void {
+export function drawBrain3D(animal: Amoeba): void {
   if (!scene || !brainGroup) return;
 
   currentAnimal = animal;

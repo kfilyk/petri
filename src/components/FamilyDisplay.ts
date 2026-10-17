@@ -1,7 +1,8 @@
-// FamilyDisplay - Shows family tree for highlighted amoeb
+// FamilyDisplay - Shows family tree for highlighted amoeba
 
 import { state } from '../state';
-import type { Amoeb } from '../entities/Amoeb';
+import type { Amoeba } from '../entities/Amoeba';
+import { getAlikeness, getBrainWeight } from '../utils/math';
 
 let familyContainer: HTMLElement | null = null;
 
@@ -18,9 +19,9 @@ export function initFamilyDisplay(): void {
 }
 
 /**
- * Get amoeb by index (handles both alive and dead)
+ * Get amoeba by index (handles both alive and dead)
  */
-function getAmoeb(idx: number): Amoeb | null {
+function getAmoeb(idx: number): Amoeba | null {
   if (idx >= 0) {
     return state.amoebs[idx] || null;
   } else {
@@ -29,33 +30,66 @@ function getAmoeb(idx: number): Amoeb | null {
 }
 
 /**
- * Format amoeb name for display
+ * Format amoeba name for display
  */
-function formatName(amoeb: Amoeb): string {
-  return `${amoeb.name}-${amoeb.gen}${amoeb.status === 'alive' ? 'A' : 'D'}${amoeb.descendants}`;
+function formatName(amoeba: Amoeba): string {
+  return `${amoeba.name}-${amoeba.gen}${amoeba.status === 'alive' ? 'A' : 'D'}${amoeba.descendants}`;
+}
+
+// Tooltip element (shared across all family members)
+let tooltip: HTMLElement | null = null;
+
+function getTooltip(): HTMLElement {
+  if (!tooltip) {
+    tooltip = document.createElement('div');
+    tooltip.className = 'family-tooltip';
+    document.body.appendChild(tooltip);
+  }
+  return tooltip;
 }
 
 /**
- * Create a clickable element for an amoeb
+ * Create a clickable element for an amoeba
  */
-function createAmoebElement(amoeb: Amoeb, label: string): HTMLElement {
+function createAmoebElement(amoeba: Amoeba, label: string): HTMLElement {
   const el = document.createElement('div');
   el.className = 'family-member';
-  if (amoeb.status !== 'alive') {
+  if (amoeba.status !== 'alive') {
     el.className += ' family-member-dead';
   }
-  if (amoeb.index === state.highlighted) {
+  if (amoeba.index === state.highlighted) {
     el.className += ' family-member-self';
   }
 
-  el.innerHTML = `<span class="family-label">${label}</span><span class="family-name">${formatName(amoeb)}</span>`;
+  el.innerHTML = `<span class="family-label">${label}</span><span class="family-name">${formatName(amoeba)}</span>`;
+
+  // Show alikeness tooltip on hover (compared to highlighted creature)
+  el.addEventListener('mouseenter', (e) => {
+    const highlighted = getAmoeb(state.highlighted!);
+    if (highlighted && amoeba.index !== state.highlighted) {
+      const alikeness = getAlikeness(highlighted, amoeba);
+      const tip = getTooltip();
+      tip.textContent = `${alikeness.toFixed(1)}% alike`;
+      tip.style.display = 'block';
+
+      // Position tooltip near cursor
+      const rect = el.getBoundingClientRect();
+      tip.style.left = `${rect.right + 8}px`;
+      tip.style.top = `${rect.top}px`;
+    }
+  });
+
+  el.addEventListener('mouseleave', () => {
+    const tip = getTooltip();
+    tip.style.display = 'none';
+  });
 
   el.addEventListener('click', () => {
     // Push current to history before navigating
-    if (state.highlighted !== null && state.highlighted !== amoeb.index) {
+    if (state.highlighted !== null && state.highlighted !== amoeba.index) {
       navHistory.push(state.highlighted);
     }
-    state.highlighted = amoeb.index;
+    state.highlighted = amoeba.index;
     updateFamilyDisplay(true); // Force immediate update on click
   });
 
@@ -78,7 +112,7 @@ function createSection(title: string): HTMLElement {
 }
 
 /**
- * Update the family display for the currently highlighted amoeb
+ * Update the family display for the currently highlighted amoeba
  * @param force - Force update even if throttle time hasn't elapsed
  */
 export function updateFamilyDisplay(force: boolean = false, descendants:number | undefined = undefined): void {
@@ -103,13 +137,13 @@ export function updateFamilyDisplay(force: boolean = false, descendants:number |
 
 
   if (state.highlighted === null) {
-    familyContainer.innerHTML = '<div class="family-empty">No amoeb selected</div>';
+    familyContainer.innerHTML = '<div class="family-empty">No amoeba selected</div>';
     return;
   }
 
   const self = getAmoeb(state.highlighted);
   if (!self) {
-    familyContainer.innerHTML = '<div class="family-empty">Amoeb not found</div>';
+    familyContainer.innerHTML = '<div class="family-empty">Amoeba not found</div>';
     return;
   }
 
@@ -147,7 +181,7 @@ export function updateFamilyDisplay(force: boolean = false, descendants:number |
       familyContainer.appendChild(parentSection);
 
       // Siblings section (parent's other children)
-      const siblings: Amoeb[] = [];
+      const siblings: Amoeba[] = [];
       for (const childIdx of parent.children) {
         if (childIdx !== self.index) {
           const sibling = getAmoeb(childIdx);

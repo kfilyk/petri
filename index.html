@@ -7,7 +7,7 @@
 
   </head>
   <body oncontextmenu="return false;" style="margin:0px;">
-    <canvas id="map" style="z-index: 1; height:100%"></canvas>
+    <canvas id="map"></canvas>
     <div id="dashboard">
 
       <div id="dashboard-content">
@@ -54,14 +54,14 @@
 
 
           </div>
-            <div id="amoeb-stats">
+            <div id="amoeba-stats">
               <div>
-                <div id="amoeb-stats-header">
-                  <div id="amoeb-stats-title">
+                <div id="amoeba-stats-header">
+                  <div id="amoeba-stats-title">
                     <b id="stats-name"></b>
                     <span id="stats-idx"></span>
                   </div>
-                  <div id="amoeb-stats-buttons">
+                  <div id="amoeba-stats-buttons">
                     <button onclick="toggleTracking()">
                       <img src="icons/track.png"/>
                     </button>
@@ -74,7 +74,7 @@
                     <button onclick="(() => {
                       highlighted=null;
                       leftPressed=false;
-                      document.getElementById('amoeb-stats').style.display='none';
+                      document.getElementById('amoeba-stats').style.display='none';
                       document.getElementById('brain').style.display='none';
                       document.getElementById('family-tree').style.display='none';
                     })()">
@@ -83,7 +83,7 @@
                   </div>
                 </div>
 
-                <div id="amoeb-stats-left">
+                <div id="amoeba-stats-left">
                   <!-- <span id="stats-parent" onclick="(() => {
                     var a = null;
                     if(highlighted < 0){
@@ -95,12 +95,13 @@
 
                   })()"></span><br/> -->
                   <span id="stats-sibling-idx"></span><br/>
-                  <span id="stats-born"></span><br/>
+                  <span id="stats-age"></span><br/>
                   <span id="stats-mutation-strategy"></span><br/>
                   <span id="stats-size"></span><br/>
+                  <span id="stats-brain-weight"></span><br/>
                   <span id="stats-damage"></span><br/>
                 </div>
-                <div id="amoeb-stats-right">
+                <div id="amoeba-stats-right">
                   <span class="gauge-stat" id="stats-energy"></span>
                   <span class="gauge-stat" id="stats-red"></span>
                   <span class="gauge-stat" id="stats-green"></span>
@@ -112,7 +113,7 @@
 
               </div>
             </div>
-            <div id="amoeb-stats-separator"></div>
+            <div id="amoeba-stats-separator"></div>
 
             <!-- Old 2D brain canvas (deprecated, kept for reference) -->
             <!-- <canvas id="brain" style="width:100%"></canvas> -->
@@ -131,6 +132,7 @@
             <div class="chart" id="optimizationChart"></div>
             <div class="chart" id="lifespanChart"></div>
             <div class="chart" id="mutationStratChart"></div>
+            <div class="chart" id="genDemoChart"></div>
           </div>
         </div>
       </div>

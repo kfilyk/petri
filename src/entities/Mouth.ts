@@ -12,7 +12,7 @@ export class Mouth {
   g: number = 0;
   b: number = 0;
   s: number = 0;
-  detected: number = -1; // stores id of possible detected amoeb
+  detected: number = -1; // stores id of possible detected amoeba
 
   constructor(x: number, y: number) {
     this.x = x;
@@ -20,16 +20,17 @@ export class Mouth {
   }
 
   /**
-   * Update mouth position based on amoeb direction and mouth offset
-   * Uses polar to cartesian conversion
+   * Update mouth position based on amoeba direction and mouth offset
+   *
+   * Note: mouthY is forward, mouthX is strafe (matches original polar method)
    */
   move(animalDir: number, animalX: number, animalY: number, mouthX: number, mouthY: number): void {
-    const angle = Math.atan(mouthX / (mouthY + 0.001)) / DEG_TO_RAD;
-    const dist = Math.sqrt(mouthX ** 2 + mouthY ** 2);
-    const adjustedAngle = mouthX < 0 ? angle + 180 : angle;
-
-    this.x = animalX + dist * Math.cos(DEG_TO_RAD * (adjustedAngle + animalDir));
-    this.y = animalY + dist * Math.sin(DEG_TO_RAD * (adjustedAngle + animalDir));
+    // Rotation matrix: mouthY is forward (+X at dir=0), mouthX is strafe right (+Y at dir=0)
+    const rad = animalDir * DEG_TO_RAD;
+    const cos = Math.cos(rad);
+    const sin = Math.sin(rad);
+    this.x = animalX + mouthY * cos - mouthX * sin;
+    this.y = animalY + mouthY * sin + mouthX * cos;
   }
 
   /**
@@ -53,7 +54,7 @@ export class Mouth {
       this.r = -1;
       this.g = -1;
       this.b = -1;
-      this.s = -1;
+      this.s = 0;
     }
   }
 }

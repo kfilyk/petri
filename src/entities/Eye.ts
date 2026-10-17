@@ -20,16 +20,17 @@ export class Eye {
   }
 
   /**
-   * Update eye position based on amoeb direction and eye offset
-   * Uses polar to cartesian conversion
+   * Update eye position based on amoeba direction and eye offset
+   *
+   * Note: eyeY is forward, eyeX is strafe (matches original polar method)
    */
   move(animalDir: number, animalX: number, animalY: number, eyeX: number, eyeY: number): void {
-    const angle = Math.atan(eyeX / (eyeY + 0.001)) / DEG_TO_RAD;
-    const dist = Math.sqrt(eyeX ** 2 + eyeY ** 2);
-    const adjustedAngle = eyeX < 0 ? angle + 180 : angle;
-
-    this.x = animalX + dist * Math.cos(DEG_TO_RAD * (adjustedAngle + animalDir));
-    this.y = animalY + dist * Math.sin(DEG_TO_RAD * (adjustedAngle + animalDir));
+    // Rotation matrix: eyeY is forward (+X at dir=0), eyeX is strafe right (+Y at dir=0)
+    const rad = animalDir * DEG_TO_RAD;
+    const cos = Math.cos(rad);
+    const sin = Math.sin(rad);
+    this.x = animalX + eyeY * cos - eyeX * sin;
+    this.y = animalY + eyeY * sin + eyeX * cos;
   }
 
   /**
@@ -53,7 +54,7 @@ export class Eye {
       this.r = -1;
       this.g = -1;
       this.b = -1;
-      this.s = -1;
+      this.s = 0;
     }
   }
 }

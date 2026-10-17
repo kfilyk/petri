@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Leak Rate Benchmark — think() overhead</title>
+</head>
+<body>
+  <pre id="results">Running...</pre>
+  <script>
+    // Benchmark: cost of adding per-neuron leak rate to the think() forward pass.
+    // Compares current think() vs think() with leak: out = leak*prev + (1-leak)*raw
+
+    const NUM_INPUT_NEURONS = 32;
+    const NUM_OUTPUT_NEURONS = 42;
+    const ITERATIONS = 500_000;
+    const WARMUP = 100_000;
+
+    // ─── Minimal Neuron replica ──────────────────────────────────────────
+
+    class Neuron {
+      constructor() {
+        this.weights1 = new Float32Array(NUM_OUTPUT_NEURONS);
+        this.weights2 = new Float32Array(NUM_OUTPUT_NEURONS);
+        this.in = 0;
+        this.out = 0;
+        this.leak = 0.5; // evolvable leak rate [0, 1]
+        for (let i = 0; i < NUM_OUTPUT_NEURONS; i++) {
+          this.weights1[i] = Math.random() * 2 - 1;
+          this.weights2[i] = Math.random() * 2 - 1;
+        }
+      }
+    }
+
+    // ─── Set up neurons ──────────────────────────────────────────────────
+
+    const inputs = [];
+    const outputs = [];
+
+    for (let i = 0; i < NUM_INPUT_NEURONS; i++) {
+      const n = new Neuron();
+      n.in = Math.random() * 2 - 1;
+      inputs.push(n);
+    }
+    for (let i = 0; i < NUM_OUTPUT_NEURONS; i++) {
+      const n = new Neuron();
+      n.out = Math.random() * 2 - 1;
+      n.leak = Math.random(); // random leak rates [0, 1]
+      outputs.push(n);
+    }
+
+    // ─── A) Current think() — no leak ────────────────────────────────────
+
+    function thinkCurrent() {
+      let sum = 0;
+      for (let o = 0; o < NUM_OUTPUT_NEURONS; o++) {
+        for (let j = 0; j < NUM_INPUT_NEURONS; j++) {
+          const n = inputs[j];
+          const w = n.in > 0 ? n.weights1 : n.weights2;
+          sum += n.in * w[o];
+        }
+        for (let j = 0; j < NUM_OUTPUT_NEURONS; j++) {
+          const n = outputs[j];
+          const w = n.out > 0 ? n.weights1 : n.weights2;
+          sum += n.out * w[o];
+        }
+        outputs[o].out = Math.min(Math.max(sum, -1), 1);
+        sum = 0;
+      }
+    }
+
+    // ─── B) With leak rate — leak * prev + (1-leak) * raw ───────────────
+
+    function thinkWithLeak() {
+      let sum = 0;
+      for (let o = 0; o < NUM_OUTPUT_NEURONS; o++) {
+        for (let j = 0; j < NUM_INPUT_NEURONS; j++) {
+          const n = inputs[j];
+          const w = n.in > 0 ? n.weights1 : n.weights2;
+          sum += n.in * w[o];
+        }
+        for (let j = 0; j < NUM_OUTPUT_NEURONS; j++) {
+          const n = outputs[j];
+          const w = n.out > 0 ? n.weights1 : n.weights2;
+          sum += n.out * w[o];
+        }
+        const raw = Math.min(Math.max(sum, -1), 1);
+        const leak = outputs[o].leak;
+        outputs[o].out = leak * outputs[o].out + (1 - leak) * raw;
+        sum = 0;
+      }
+    }
+
+    // ─── C) With leak + re-clamp (if we want output strictly in [-1,1]) ─
+
+    function thinkWithLeakClamped() {
+      let sum = 0;
+      for (let o = 0; o < NUM_OUTPUT_NEURONS; o++) {
+        for (let j = 0; j < NUM_INPUT_NEURONS; j++) {
+          const n = inputs[j];
+          const w = n.in > 0 ? n.weights1 : n.weights2;
+          sum += n.in * w[o];
+        }
+        for (let j = 0; j < NUM_OUTPUT_NEURONS; j++) {
+          const n = outputs[j];
+          const w = n.out > 0 ? n.weights1 : n.weights2;
+          sum += n.out * w[o];
+        }
+        const raw = Math.min(Math.max(sum, -1), 1);
+        const leak = outputs[o].leak;
+        outputs[o].out = Math.min(Math.max(leak * outputs[o].out + (1 - leak) * raw, -1), 1);
+        sum = 0;
+      }
+    }
+
+    // ─── D) Leak with precomputed (1 - leak) stored per neuron ──────────
+
+    // Precompute complementary leak
+    const oneMinusLeak = new Float32Array(NUM_OUTPUT_NEURONS);
+    for (let i = 0; i < NUM_OUTPUT_NEURONS; i++) {
+      oneMinusLeak[i] = 1 - outputs[i].leak;
+    }
+
+    function thinkWithLeakPrecomputed() {
+      let sum = 0;
+      for (let o = 0; o < NUM_OUTPUT_NEURONS; o++) {
+        for (let j = 0; j < NUM_INPUT_NEURONS; j++) {
+          const n = inputs[j];
+          const w = n.in > 0 ? n.weights1 : n.weights2;
+          sum += n.in * w[o];
+        }
+        for (let j = 0; j < NUM_OUTPUT_NEURONS; j++) {
+          const n = outputs[j];
+          const w = n.out > 0 ? n.weights1 : n.weights2;
+          sum += n.out * w[o];
+        }
+        const raw = Math.min(Math.max(sum, -1), 1);
+        outputs[o].out = outputs[o].leak * outputs[o].out + oneMinusLeak[o] * raw;
+        sum = 0;
+      }
+    }
+
+    // ─── Verify correctness ──────────────────────────────────────────────
+
+    function snapshot() {
+      return outputs.map(o => o.out);
+    }
+    function resetOutputs() {
+      for (const o of outputs) o.out = 0.5;
+    }
+
+    // Verify B/C/D produce consistent results (they won't match A — different formula)
+    resetOutputs();
+    thinkWithLeak();
+    const leakBaseline = snapshot();
+
+    resetOutputs();
+    thinkWithLeakClamped();
+    const clampedResult = snapshot();
+
+    resetOutputs();
+    thinkWithLeakPrecomputed();
+    const precompResult = snapshot();
+
+    let maxDiffBC = 0, maxDiffBD = 0;
+    for (let i = 0; i < leakBaseline.length; i++) {
+      maxDiffBC = Math.max(maxDiffBC, Math.abs(leakBaseline[i] - clampedResult[i]));
+      maxDiffBD = Math.max(maxDiffBD, Math.abs(leakBaseline[i] - precompResult[i]));
+    }
+
+    // ─── Benchmark ───────────────────────────────────────────────────────
+
+    const allVariants = [
+      ['A) Current (no leak)',              thinkCurrent],
+      ['B) With leak',                      thinkWithLeak],
+      ['C) With leak + re-clamp',           thinkWithLeakClamped],
+      ['D) With leak (precomputed 1-leak)', thinkWithLeakPrecomputed],
+    ];
+
+    // Warmup all
+    for (const [, fn] of allVariants) {
+      for (let i = 0; i < WARMUP; i++) fn();
+    }
+
+    const times = [];
+    for (const [name, fn] of allVariants) {
+      const t0 = performance.now();
+      for (let i = 0; i < ITERATIONS; i++) fn();
+      const elapsed = performance.now() - t0;
+      times.push({ name, time: elapsed });
+    }
+
+    // ─── Results ─────────────────────────────────────────────────────────
+
+    times.sort((a, b) => a.time - b.time);
+    const fastest = times[0].time;
+    const baselineTime = times.find(t => t.name.startsWith('A)')).time;
+
+    let results = `Leak Rate Benchmark — ${(ITERATIONS / 1e3).toFixed(0)}K think() calls\n`;
+    results += `${NUM_INPUT_NEURONS} inputs, ${NUM_OUTPUT_NEURONS} outputs (${NUM_INPUT_NEURONS * NUM_OUTPUT_NEURONS + NUM_OUTPUT_NEURONS * NUM_OUTPUT_NEURONS} synapses)\n`;
+    results += '='.repeat(65) + '\n\n';
+
+    results += `Correctness:\n`;
+    results += `  B vs C (leak vs leak+clamp):     max diff ${maxDiffBC.toExponential(3)} ${maxDiffBC < 0.001 ? 'OK (will diverge only at extremes)' : 'DIFFERS'}\n`;
+    results += `  B vs D (leak vs precomputed):     max diff ${maxDiffBD.toExponential(3)} ${maxDiffBD < 0.001 ? 'OK' : 'MISMATCH'}\n\n`;
+
+    results += `Performance:\n`;
+    for (const t of times) {
+      const bar = '#'.repeat(Math.round(t.time / times[times.length - 1].time * 30));
+      const vsBase = (t.time / baselineTime).toFixed(3);
+      const pad = t.name.padEnd(40);
+      results += `  ${pad} ${t.time.toFixed(1).padStart(7)}ms  ${vsBase}x baseline  ${bar}\n`;
+    }
+
+    const leakOverhead = times.find(t => t.name.startsWith('B)')).time;
+    const pctOverhead = ((leakOverhead / baselineTime - 1) * 100).toFixed(1);
+
+    results += `\nOverhead of adding leak rate: ${pctOverhead}% slower than current`;
+    results += `\n(${(baselineTime / ITERATIONS * 1000).toFixed(2)}µs → ${(leakOverhead / ITERATIONS * 1000).toFixed(2)}µs per think() call)`;
+
+    document.getElementById('results').textContent = results;
+    console.log(results);
+  </script>
+</body>
+</html>

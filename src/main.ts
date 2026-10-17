@@ -4,7 +4,7 @@
 import { FIELDX, FIELDY, POPCAP, SCORESCAP } from './constants';
 import { round } from './utils/math';
 import { state } from './state';
-import { Amoeb } from './entities/Amoeb';
+import { Amoeba } from './entities/Amoeba';
 import {
   tileSystem,
   amoebSystem,
@@ -22,10 +22,10 @@ import {
   initOptimizationChart,
   initLifespanChart,
   initMutationStratChart,
+  initGenDemoChart,
   resetChartData,
   resizeCharts,
 } from './managers';
-import { accelerateMutations } from './genetics/mutations';
 import { initFPSCounter, updateFPS } from './components/FPSCounter';
 import { downloadState, loadStateFromFile } from './utils/saveLoad';
 // Old 2D brain display (deprecated, kept for reference)
@@ -53,7 +53,7 @@ function init(): void {
   mapCanvas.height = 1000;
 
   // Get rendering contexts
-  state.ctx.map = mapCanvas.getContext('2d');
+  state.ctx.map = mapCanvas.getContext('2d', { alpha: false });
 
   if (!state.ctx.map) {
     console.error('Could not get map canvas context');
@@ -121,6 +121,11 @@ function initCharts(): void {
   if (mutationStratContainer) {
     initMutationStratChart(mutationStratContainer);
   }
+
+  const genDemoContainer = document.getElementById('genDemoChart');
+  if (genDemoContainer) {
+    initGenDemoChart(genDemoContainer);
+  }
 }
 
 /**
@@ -149,6 +154,18 @@ function setupEventListeners(mapCanvas: HTMLCanvasElement): void {
   // Keyboard events
   document.addEventListener('keydown', (e) => handleKeyDown(e, pauseSimulation));
   document.addEventListener('keyup', (e) => handleKeyUp(e));
+
+  // Window resize — update canvas size and restore transform
+  window.addEventListener('resize', () => {
+    const ctx = state.ctx.map;
+    if (!ctx) return;
+    mapCanvas.width = window.innerWidth;
+    mapCanvas.height = 1000;
+    ctx.font = '10px Arial';
+    ctx.setTransform(state.canvas.scale, 0, 0, state.canvas.scale, state.mouse.originalX, state.mouse.originalY);
+    resizeCharts();
+    resizeBrain3D();
+  });
 
   // Dashboard resize handle
   setupDashboardResize();
@@ -281,7 +298,7 @@ function newSimulation(): void {
   state.graveyard = [];
   // Create initial population
   for (let i = 0; i < 100; i++) {
-    state.amoebs[i] = new Amoeb(
+    state.amoebs[i] = new Amoeba(
       round(Math.random() * FIELDX),
       round(Math.random() * FIELDY),
       i
@@ -304,7 +321,7 @@ function newSimulation(): void {
  * Show the correct display panel based on current display mode
  */
 function showCurrentDisplay(): void {
-  const statsEl = document.getElementById('amoeb-stats');
+  const statsEl = document.getElementById('amoeba-stats');
   const brain3dEl = document.getElementById('brain3d-container');
   const familyEl = document.getElementById('family-tree');
 
@@ -317,7 +334,7 @@ function showCurrentDisplay(): void {
   } else if (state.display === 'family' && familyEl) {
     familyEl.style.display = 'block';
     if (brain3dEl) brain3dEl.style.display = 'none';
-    updateFamilyDisplay(true); // Force update when highlighting new amoeb
+    updateFamilyDisplay(true); // Force update when highlighting new amoeba
   }
 }
 
@@ -433,7 +450,6 @@ declare global {
     init: typeof init;
     newSimulation: typeof newSimulation;
     pauseSimulation: typeof pauseSimulation;
-    accelerateMutations: typeof accelerateMutations;
     save: typeof save;
     load: typeof load;
     highlight_newest: typeof highlightNewest;
@@ -446,15 +462,14 @@ declare global {
     stopTracking: typeof stopTracking;
     highlighted: number | null;
     leftPressed: boolean;
-    graveyard: Amoeb[];
-    amoebs: Amoeb[];
+    graveyard: Amoeba[];
+    amoebs: Amoeba[];
   }
 }
 
 window.init = init;
 window.newSimulation = newSimulation;
 window.pauseSimulation = pauseSimulation;
-window.accelerateMutations = accelerateMutations;
 window.save = save;
 window.load = load;
 window.highlight_newest = highlightNewest;

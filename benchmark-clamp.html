@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>clamp() Benchmark</title>
+</head>
+<body>
+  <pre id="results">Running...</pre>
+  <script>
+    const ITERATIONS = 100_000_000;
+
+    // Generate test data: values that sometimes exceed bounds
+    const DATA_SIZE = 10000;
+    const values = new Float64Array(DATA_SIZE);
+    const mins = new Float64Array(DATA_SIZE);
+    const maxs = new Float64Array(DATA_SIZE);
+    for (let i = 0; i < DATA_SIZE; i++) {
+      values[i] = (Math.random() - 0.5) * 400;
+      mins[i] = -100 + Math.random() * 50;
+      maxs[i] = 50 + Math.random() * 50;
+    }
+
+    // Method 1: Custom clamp (same as math.ts)
+    function customClamp(value, min, max) {
+      return value < min ? min : value > max ? max : value;
+    }
+
+    // Method 2: Math.min/Math.max
+    function mathClamp(value, min, max) {
+      return Math.min(Math.max(value, min), max);
+    }
+
+    // Method 3: Local alias
+    const mmin = Math.min;
+    const mmax = Math.max;
+    function localClamp(value, min, max) {
+      return mmin(mmax(value, min), max);
+    }
+
+    // Method 4: Inline ternary (no function call)
+    // (done inline in the loop)
+
+    // Prevent dead code elimination
+    let sink = 0;
+
+    // Warmup all paths
+    for (let i = 0; i < 100000; i++) {
+      const idx = i % DATA_SIZE;
+      sink += customClamp(values[idx], mins[idx], maxs[idx]);
+      sink += mathClamp(values[idx], mins[idx], maxs[idx]);
+      sink += localClamp(values[idx], mins[idx], maxs[idx]);
+    }
+    sink = 0;
+
+    // Benchmark custom clamp
+    const t1 = performance.now();
+    for (let i = 0; i < ITERATIONS; i++) {
+      const idx = i % DATA_SIZE;
+      sink += customClamp(values[idx], mins[idx], maxs[idx]);
+    }
+    const customTime = performance.now() - t1;
+    sink = 0;
+
+    // Benchmark Math.min/Math.max clamp
+    const t2 = performance.now();
+    for (let i = 0; i < ITERATIONS; i++) {
+      const idx = i % DATA_SIZE;
+      sink += mathClamp(values[idx], mins[idx], maxs[idx]);
+    }
+    const mathTime = performance.now() - t2;
+    sink = 0;
+
+    // Benchmark local alias clamp
+    const t3 = performance.now();
+    for (let i = 0; i < ITERATIONS; i++) {
+      const idx = i % DATA_SIZE;
+      sink += localClamp(values[idx], mins[idx], maxs[idx]);
+    }
+    const localTime = performance.now() - t3;
+    sink = 0;
+
+    // Benchmark inline ternary
+    const t4 = performance.now();
+    for (let i = 0; i < ITERATIONS; i++) {
+      const idx = i % DATA_SIZE;
+      const v = values[idx], lo = mins[idx], hi = maxs[idx];
+      sink += v < lo ? lo : v > hi ? hi : v;
+    }
+    const inlineTime = performance.now() - t4;
+    sink = 0;
+
+    // Benchmark inline Math.min/Math.max (no wrapper function)
+    const t5 = performance.now();
+    for (let i = 0; i < ITERATIONS; i++) {
+      const idx = i % DATA_SIZE;
+      sink += Math.min(Math.max(values[idx], mins[idx]), maxs[idx]);
+    }
+    const inlineMathTime = performance.now() - t5;
+
+    // Results
+    const times = [
+      { name: 'Custom clamp() [from math.ts]', time: customTime },
+      { name: 'Math.min(Math.max()) in function', time: mathTime },
+      { name: 'Local alias min/max in function', time: localTime },
+      { name: 'Inline ternary (no function call)', time: inlineTime },
+      { name: 'Inline Math.min(Math.max())', time: inlineMathTime },
+    ];
+    times.sort((a, b) => a.time - b.time);
+
+    let results = `clamp() Benchmark — ${(ITERATIONS / 1e6).toFixed(0)}M iterations\n`;
+    results += `=`.repeat(60) + '\n\n';
+
+    for (const t of times) {
+      const bar = '#'.repeat(Math.round(t.time / times[times.length - 1].time * 30));
+      const pad = t.name.padEnd(47);
+      results += `${pad} ${t.time.toFixed(1).padStart(7)}ms  ${bar}\n`;
+    }
+
+    results += `\nFastest: ${times[0].name}`;
+    results += `\nSlowest: ${times[times.length - 1].name}`;
+    results += `\nSpeedup: ${(times[times.length - 1].time / times[0].time).toFixed(2)}x`;
+
+    document.getElementById('results').textContent = results;
+    console.log(results);
+  </script>
+</body>
+</html>

@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Rotation Debug v3</title>
+</head>
+<body>
+  <pre id="results">Running...</pre>
+  <script>
+    const DEG_TO_RAD = 0.0174533;
+
+    // Original polar method (exact copy from code)
+    function movePolar(animalDir, animalX, animalY, eyeX, eyeY) {
+      const angle = Math.atan(eyeX / (eyeY + 0.001)) / DEG_TO_RAD;
+      const dist = Math.sqrt(eyeX ** 2 + eyeY ** 2);
+      const adjustedAngle = eyeX < 0 ? angle + 180 : angle;
+
+      const x = animalX + dist * Math.cos(DEG_TO_RAD * (adjustedAngle + animalDir));
+      const y = animalY + dist * Math.sin(DEG_TO_RAD * (adjustedAngle + animalDir));
+      return { x, y };
+    }
+
+    // The original's logic:
+    // - atan(x/y) gives angle from Y-axis
+    // - When x < 0, add 180 to flip to correct quadrant
+    //
+    // But what about when y < 0?
+    // - If x >= 0 and y < 0: atan gives negative angle, no +180 added
+    //   e.g., x=10, y=-10: atan(10/-10) = atan(-1) = -45deg
+    //   This points backward-right, which should be angle 135 or -45 from Y-axis
+    //   Actually -45 from Y-axis would be correct for backward direction
+    //
+    // Let me trace through exactly what the original does:
+
+    function traceOriginal(eyeX, eyeY, dir) {
+      const angle = Math.atan(eyeX / (eyeY + 0.001)) / DEG_TO_RAD;
+      const dist = Math.sqrt(eyeX ** 2 + eyeY ** 2);
+      const adjustedAngle = eyeX < 0 ? angle + 180 : angle;
+      const finalAngle = adjustedAngle + dir;
+
+      return {
+        angle,
+        dist,
+        adjustedAngle,
+        finalAngle,
+        x: 100 + dist * Math.cos(finalAngle * DEG_TO_RAD),
+        y: 100 + dist * Math.sin(finalAngle * DEG_TO_RAD)
+      };
+    }
+
+    let results = 'Tracing the original polar method\n';
+    results += '==================================\n\n';
+
+    const cases = [
+      { eyeX: 0, eyeY: 10, desc: 'Forward (0, 10)' },
+      { eyeX: 10, eyeY: 0, desc: 'Right (10, 0)' },
+      { eyeX: 0, eyeY: -10, desc: 'Backward (0, -10)' },
+      { eyeX: -10, eyeY: 0, desc: 'Left (-10, 0)' },
+      { eyeX: 10, eyeY: 10, desc: 'Forward-Right (10, 10)' },
+      { eyeX: -10, eyeY: 10, desc: 'Forward-Left (-10, 10)' },
+      { eyeX: 10, eyeY: -10, desc: 'Backward-Right (10, -10)' },
+      { eyeX: -10, eyeY: -10, desc: 'Backward-Left (-10, -10)' },
+    ];
+
+    for (const c of cases) {
+      const t = traceOriginal(c.eyeX, c.eyeY, 0);
+      results += `${c.desc}:\n`;
+      results += `  atan(${c.eyeX}/${c.eyeY}) = ${t.angle.toFixed(2)}deg\n`;
+      results += `  adjustedAngle = ${t.adjustedAngle.toFixed(2)}deg (eyeX<0? ${c.eyeX < 0})\n`;
+      results += `  finalAngle (dir=0) = ${t.finalAngle.toFixed(2)}deg\n`;
+      results += `  result: (${t.x.toFixed(2)}, ${t.y.toFixed(2)})\n`;
+      results += `  expected offset direction: eyeX=${c.eyeX}, eyeY=${c.eyeY}\n\n`;
+    }
+
+    // Now I see it! The original treats:
+    // - Positive Y as "forward" which maps to positive X in world coords
+    // - Positive eyeX as "right" which maps to positive Y in world coords
+    //
+    // So the coordinate system is:
+    //   eyeY (forward) -> world X direction at dir=0
+    //   eyeX (strafe right) -> world Y direction at dir=0
+    //
+    // The rotation matrix for this should be:
+    //   worldX = animalX + eyeY * cos(dir) - eyeX * sin(dir)  // forward rotated
+    //   worldY = animalY + eyeY * sin(dir) + eyeX * cos(dir)  // strafe rotated
+    //
+    // But wait, looking at the results, when eyeY=10, eyeX=0, dir=0:
+    //   result is (110, 100) which means +10 in X direction
+    // When eyeY=0, eyeX=10, dir=0:
+    //   result is (100, 110) which means +10 in Y direction
+    //
+    // So my rotation matrix IS correct for those cases. The issue must be
+    // in how the original handles negative values.
+
+    results += '\n=== Analyzing the quadrant issue ===\n\n';
+
+    // The problem: atan(x/y) + conditional 180
+    //
+    // Quadrant analysis (eyeX, eyeY signs):
+    // Q1: (+, +) -> atan positive, no +180 -> angle 0-90 ✓
+    // Q2: (-, +) -> atan negative, +180 -> angle 90-180 ✓
+    // Q3: (-, -) -> atan positive (neg/neg=pos), +180 -> angle 180-270 ✓
+    // Q4: (+, -) -> atan negative (pos/neg=neg), no +180 -> angle -90-0 ✗
+    //
+    // Q4 is wrong! When eyeX>0 and eyeY<0, the angle should be 270-360 (or -90-0)
+    // but the original gives -90-0 without adding 360, which might still work
+    // because cos/sin are periodic... let me check.
+
+    results += 'Quadrant 4 check (eyeX=10, eyeY=-10):\n';
+    const q4 = traceOriginal(10, -10, 0);
+    results += `  angle = ${q4.angle.toFixed(2)}deg\n`;
+    results += `  adjustedAngle = ${q4.adjustedAngle.toFixed(2)}deg\n`;
+    results += `  cos(${q4.finalAngle.toFixed(2)}) = ${Math.cos(q4.finalAngle * DEG_TO_RAD).toFixed(4)}\n`;
+    results += `  sin(${q4.finalAngle.toFixed(2)}) = ${Math.sin(q4.finalAngle * DEG_TO_RAD).toFixed(4)}\n`;
+    results += `  result: (${q4.x.toFixed(2)}, ${q4.y.toFixed(2)})\n`;
+    results += `  Expected: backward-right = (110, 90) relative to (100,100)\n\n`;
+
+    // Hmm, the original gives (109.99, 89.99) which IS correct!
+    // So the original DOES work, my rotation matrix must be wrong.
+
+    // Let me re-derive. At dir=0:
+    //   eyeY=10, eyeX=0 -> (110, 100) -> +X is forward
+    //   eyeY=0, eyeX=10 -> (100, 110) -> +Y is right
+    //   eyeY=-10, eyeX=0 -> should be (90, 100) -> -X is backward
+    //   eyeY=0, eyeX=-10 -> should be (100, 90) -> -Y is left
+
+    results += 'Expected behavior at dir=0:\n';
+    results += '  Forward (eyeY=+) -> +X\n';
+    results += '  Right (eyeX=+) -> +Y\n';
+    results += '  Backward (eyeY=-) -> -X\n';
+    results += '  Left (eyeX=-) -> -Y\n\n';
+
+    results += 'Actual results from original:\n';
+    for (const c of cases.slice(0, 4)) {
+      const t = traceOriginal(c.eyeX, c.eyeY, 0);
+      results += `  ${c.desc}: (${t.x.toFixed(2)}, ${t.y.toFixed(2)})\n`;
+    }
+
+    results += '\n\nWait... Left (-10, 0) gives (99.99, 110) not (100, 90)!\n';
+    results += 'The original has a BUG when eyeX < 0 and eyeY ≈ 0!\n\n';
+
+    // Actually let me check more carefully
+    results += 'Checking eyeX=-10, eyeY=0:\n';
+    const left = traceOriginal(-10, 0, 0);
+    results += `  atan(-10 / 0.001) = atan(-10000) ≈ -90deg\n`;
+    results += `  actual angle = ${left.angle.toFixed(4)}deg\n`;
+    results += `  +180 because eyeX<0: ${left.adjustedAngle.toFixed(4)}deg\n`;
+    results += `  So finalAngle ≈ 90deg\n`;
+    results += `  cos(90) ≈ 0, sin(90) ≈ 1\n`;
+    results += `  result: (100 + 10*0, 100 + 10*1) = (100, 110)\n`;
+    results += `  But we wanted (100, 90) for "left"!\n\n`;
+
+    results += 'The original polar method has the convention that:\n';
+    results += '  eyeX<0 means "in front and to the left" not "purely left"\n';
+    results += '  The +180 flips the direction but the atan(x/y) baseline\n';
+    results += '  means x affects the angle FROM the y-axis.\n\n';
+
+    results += 'So the original is self-consistent but uses a different\n';
+    results += 'coordinate interpretation than I assumed.\n\n';
+
+    // Let me just match EXACTLY what the original does with if/else
+    function moveMatrixExact(animalDir, animalX, animalY, eyeX, eyeY) {
+      const rad = animalDir * DEG_TO_RAD;
+      const cos = Math.cos(rad);
+      const sin = Math.sin(rad);
+
+      // Match original's coordinate system exactly
+      // eyeY positive = forward = +X at dir=0
+      // eyeX positive = right = +Y at dir=0
+      // But with the quirky atan behavior for negative values
+
+      if (eyeX >= 0 && eyeY >= 0) {
+        // Q1: standard rotation
+        return {
+          x: animalX + eyeY * cos - eyeX * sin,
+          y: animalY + eyeY * sin + eyeX * cos
+        };
+      } else if (eyeX < 0 && eyeY >= 0) {
+        // Q2: the +180 effectively negates both
+        return {
+          x: animalX - eyeY * cos + eyeX * sin,
+          y: animalY - eyeY * sin - eyeX * cos
+        };
+      } else if (eyeX < 0 && eyeY < 0) {
+        // Q3: +180 applied
+        return {
+          x: animalX - eyeY * cos + eyeX * sin,
+          y: animalY - eyeY * sin - eyeX * cos
+        };
+      } else {
+        // Q4: eyeX >= 0, eyeY < 0, no +180
+        return {
+          x: animalX + eyeY * cos - eyeX * sin,
+          y: animalY + eyeY * sin + eyeX * cos
+        };
+      }
+    }
+
+    results += '=== Testing quadrant-aware matrix ===\n\n';
+    for (const c of cases) {
+      const polar = movePolar(0, 100, 100, c.eyeX, c.eyeY);
+      const matrix = moveMatrixExact(0, 100, 100, c.eyeX, c.eyeY);
+      const xDiff = Math.abs(polar.x - matrix.x);
+      const yDiff = Math.abs(polar.y - matrix.y);
+      const match = (xDiff < 0.01 && yDiff < 0.01) ? 'OK' : 'DIFF';
+      results += `${c.desc}: [${match}] polar=(${polar.x.toFixed(2)}, ${polar.y.toFixed(2)}) matrix=(${matrix.x.toFixed(2)}, ${matrix.y.toFixed(2)})\n`;
+    }
+
+    // Test with various directions too
+    results += '\n=== Testing with various directions ===\n\n';
+    const dirs = [0, 45, 90, 135, 180, 225, 270, 315];
+    let allPass = true;
+    for (const c of cases) {
+      for (const dir of dirs) {
+        const polar = movePolar(dir, 100, 100, c.eyeX, c.eyeY);
+        const matrix = moveMatrixExact(dir, 100, 100, c.eyeX, c.eyeY);
+        const xDiff = Math.abs(polar.x - matrix.x);
+        const yDiff = Math.abs(polar.y - matrix.y);
+        if (xDiff >= 0.01 || yDiff >= 0.01) {
+          results += `FAIL: ${c.desc} dir=${dir}: polar=(${polar.x.toFixed(2)}, ${polar.y.toFixed(2)}) matrix=(${matrix.x.toFixed(2)}, ${matrix.y.toFixed(2)})\n`;
+          allPass = false;
+        }
+      }
+    }
+    if (allPass) {
+      results += 'All tests passed!\n';
+    }
+
+    document.getElementById('results').textContent = results;
+  </script>
+</body>
+</html>

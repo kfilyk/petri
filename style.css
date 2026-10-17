@@ -17,7 +17,11 @@ body {
     font-family: SplineSans;
     font-size: 10px;
     color:#161616aa; /*~68% opaque*/
-    background-color: #303030;
+}
+
+#map {
+    z-index: 1;
+    /* height:100%; */
 }
 
 #dashboard {
@@ -135,7 +139,7 @@ body {
     margin:10px;
 }
 
-#amoeb-stats {
+#amoeba-stats {
     padding:8px;
     position:relative;
     overflow:hidden;
@@ -186,10 +190,10 @@ body {
     outline-offset: 2px;
 }
 
-#amoeb-stats-left {
+#amoeba-stats-left {
     float: left;
 }
-#amoeb-stats-right {
+#amoeba-stats-right {
     float:right;
 
     display:flex;
@@ -197,7 +201,7 @@ body {
     flex-wrap: nowrap;
 }
 
-#amoeb-stats-separator {
+#amoeba-stats-separator {
     clear: both;
     height: 1px;
     background-color: #ccc;
@@ -235,31 +239,31 @@ body {
     cursor:pointer;
 }
 
-#amoeb-stats-header {
+#amoeba-stats-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 8px;
 }
-  #amoeb-stats-separator {   
+  #amoeba-stats-separator {   
     pointer-events: none;                                                                                                                      
     height: 1px;                                                                                                                                 
     background-color: transparent;                                                                                                                      
     margin: 12px 0;                                                                                                                              
   }     
 
-#amoeb-stats-title {
+#amoeba-stats-title {
     display: flex;
     gap: 8px;
     align-items: baseline;
 }
 
-#amoeb-stats-buttons {
+#amoeba-stats-buttons {
     display: flex;
     gap: 8px;
 }
 
-#amoeb-stats-buttons button img {
+#amoeba-stats-buttons button img {
     padding:0px;
 }
 
@@ -351,7 +355,7 @@ button:hover {
 /* * * * * * * * * * * * * FAMILY TREE * * * * * * * * * * * * */
 
 #family-tree {
-    padding: 8px;
+    padding: 0px 8px;
     border-top: 2px solid #00000020;
 }
 
@@ -450,12 +454,26 @@ button:hover {
     font-family: monospace;
 }
 
+.family-tooltip {
+    position: fixed;
+    display: none;
+    background-color: #1976d2;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: bold;
+    white-space: nowrap;
+    z-index: 1000;
+    pointer-events: none;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
 .family-sibling-row,
 .family-child-row {
     display: flex;
     flex-direction: row;
     align-items: flex-start;
-    margin-bottom: 4px;
 }
 
 .family-niblings,
@@ -473,6 +491,14 @@ button:hover {
 
   .uplot .u-legend {                                                                                                                               
                                                                                                                                  
-    padding: 4px;                                                                                                                                  
+    padding: 0px;                                                                                                                                  
     font-size: 9px;                                                                                                                                
-  }       
+  }     
+  
+.uplot .u-series > * {                                                                                                                                                                                                                                                            
+    padding: 0px;                                                                                                                                  
+  } 
+
+  .uplot .u-legend .u-series:first-child {
+  display: none;
+}

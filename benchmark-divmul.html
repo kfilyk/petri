@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Division vs Multiplication Benchmark</title>
+</head>
+<body>
+  <pre id="results">Running...</pre>
+  <script>
+    const ITERATIONS = 100_000_000;
+
+    // Generate test data
+    const DATA_SIZE = 10000;
+    const data = new Float64Array(DATA_SIZE);
+    const divisors = new Float64Array(DATA_SIZE);
+    for (let i = 0; i < DATA_SIZE; i++) {
+      data[i] = (Math.random() - 0.5) * 10;
+      divisors[i] = Math.floor(Math.random() * 10) + 1; // 1 to 10, simulating (advCount+1)
+    }
+
+    // Precompute multipliers
+    const multipliers = new Float64Array(DATA_SIZE);
+    for (let i = 0; i < DATA_SIZE; i++) {
+      multipliers[i] = 1 / divisors[i];
+    }
+
+    // Prevent dead code elimination
+    let sink = 0;
+
+    // Warmup
+    for (let i = 0; i < 100000; i++) {
+      const idx = i % DATA_SIZE;
+      sink += data[idx] / divisors[idx];
+      sink += data[idx] * multipliers[idx];
+    }
+    sink = 0;
+
+    // Benchmark: division inside loop (current pattern)
+    const t1 = performance.now();
+    for (let i = 0; i < ITERATIONS; i++) {
+      const idx = i % DATA_SIZE;
+      sink += data[idx] / divisors[idx];
+    }
+    const divTime = performance.now() - t1;
+    sink = 0;
+
+    // Benchmark: multiplication with precomputed inverse
+    const t2 = performance.now();
+    for (let i = 0; i < ITERATIONS; i++) {
+      const idx = i % DATA_SIZE;
+      sink += data[idx] * multipliers[idx];
+    }
+    const mulTime = performance.now() - t2;
+    sink = 0;
+
+    // Benchmark: division with constant divisor (JIT can optimize)
+    const constDiv = 5;
+    const t3 = performance.now();
+    for (let i = 0; i < ITERATIONS; i++) {
+      sink += data[i % DATA_SIZE] / constDiv;
+    }
+    const constDivTime = performance.now() - t3;
+    sink = 0;
+
+    // Benchmark: multiplication with constant (1/divisor precomputed)
+    const constMul = 1 / 5;
+    const t4 = performance.now();
+    for (let i = 0; i < ITERATIONS; i++) {
+      sink += data[i % DATA_SIZE] * constMul;
+    }
+    const constMulTime = performance.now() - t4;
+    sink = 0;
+
+    // Simulate mitosis pattern: same divisor used many times in nested loop
+    // This is the actual pattern in your code
+    const advCount = 5;
+    const t5 = performance.now();
+    for (let iter = 0; iter < ITERATIONS / 100; iter++) {
+      for (let i = 0; i < 100; i++) {
+        sink += data[i % DATA_SIZE] / (advCount + 1);
+      }
+    }
+    const nestedDivTime = performance.now() - t5;
+    sink = 0;
+
+    const advMul = 1 / (advCount + 1);
+    const t6 = performance.now();
+    for (let iter = 0; iter < ITERATIONS / 100; iter++) {
+      for (let i = 0; i < 100; i++) {
+        sink += data[i % DATA_SIZE] * advMul;
+      }
+    }
+    const nestedMulTime = performance.now() - t6;
+    sink = 0;
+
+    // Results
+    const times = [
+      { name: 'Division (variable divisor)', time: divTime },
+      { name: 'Multiplication (precomputed inverse)', time: mulTime },
+      { name: 'Division (constant divisor)', time: constDivTime },
+      { name: 'Multiplication (constant multiplier)', time: constMulTime },
+      { name: 'Nested loop division (mitosis pattern)', time: nestedDivTime },
+      { name: 'Nested loop multiply (mitosis pattern)', time: nestedMulTime },
+    ];
+    times.sort((a, b) => a.time - b.time);
+
+    let results = `Division vs Multiplication — ${(ITERATIONS / 1e6).toFixed(0)}M iterations\n`;
+    results += `=`.repeat(65) + '\n\n';
+
+    for (const t of times) {
+      const bar = '#'.repeat(Math.round(t.time / times[times.length - 1].time * 30));
+      const pad = t.name.padEnd(45);
+      results += `${pad} ${t.time.toFixed(1).padStart(7)}ms  ${bar}\n`;
+    }
+
+    results += `\nFastest: ${times[0].name}`;
+    results += `\nSlowest: ${times[times.length - 1].name}`;
+    results += `\nSpeedup: ${(times[times.length - 1].time / times[0].time).toFixed(2)}x`;
+
+    // Specific comparison for mitosis pattern
+    results += '\n\n--- Mitosis pattern comparison ---\n';
+    results += `Nested division:       ${nestedDivTime.toFixed(1)}ms\n`;
+    results += `Nested multiplication: ${nestedMulTime.toFixed(1)}ms\n`;
+    results += `Speedup:               ${(nestedDivTime / nestedMulTime).toFixed(2)}x\n`;
+
+    document.getElementById('results').textContent = results;
+    console.log(results);
+  </script>
+</body>
+</html>

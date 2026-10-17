@@ -15,7 +15,6 @@ export interface SensorData {
   g: number;
   b: number;
   s: number;
-  sees: number;
 }
 
 export interface TileData {
@@ -29,6 +28,9 @@ export interface TileData {
   RCap: number;
   GCap: number;
   BCap: number;
+  rDelta: number;
+  gDelta: number;
+  bDelta: number;
   regenRate: number;
 }
 
@@ -40,8 +42,9 @@ export interface AmoebData {
   alive: boolean;
   tile: number | null;
   size: number;
-  health: number;
   gen: number;
+  born:number;
+  age:number;
   parent: number | null;
   sibling_idx: number | null;
   children: number[];
@@ -66,7 +69,7 @@ export interface AmoebData {
   netEaten: number;
 }
 
-// Amoeb index: positive = alive in amoebs[], negative = in graveyard
+// Amoeba index: positive = alive in amoebs[], negative = in graveyard
 // graveyard index = -(amoebIndex + 1)
 export type AmoebIndex = number;
 
@@ -85,10 +88,6 @@ export interface WeightDeltas {
   in_weights2_deltas: number[][];
   out_weights1_deltas: number[][];
   out_weights2_deltas: number[][];
-  in_sigmas1_deltas: number[][];
-  in_sigmas2_deltas: number[][];
-  out_sigmas1_deltas: number[][];
-  out_sigmas2_deltas: number[][];
 }
 
 // Canvas rendering context type

@@ -1,6 +1,6 @@
 // StatSystem - Handles simulation statistics collection
 
-import { TILENUMBER } from '../constants';
+import { TILENUMBER, MUTATION_RATE } from '../constants';
 import { state } from '../state';
 import uPlot from 'uplot';
 
@@ -33,21 +33,49 @@ function formatSci(val: number): string {
   return val.toExponential(1);
 }
 
+
+/**
+ * uPlot plugin: when the cursor is not over the chart, the live legend shows
+ * the LATEST datapoint instead of '--'. Hovering still shows the hovered point.
+ */
+function latestLegendPlugin(): uPlot.Plugin {
+  return {
+    hooks: {
+      setLegend: (u) => {
+        // console.log("FIRING SET LEGEND")
+        if (u.cursor.idx != null) return; // hovering: keep uPlot's own values
+        const last = u.data[0].length - 1;
+        if (last < 0) return;
+        u.setLegend({ idx: last }, false); // false = don't re-fire this hook
+      },
+    },
+  };
+}
+
 // Chart references
 let foodPopChart: uPlot | null = null;
 let optimizationChart: uPlot | null = null;
 let lifespanChart: uPlot | null = null;
 let mutationStratChart: uPlot | null = null;
+let genDemoChart: uPlot | null = null;
 
 // Data arrays (columnar format for uPlot)
 // foodPopData: [time, red, green, blue, population]
 let foodPopData: number[][] = [[], [], [], [], []];
 // optimizationData: [time, avgDescendants, eatingEfficiency]
 let optimizationData: number[][] = [[], [], []];
-// lifespanData: [time, avgLifespan]
-let lifespanData: number[][] = [[], []];
+// lifespanData: [time, avgLifespan, avgLivingLifespan, avgEnergyEfficiency]
+let lifespanData: number[][] = [[], [], [], []];
 // mutationStratData: [time, mutationRate, avgAdvWeight, avgDisWeight]
 let mutationStratData: number[][] = [[], [], [], []];
+// genDemoData: [generations, deadCounts, deadPlusAliveCounts] — rebuilt from scratch each update
+let genDemoData: number[][] = [[], [], []];
+
+// Legend value for a food series: the raw per-colour amount, not the stacked
+// running total that the chart draws.
+// const rawFoodValue = (si: number) =>
+//   (_u: uPlot, _v: number | null, _si: number, idx: number | null | undefined): string =>
+//     idx == null ? '--' : formatNumber(foodPopData[si][idx] ?? 0);
 
 /**
  * Stack data for stacked area chart
@@ -96,6 +124,7 @@ export function initFoodPopChart(container: HTMLElement): uPlot {
         scale: 'y',
         width: 1,
         points: { show: false },
+        // value: rawFoodValue(1),
       },
       {
         label: 'Green',
@@ -103,6 +132,7 @@ export function initFoodPopChart(container: HTMLElement): uPlot {
         scale: 'y',
         width: 1,
         points: { show: false },
+        // value: rawFoodValue(2),
       },
       {
         label: 'Blue',
@@ -110,6 +140,7 @@ export function initFoodPopChart(container: HTMLElement): uPlot {
         scale: 'y',
         width: 1,
         points: { show: false },
+        // value: rawFoodValue(3),
       },
       {
         label: 'Pop',
@@ -125,7 +156,7 @@ export function initFoodPopChart(container: HTMLElement): uPlot {
     ],
   };
 
-  foodPopChart = new uPlot(opts, foodPopData as uPlot.AlignedData, container);
+  foodPopChart = new uPlot({ ...opts, plugins: [latestLegendPlugin()] }, foodPopData as uPlot.AlignedData, container);
   return foodPopChart;
 }
 
@@ -157,7 +188,7 @@ export function initOptimizationChart(container: HTMLElement): uPlot {
     ],
   };
 
-  optimizationChart = new uPlot(opts, optimizationData as uPlot.AlignedData, container);
+  optimizationChart = new uPlot({ ...opts, plugins: [latestLegendPlugin()] }, optimizationData as uPlot.AlignedData, container);
   return optimizationChart;
 }
 
@@ -171,6 +202,7 @@ export function initLifespanChart(container: HTMLElement): uPlot {
     scales: {
       x: { time: false },
       life: { auto: true },
+      eff: { auto: true },
     },
     legend: {
       show: true,
@@ -180,14 +212,16 @@ export function initLifespanChart(container: HTMLElement): uPlot {
     axes: [
       { show: true, size: 16, font: '10px sans-serif', gap: 4, ticks: { show: false } },
       { scale: 'life', size: 32, font: '10px sans-serif', gap: 2, ticks: { show: false }, side: 3, values: (_, vals) => vals.map(formatNumber) },
+      { scale: 'eff', size: 32, font: '10px sans-serif', gap: 2, ticks: { show: false }, side: 1, values: (_, vals) => vals.map((v: number) => v.toFixed(2)) },
     ],
     series: [
       {},
-      { label: 'Avg Lifespan', stroke: 'rgb(196, 0, 196)', scale: 'life', width: 1, points: { show: false } },
+      { label: 'Avg Living', stroke: 'rgb(220, 60, 60)', scale: 'life', width: 1, points: { show: false } },
+      { label: 'Energy Efficiency', stroke: 'rgb(255, 180, 0)', scale: 'eff', width: 1, points: { show: false } },
     ],
   };
 
-  lifespanChart = new uPlot(opts, lifespanData as uPlot.AlignedData, container);
+  lifespanChart = new uPlot({ ...opts, plugins: [latestLegendPlugin()] }, lifespanData as uPlot.AlignedData, container);
   return lifespanChart;
 }
 
@@ -208,18 +242,72 @@ export function initMutationStratChart(container: HTMLElement): uPlot {
     },
     axes: [
       { show: true, size: 16, font: '10px sans-serif', gap: 4, ticks: { show: false } },
-      { scale: 'y', size: 32, font: '10px sans-serif', gap: 2, ticks: { show: false }, side: 3, values: (_, vals) => vals.map(val => val.toFixed(2)) },
+      { scale: 'y', size: 32, font: '10px sans-serif', gap: 2, ticks: { show: false }, side: 1, values: (_, vals) => vals.map(val => val.toFixed(4)) },
     ],
     series: [
       {},
-      // { label: 'Mut Rate', stroke: 'rgb(255, 140, 0)', scale: 'y', width: 1, points: { show: false } },
-      { label: 'Adv Weight', stroke: 'rgb(60, 180, 60)', scale: 'y', width: 1, points: { show: false } },
-      { label: 'Dis Weight', stroke: 'rgb(220, 60, 60)', scale: 'y', width: 1, points: { show: false } },
+      { label: 'Mut Rate', stroke: 'rgb(255, 140, 0)', scale: 'y', width: 1, points: { show: false } },
+      // { label: 'Adv Weight', stroke: 'rgb(60, 180, 60)', scale: 'y', width: 1, points: { show: false } },
+      // { label: 'Dis Weight', stroke: 'rgb(220, 60, 60)', scale: 'y', width: 1, points: { show: false } },
     ],
   };
 
-  mutationStratChart = new uPlot(opts, mutationStratData as uPlot.AlignedData, container);
+  mutationStratChart = new uPlot({ ...opts, plugins: [latestLegendPlugin()] }, mutationStratData as uPlot.AlignedData, container);
   return mutationStratChart;
+}
+
+/**
+ * Initialize the generation demographics bar chart
+ */
+export function initGenDemoChart(container: HTMLElement): uPlot {
+  const bars = uPlot.paths.bars!({ size: [0.6, 64], align: 0, gap: 2 });
+
+  const opts: uPlot.Options = {
+    width: container.clientWidth || 300,
+    height: 150,
+    scales: {
+      x: { time: false },
+      y: { auto: true },
+    },
+    legend: {
+      show: true,
+      live: true,
+    },
+    axes: [
+      { show: true, size: 16, font: '10px sans-serif', gap: 4, ticks: { show: false }, values: (_, vals) => vals.map(v => String(Math.round(v))) },
+      { scale: 'y', size: 32, font: '10px sans-serif', side: 3, gap: 2, ticks: { show: false }, values: (_, vals) => vals.map(formatNumber) },
+    ],
+    series: [
+      {},
+      {
+        label: 'Living',
+        stroke: 'rgb(0, 180, 0)',
+        fill: 'rgba(60, 200, 60, 0.8)',
+        scale: 'y',
+        width: 0,
+        paths: bars,
+        points: { show: false },
+        value: (_u, _val, _si, dataIdx) => {
+          if (dataIdx == null) return '--';
+          const total = genDemoData[1][dataIdx] || 0;
+          const dead = genDemoData[2][dataIdx] || 0;
+          return String(total - dead);
+        },
+      },
+      {
+        label: 'Deceased',
+        stroke: 'rgb(200, 0, 0)',
+        fill: 'rgba(220, 60, 60, 0.8)',
+        scale: 'y',
+        width: 0,
+        paths: bars,
+        points: { show: false },
+      },
+    ],
+  };
+
+  genDemoChart = new uPlot({ ...opts, plugins: [latestLegendPlugin()] }, genDemoData as uPlot.AlignedData, container);
+  return genDemoChart;
 }
 
 /**
@@ -228,7 +316,7 @@ export function initMutationStratChart(container: HTMLElement): uPlot {
 export function resetChartData(): void {
   foodPopData = [[], [], [], [], []];
   optimizationData = [[], [], []];
-  lifespanData = [[], []];
+  lifespanData = [[], [], [], []];
   mutationStratData = [[], [], [], []];
 
   if (foodPopChart) {
@@ -242,6 +330,11 @@ export function resetChartData(): void {
   }
   if (mutationStratChart) {
     mutationStratChart.setData(mutationStratData as uPlot.AlignedData);
+  }
+
+  genDemoData = [[], [], []];
+  if (genDemoChart) {
+    genDemoChart.setData(genDemoData as uPlot.AlignedData);
   }
 }
 
@@ -266,6 +359,11 @@ export function resizeCharts(): void {
   if (mutationStratChart && mutationStratContainer) {
     mutationStratChart.setSize({ width: mutationStratContainer.clientWidth, height: 150 });
   }
+
+  const genDemoContainer = document.getElementById('genDemoChart');
+  if (genDemoChart && genDemoContainer) {
+    genDemoChart.setSize({ width: genDemoContainer.clientWidth, height: 150 });
+  }
 }
 
 export const statSystem = {
@@ -274,12 +372,13 @@ export const statSystem = {
    */
   update(): void {
     // Update history
-    state.history.aveLifespan.push(state.stats.aveLifespan);
     state.history.avePosNRG.push(state.stats.avePosNRG);
 
     // Collect animal stats
     let totalDescendants = 0;
     let totalChildren = 0;
+    let totalLivingAge = 0;
+    let totalEfficiency = 0;
     if (state.stats.livePop !== 0) {
       for (let i = 0; i <= state.HIGHESTINDEX; i++) {
         const a = state.amoebs[i];
@@ -287,6 +386,10 @@ export const statSystem = {
           state.stats.netEatenRatio += (a.redEaten + a.greenEaten + a.blueEaten) / a.netEaten;
           totalDescendants += a.descendants;
           totalChildren += a.children.length;
+          totalLivingAge += state.stats.time - a.born;
+          if (a.totalEnergyCost > 0) {
+            totalEfficiency += a.totalEnergyGain / a.totalEnergyCost;
+          }
         }
       }
       state.stats.netEatenRatio /= state.stats.livePop;
@@ -300,13 +403,13 @@ export const statSystem = {
     }
 
     // Collect tile stats
-    let totalFoodCap = 0;
+    let totalAgarOnMap = 0;
     for (let i = 0; i < TILENUMBER; i++) {
       if (!state.pause) {
         state.stats.redAgarOnMap += state.tiles[i].R;
         state.stats.greenAgarOnMap += state.tiles[i].G;
         state.stats.blueAgarOnMap += state.tiles[i].B;
-        totalFoodCap += state.tiles[i].RCap + state.tiles[i].GCap + state.tiles[i].BCap;
+        totalAgarOnMap += state.tiles[i].RCap + state.tiles[i].GCap + state.tiles[i].BCap;
       }
     }
 
@@ -322,14 +425,9 @@ export const statSystem = {
       foodPopChart.setData(stackFoodData(foodPopData) as uPlot.AlignedData);
     }
 
-    // Calculate average lifespan
-    if (state.stats.deathCount > 0) {
-      state.stats.aveLifespan = state.stats.netLifespan / state.stats.deathCount;
-    }
-
     // Update optimization chart
     const totalFood = state.stats.redAgarOnMap + state.stats.greenAgarOnMap + state.stats.blueAgarOnMap;
-    const foodFraction = totalFoodCap > 0 ? totalFood / totalFoodCap : 1;
+    const foodFraction = totalAgarOnMap > 0 ? totalFood / totalAgarOnMap : 1;
     const eatEfficiency = foodFraction > 0 ? state.stats.netEatenRatio / foodFraction : 0;
     optimizationData[0].push(timeLabel);
     optimizationData[1].push(state.stats.aveChildren);
@@ -340,8 +438,11 @@ export const statSystem = {
     }
 
     // Update lifespan chart
+    const aveLivingLifespan = state.stats.livePop > 0 ? totalLivingAge / state.stats.livePop : 0;
+    const avgEnergyEff = state.stats.livePop > 0 ? totalEfficiency / state.stats.livePop : 0;
     lifespanData[0].push(timeLabel);
-    lifespanData[1].push(state.stats.aveLifespan);
+    lifespanData[1].push(aveLivingLifespan);
+    lifespanData[2].push(avgEnergyEff);
 
     if (lifespanChart) {
       lifespanChart.setData(lifespanData as uPlot.AlignedData);
@@ -350,12 +451,54 @@ export const statSystem = {
     // Update mutation strategy chart
     const pop = state.stats.livePop;
     mutationStratData[0].push(timeLabel);
-    // mutationStratData[1].push(state.stats.mitoses > 0 ? state.stats.mutationRate / state.stats.mitoses : 0);
-    mutationStratData[1].push(state.stats.mitoses > 0 ? state.stats.advWeight / state.stats.mitoses : 0);
-    mutationStratData[2].push(state.stats.mitoses > 0 ? state.stats.disWeight / state.stats.mitoses : 0);
+    mutationStratData[1].push(MUTATION_RATE);
+    // mutationStratData[2].push(state.stats.mitoses > 0 ? state.stats.advWeight / state.stats.mitoses : 0);
+    // mutationStratData[3].push(state.stats.mitoses > 0 ? state.stats.disWeight / state.stats.mitoses : 0);
 
     if (mutationStratChart) {
       mutationStratChart.setData(mutationStratData as uPlot.AlignedData);
+    }
+
+    // Update generation demographics chart (rebuild from scratch)
+    const livingByGen: Map<number, number> = new Map();
+    const deadByGen: Map<number, number> = new Map();
+
+    for (let i = 0; i <= state.HIGHESTINDEX; i++) {
+      const a = state.amoebs[i];
+      if (a != null && a.status === 'alive') {
+        livingByGen.set(a.gen, (livingByGen.get(a.gen) || 0) + 1);
+      }
+    }
+
+    for (let i = 0; i < state.graveyard.length; i++) {
+      const g = state.graveyard[i];
+      deadByGen.set(g.gen, (deadByGen.get(g.gen) || 0) + 1);
+    }
+
+    let maxGen = 0;
+    for (const gen of livingByGen.keys()) {
+      if (gen > maxGen) maxGen = gen;
+    }
+    for (const gen of deadByGen.keys()) {
+      if (gen > maxGen) maxGen = gen;
+    }
+
+    const gens: number[] = [];
+    const deadCounts: number[] = [];
+    const stackedCounts: number[] = [];
+
+    for (let g = 0; g <= maxGen; g++) {
+      const dead = deadByGen.get(g) || 0;
+      const alive = livingByGen.get(g) || 0;
+      gens.push(g);
+      deadCounts.push(dead);
+      stackedCounts.push(dead + alive);
+    }
+
+    genDemoData = [gens, stackedCounts, deadCounts];
+
+    if (genDemoChart) {
+      genDemoChart.setData(genDemoData as uPlot.AlignedData);
     }
 
     // Reset per-frame stats
@@ -367,9 +510,6 @@ export const statSystem = {
     state.stats.advWeight = 0;
     state.stats.disWeight = 0;
 
-    if (state.stats.aveLifespan > state.stats.maxAveLifespan) {
-      state.stats.maxAveLifespan = state.stats.aveLifespan;
-    }
     if (state.stats.avePosNRG > state.stats.maxAvePosNRG) {
       state.stats.maxAvePosNRG = state.stats.avePosNRG;
     }

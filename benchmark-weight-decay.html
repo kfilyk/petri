@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Weight Decay Benchmark — w += s*(2*rand()-1-w)/(advCount+1)</title>
+</head>
+<body>
+  <pre id="results">Running simulations...</pre>
+  <script>
+    // ================================================================
+    // Formula under test:
+    //   w += s * (2 * Math.random() - 1 - w) / (advCount + 1)
+    //
+    // Rewritten:  w_new = w * (1 - α) + α * R
+    //   where α = s / (advCount + 1),  R ~ Uniform[-1, 1]
+    //
+    // Analysis:
+    //   E[w_new | w] = w * (1 - α)          → mean decays to 0
+    //   Var_steady   = α / (3 * (2 - α))    → nonzero fluctuation
+    // ================================================================
+
+    const NUM_WEIGHTS = 10000;   // independent weights per trial
+    const STEPS = 2000;          // mutation steps to simulate
+
+    // Different parameter combos to test
+    const trials = [
+      { s: 1.0,  advCount: 0,  label: 's=1.0  advCount=0   (α=1.000)' },
+      { s: 0.5,  advCount: 0,  label: 's=0.5  advCount=0   (α=0.500)' },
+      { s: 0.1,  advCount: 0,  label: 's=0.1  advCount=0   (α=0.100)' },
+      { s: 0.5,  advCount: 4,  label: 's=0.5  advCount=4   (α=0.100)' },
+      { s: 0.1,  advCount: 9,  label: 's=0.1  advCount=9   (α=0.010)' },
+      { s: 0.01, advCount: 0,  label: 's=0.01 advCount=0   (α=0.010)' },
+    ];
+
+    // Snapshot intervals
+    const snapshots = [0, 1, 2, 5, 10, 25, 50, 100, 250, 500, 1000, 2000];
+
+    let output = '';
+    output += 'Weight Decay Benchmark\n';
+    output += 'Formula: w += s * (2*rand()-1 - w) / (advCount+1)\n';
+    output += 'Equivalent: w_new = w*(1-α) + α*R,  α = s/(advCount+1),  R ~ U[-1,1]\n';
+    output += '='.repeat(78) + '\n';
+    output += `Simulating ${NUM_WEIGHTS} independent weights × ${STEPS} steps per trial\n`;
+    output += `All weights start at w₀ = 5.0 (far from zero)\n\n`;
+
+    const W0 = 5.0; // starting value — intentionally far from zero
+
+    for (const trial of trials) {
+      const { s, advCount, label } = trial;
+      const alpha = s / (advCount + 1);
+      const theoreticalVar = alpha / (3 * (2 - alpha));
+      const theoreticalStd = Math.sqrt(theoreticalVar);
+
+      output += '-'.repeat(78) + '\n';
+      output += `Trial: ${label}\n`;
+      output += `  Theoretical: E[w]→0 exponentially, decay rate (1-α)=${(1 - alpha).toFixed(4)}\n`;
+      output += `  Theoretical steady-state StdDev = ${theoreticalStd.toFixed(6)}\n\n`;
+      output += '  Step'.padEnd(10) + 'Mean'.padStart(12) + 'StdDev'.padStart(12)
+              + 'Min'.padStart(12) + 'Max'.padStart(12) + '  |Mean| < StdDev?\n';
+
+      // Initialize all weights to W0
+      const weights = new Float64Array(NUM_WEIGHTS).fill(W0);
+
+      let snapIdx = 0;
+
+      // Report at step 0
+      if (snapshots[snapIdx] === 0) {
+        const mean = weights.reduce((a, b) => a + b, 0) / NUM_WEIGHTS;
+        let variance = 0;
+        let lo = Infinity, hi = -Infinity;
+        for (let k = 0; k < NUM_WEIGHTS; k++) {
+          variance += (weights[k] - mean) ** 2;
+          if (weights[k] < lo) lo = weights[k];
+          if (weights[k] > hi) hi = weights[k];
+        }
+        variance /= NUM_WEIGHTS;
+        const std = Math.sqrt(variance);
+        const centered = Math.abs(mean) < std ? 'YES' : 'no';
+        output += `  ${String(0).padEnd(8)} ${mean.toFixed(6).padStart(12)} ${std.toFixed(6).padStart(12)}`
+                + ` ${lo.toFixed(6).padStart(12)} ${hi.toFixed(6).padStart(12)}  ${centered}\n`;
+        snapIdx++;
+      }
+
+      for (let step = 1; step <= STEPS; step++) {
+        // Apply the mutation formula to every weight
+        for (let k = 0; k < NUM_WEIGHTS; k++) {
+          weights[k] += s * (2 * Math.random() - 1 - weights[k]) / (advCount + 1);
+        }
+
+        // Record snapshot?
+        if (snapIdx < snapshots.length && step === snapshots[snapIdx]) {
+          let sum = 0;
+          let lo = Infinity, hi = -Infinity;
+          for (let k = 0; k < NUM_WEIGHTS; k++) {
+            sum += weights[k];
+            if (weights[k] < lo) lo = weights[k];
+            if (weights[k] > hi) hi = weights[k];
+          }
+          const mean = sum / NUM_WEIGHTS;
+          let variance = 0;
+          for (let k = 0; k < NUM_WEIGHTS; k++) {
+            variance += (weights[k] - mean) ** 2;
+          }
+          variance /= NUM_WEIGHTS;
+          const std = Math.sqrt(variance);
+          const centered = Math.abs(mean) < std ? 'YES' : 'no';
+          output += `  ${String(step).padEnd(8)} ${mean.toFixed(6).padStart(12)} ${std.toFixed(6).padStart(12)}`
+                  + ` ${lo.toFixed(6).padStart(12)} ${hi.toFixed(6).padStart(12)}  ${centered}\n`;
+          snapIdx++;
+        }
+      }
+
+      // Final distribution analysis
+      let sum = 0, sum2 = 0, countNearZero = 0;
+      for (let k = 0; k < NUM_WEIGHTS; k++) {
+        sum += weights[k];
+        sum2 += weights[k] ** 2;
+        if (Math.abs(weights[k]) < 0.01) countNearZero++;
+      }
+      const finalMean = sum / NUM_WEIGHTS;
+      const finalRMS = Math.sqrt(sum2 / NUM_WEIGHTS);
+      const pctNearZero = (100 * countNearZero / NUM_WEIGHTS).toFixed(1);
+
+      output += `\n  Final: mean=${finalMean.toFixed(6)}  RMS=${finalRMS.toFixed(6)}  `
+              + `theoreticalStd=${theoreticalStd.toFixed(6)}  `
+              + `%within±0.01=${pctNearZero}%\n`;
+
+      // Verdict
+      const meanConverged = Math.abs(finalMean) < 3 * theoreticalStd / Math.sqrt(NUM_WEIGHTS);
+      const stdConverged = Math.abs(finalRMS - theoreticalStd) < 0.1 * theoreticalStd + 0.001;
+      output += `  MEAN → 0?  ${meanConverged ? 'PASS' : 'FAIL'} (|mean| = ${Math.abs(finalMean).toFixed(6)}`
+              + ` vs 3σ/√n = ${(3 * theoreticalStd / Math.sqrt(NUM_WEIGHTS)).toFixed(6)})\n`;
+      output += `  STAYS AT 0? ${alpha < 1 ? 'NO — fluctuates' : 'NO — replaced each step'}`
+              + ` with StdDev ≈ ${theoreticalStd.toFixed(6)}\n\n`;
+    }
+
+    // === BIG PICTURE SUMMARY ===
+    output += '='.repeat(78) + '\n';
+    output += 'SUMMARY\n';
+    output += '='.repeat(78) + '\n\n';
+    output += 'The formula  w += s*(2*rand()-1 - w) / (advCount+1)\n';
+    output += 'is an exponential moving average toward a random target R ~ U[-1,1].\n\n';
+    output += 'Let α = s / (advCount+1):\n';
+    output += '  • E[w] decays as w₀ * (1-α)^t  →  0        ✓ Mean converges to zero\n';
+    output += '  • Var[w] → α / (3*(2-α))                    ✗ Variance does NOT go to zero\n';
+    output += '  • StdDev → sqrt(α / (3*(2-α)))               (permanent fluctuation)\n\n';
+    output += 'CONCLUSION:\n';
+    output += '  The EXPECTED VALUE (mean) tends to zero.  ✓\n';
+    output += '  The ACTUAL VALUE does NOT stay at zero — it oscillates around zero\n';
+    output += '  with amplitude ~ sqrt(α/6) for small α.\n\n';
+    output += '  For small s or large advCount (small α), fluctuation is small:\n';
+    output += '    α=0.01  →  StdDev ≈ 0.058\n';
+    output += '    α=0.1   →  StdDev ≈ 0.187\n';
+    output += '    α=0.5   →  StdDev ≈ 0.408\n';
+    output += '    α=1.0   →  StdDev ≈ 0.577  (= 1/√3, just uniform noise)\n';
+    output += '\n  To make weights truly converge to zero, you would need α → 0 over time\n';
+    output += '  (e.g. s decaying, or advCount growing), which naturally happens if advCount\n';
+    output += '  increments each generation — then α = s/t → 0 and Var → 0.\n';
+
+    // === advCount growing simulation ===
+    output += '\n' + '='.repeat(78) + '\n';
+    output += 'BONUS: What if advCount grows over time? (advCount = step)\n';
+    output += '='.repeat(78) + '\n\n';
+
+    {
+      const s = 0.5;
+      const weights2 = new Float64Array(NUM_WEIGHTS).fill(W0);
+      const snapshots2 = [0, 1, 5, 10, 50, 100, 500, 1000, 2000];
+      let snapIdx2 = 0;
+
+      output += '  Step'.padEnd(10) + 'advCount'.padStart(10) + 'α'.padStart(12)
+              + 'Mean'.padStart(12) + 'StdDev'.padStart(12) + '\n';
+
+      if (snapshots2[snapIdx2] === 0) {
+        output += `  ${String(0).padEnd(8)} ${String(0).padStart(10)} ${s.toFixed(6).padStart(12)}`
+                + ` ${W0.toFixed(6).padStart(12)} ${(0).toFixed(6).padStart(12)}\n`;
+        snapIdx2++;
+      }
+
+      for (let step = 1; step <= 2000; step++) {
+        const advC = step; // advCount grows with each step
+        for (let k = 0; k < NUM_WEIGHTS; k++) {
+          weights2[k] += s * (2 * Math.random() - 1 - weights2[k]) / (advC + 1);
+        }
+        if (snapIdx2 < snapshots2.length && step === snapshots2[snapIdx2]) {
+          let sum = 0;
+          for (let k = 0; k < NUM_WEIGHTS; k++) sum += weights2[k];
+          const mean = sum / NUM_WEIGHTS;
+          let variance = 0;
+          for (let k = 0; k < NUM_WEIGHTS; k++) variance += (weights2[k] - mean) ** 2;
+          const std = Math.sqrt(variance / NUM_WEIGHTS);
+          const alpha = s / (advC + 1);
+          output += `  ${String(step).padEnd(8)} ${String(advC).padStart(10)} ${alpha.toFixed(6).padStart(12)}`
+                  + ` ${mean.toFixed(6).padStart(12)} ${std.toFixed(6).padStart(12)}\n`;
+          snapIdx2++;
+        }
+      }
+      output += '\n  When advCount grows: α→0, so BOTH mean AND variance → 0.  ✓✓\n';
+    }
+
+    document.getElementById('results').textContent = output;
+    console.log(output);
+  </script>
+</body>
+</html>

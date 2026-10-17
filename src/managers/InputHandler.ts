@@ -3,7 +3,7 @@
 import { POPCAP, FIELDX, FIELDY } from '../constants';
 import { round } from '../utils/math';
 import { state } from '../state';
-import { Amoeb } from '../entities/Amoeb';
+import { Amoeba } from '../entities/Amoeba';
 
 // Cached DOM element
 let dashLiveInfo: HTMLElement | null = null;
@@ -36,7 +36,7 @@ export const inputHandler = {
             }
           }
 
-          state.amoebs[i] = new Amoeb(round(state.mouse.x), round(state.mouse.y), i);
+          state.amoebs[i] = new Amoeba(round(state.mouse.x), round(state.mouse.y), i);
           state.newest = i;
           state.stats.livePop++;
 

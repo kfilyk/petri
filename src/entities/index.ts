@@ -1,5 +1,5 @@
 // Entity exports
-export { Amoeb } from './Amoeb';
+export { Amoeba } from './Amoeba';
 export { Eye } from './Eye';
 export { Mouth } from './Mouth';
 export { Neuron } from './Neuron';

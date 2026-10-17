@@ -13,7 +13,7 @@ export const GRID_TILES = GRID_W*GRID_H;
 const tileCanvas = document.createElement('canvas');
 tileCanvas.width = GRID_W;
 tileCanvas.height = GRID_H;
-const tileCtx = tileCanvas.getContext('2d')!;
+const tileCtx = tileCanvas.getContext('2d', { alpha: false })!;
 const tileImageData = tileCtx.createImageData(GRID_W, GRID_H);
 const tileBuf = tileImageData.data; // Uint8ClampedArray, length = GRID_W * GRID_H * 4
 
@@ -111,7 +111,9 @@ export const tileSystem = {
     // Clear canvas using untransformed coordinates
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    ctx.fillStyle = '#303030'; // or whatever your bg color is                                                          
+    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);   
+
     ctx.restore();
     ctx.font = '8px monospace';
     // Write tile colors into the ImageData buffer (1 pixel per tile)

@@ -2,7 +2,7 @@
 
 import { POPCAP, TILENUMBER, SCORESCAP } from './constants';
 import type { Tile } from './entities/Tile';
-import type { Amoeb } from './entities/Amoeb';
+import type { Amoeba } from './entities/Amoeba';
 
 // Canvas contexts
 export interface CanvasContexts {
@@ -37,13 +37,9 @@ export interface SimulationStats {
   time: number;
   livePop: number;
   netParents: number;
-  netLifespan: number;
-  deathCount: number;
   aveChildren: number;
-  aveLifespan: number;
   avePosNRG: number;
   maxAveChildren: number;
-  maxAveLifespan: number;
   maxAvePosNRG: number;
   redAgarOnMap: number;
   greenAgarOnMap: number;
@@ -57,7 +53,6 @@ export interface SimulationStats {
 // History arrays for charts
 export interface StatsHistory {
   aveChildren: number[];
-  aveLifespan: number[];
   avePosNRG: number[];
 }
 
@@ -73,12 +68,12 @@ export interface NeuronWeightsState {
 class State {
   // Entity arrays - pre-allocated for performance
   tiles: Tile[] = new Array(TILENUMBER);
-  amoebs: Amoeb[] = new Array(POPCAP);
-  graveyard: Amoeb[] = [];
+  amoebs: Amoeba[] = new Array(POPCAP);
+  graveyard: Amoeba[] = [];
 
   // Index tracking
   HIGHESTINDEX: number = -1;
-
+  TILE_REGEN_RATE:number = 0.05;
   // Medal holders (top performers)
   gold: number | null = null;
   silver: number | null = null;
@@ -131,13 +126,9 @@ class State {
     time: 0,
     livePop: 0,
     netParents: 0,
-    netLifespan: 0,
-    deathCount: 0,
     aveChildren: 0,
-    aveLifespan: 0,
     avePosNRG: 0,
     maxAveChildren: 1,
-    maxAveLifespan: 1,
     maxAvePosNRG: 1,
     redAgarOnMap: 0,
     greenAgarOnMap: 0,
@@ -151,7 +142,6 @@ class State {
   // History for charts
   history: StatsHistory = {
     aveChildren: [],
-    aveLifespan: [],
     avePosNRG: [],
   };
 
@@ -166,7 +156,7 @@ class State {
   requestId: number = 0;
 
   // Scores array (for tracking top performers)
-  scores: (Amoeb | null)[] = new Array(SCORESCAP);
+  scores: (Amoeba | null)[] = new Array(SCORESCAP);
 
   // Neuron weights display tracking
   neuronWeights: NeuronWeightsState = {
@@ -181,13 +171,9 @@ class State {
    */
   resetStats(): void {
     this.stats.time = 0;
-    this.stats.netLifespan = 0;
-    this.stats.deathCount = 0;
     this.stats.aveChildren = 0;
-    this.stats.aveLifespan = 0;
     this.stats.avePosNRG = 0;
     this.stats.maxAveChildren = 1;
-    this.stats.maxAveLifespan = 1;
     this.stats.maxAvePosNRG = 1;
     this.stats.livePop = 0;
     this.HIGHESTINDEX = 0;
@@ -202,7 +188,6 @@ class State {
     }
 
     this.history.aveChildren = [];
-    this.history.aveLifespan = [];
     this.history.avePosNRG = [];
   }
 }

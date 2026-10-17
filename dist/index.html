@@ -4,11 +4,11 @@
     <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
     <title>Petri</title>
 
-    <script type="module" crossorigin src="/assets/index-_kPImbAm.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-rRJUs_7Y.css">
+    <script type="module" crossorigin src="/petri/assets/index-BKgZqx0g.js"></script>
+    <link rel="stylesheet" crossorigin href="/petri/assets/index-B7in1mXA.css">
   </head>
   <body oncontextmenu="return false;" style="margin:0px;">
-    <canvas id="map" style="z-index: 1; height:100%"></canvas>
+    <canvas id="map"></canvas>
     <div id="dashboard">
 
       <div id="dashboard-content">
@@ -33,49 +33,49 @@
             <span id="dash-newest" onclick="highlight_newest()" >NEW: </span></br>
             <span id="dash-time"></span></br>
             <span id="dash-highlighted"></span></br>
-            <div class="dash-medallist" onclick="highlight_gold()"><img src="/assets/gold-medal-C1_CJ_kQ.png"><span id="dash-gold"></span></img></div>
-            <div class="dash-medallist" onclick="highlight_silver()"><img src="/assets/silver-medal-BJEgH8vh.png"><span id="dash-silver"></span></img></div>
-            <div class="dash-medallist" onclick="highlight_bronze()"><img src="/assets/bronze-medal-C4aNBfYa.png"><span id="dash-bronze"></span></img></div>
+            <div class="dash-medallist" onclick="highlight_gold()"><img src="/petri/assets/gold-medal-C1_CJ_kQ.png"><span id="dash-gold"></span></img></div>
+            <div class="dash-medallist" onclick="highlight_silver()"><img src="/petri/assets/silver-medal-BJEgH8vh.png"><span id="dash-silver"></span></img></div>
+            <div class="dash-medallist" onclick="highlight_bronze()"><img src="/petri/assets/bronze-medal-C4aNBfYa.png"><span id="dash-bronze"></span></img></div>
             <br>
           </div>
 
           <div id="dashboard-buttons">
-            <img src="/assets/on_restart-Dg3s9SIq.png" onclick="newSimulation()"> <!-- on / reset -->
-            <img id="play-button" src="/assets/play-CV6IYFL2.png" onclick="pauseSimulation()">
-            <img id="load-button" onclick="load()" src="/assets/load-BmwAfcfR.png">
-            <img src="/assets/fast_forward-CoW6893n.png" onclick="accelerateMutations()">
+            <img src="/petri/assets/on_restart-Dg3s9SIq.png" onclick="newSimulation()"> <!-- on / reset -->
+            <img id="play-button" src="/petri/assets/play-CV6IYFL2.png" onclick="pauseSimulation()">
+            <img id="load-button" onclick="load()" src="/petri/assets/load-BmwAfcfR.png">
+            <img src="/petri/assets/fast_forward-CoW6893n.png" onclick="accelerateMutations()">
             <a id="save-button" onclick="save()"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAQAAAAEABAMAAACuXLVVAAAAA3NCSVQICAjb4U/gAAAACXBIWXMAAApnAAAKZwF8zw6+AAAAGXRFWHRTb2Z0d2FyZQB3d3cuaW5rc2NhcGUub3Jnm+48GgAAACpQTFRF////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA5lNJigAAAA10Uk5TABESFBgwWJi4u87Q2Kk1q1QAAAF3SURBVHja7dq7TcRAGIXRRVAAJbgESqAGykAipgWaIHEfdECMhNH0QrAvv4RXMjvXwbkVHH3Rr9Hsysy+dqfdlZV73C0MAAAAAKAi4CkNeG7CgJc2DeiaMKC0acBcgqqAuQR1ATMJ6gJmElQGTBNUBkwT1AZMEtQGTBJUB4wTVAeME9QHjBLUB4wSBADDBAHAMEECMEiQAAwSRAD9BBFAP0EG0EuQAfQShADnBCHAOUEKcEqQApwSxADHBDHAMUEOcEiQAxwSBAH7BEHAPkES0DVhQGmXAbefK/fwF6BrFgH/uSmgtGlA14QBpU0DujSgAAAAAAAAAABsE/D9epW9XwyoOQAAAAAAAAAAAAAAAAAAAAAAAAAAgG0Cft6uso+LAfHnegAAAAAAAAAAAIAtAW7W3uL3KwHX/dwOAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACwBcAvfd+zTLmpVOIAAAAASUVORK5CYII="/></a>
             <br>
             <br>
 
-            <img src="/assets/food-BiCTaAaH.png"> <!-- on / reset -->
-            <img src="/assets/fitness-BeDUYCxT.png">
-            <img src="/assets/energy-DmBKLTsp.png">
-            <img src="/assets/lifespan-B0NLL3LY.png">
+            <img src="/petri/assets/food-BiCTaAaH.png"> <!-- on / reset -->
+            <img src="/petri/assets/fitness-BeDUYCxT.png">
+            <img src="/petri/assets/energy-DmBKLTsp.png">
+            <img src="/petri/assets/lifespan-B0NLL3LY.png">
 
 
           </div>
-            <div id="amoeb-stats">
+            <div id="amoeba-stats">
               <div>
-                <div id="amoeb-stats-header">
-                  <div id="amoeb-stats-title">
+                <div id="amoeba-stats-header">
+                  <div id="amoeba-stats-title">
                     <b id="stats-name"></b>
                     <span id="stats-idx"></span>
                   </div>
-                  <div id="amoeb-stats-buttons">
+                  <div id="amoeba-stats-buttons">
                     <button onclick="toggleTracking()">
-                      <img src="/assets/track-BO4yU0nD.png"/>
+                      <img src="/petri/assets/track-BO4yU0nD.png"/>
                     </button>
                     <button onclick="toggleBrainDisplay()">
-                      <img src="/assets/brain-nAZ0bxC6.png"/>
+                      <img src="/petri/assets/brain-nAZ0bxC6.png"/>
                     </button>
                     <button onclick="toggleFamilyDisplay()">
-                      <img src="/assets/children-DDUJsM4I.png"/>
+                      <img src="/petri/assets/children-DDUJsM4I.png"/>
                     </button>
                     <button onclick="(() => {
                       highlighted=null;
                       leftPressed=false;
-                      document.getElementById('amoeb-stats').style.display='none';
+                      document.getElementById('amoeba-stats').style.display='none';
                       document.getElementById('brain').style.display='none';
                       document.getElementById('family-tree').style.display='none';
                     })()">
@@ -84,7 +84,7 @@
                   </div>
                 </div>
 
-                <div id="amoeb-stats-left">
+                <div id="amoeba-stats-left">
                   <!-- <span id="stats-parent" onclick="(() => {
                     var a = null;
                     if(highlighted < 0){
@@ -96,12 +96,13 @@
 
                   })()"></span><br/> -->
                   <span id="stats-sibling-idx"></span><br/>
-                  <span id="stats-born"></span><br/>
+                  <span id="stats-age"></span><br/>
                   <span id="stats-mutation-strategy"></span><br/>
                   <span id="stats-size"></span><br/>
+                  <span id="stats-brain-weight"></span><br/>
                   <span id="stats-damage"></span><br/>
                 </div>
-                <div id="amoeb-stats-right">
+                <div id="amoeba-stats-right">
                   <span class="gauge-stat" id="stats-energy"></span>
                   <span class="gauge-stat" id="stats-red"></span>
                   <span class="gauge-stat" id="stats-green"></span>
@@ -113,7 +114,7 @@
 
               </div>
             </div>
-            <div id="amoeb-stats-separator"></div>
+            <div id="amoeba-stats-separator"></div>
 
             <!-- Old 2D brain canvas (deprecated, kept for reference) -->
             <!-- <canvas id="brain" style="width:100%"></canvas> -->
@@ -132,6 +133,7 @@
             <div class="chart" id="optimizationChart"></div>
             <div class="chart" id="lifespanChart"></div>
             <div class="chart" id="mutationStratChart"></div>
+            <div class="chart" id="genDemoChart"></div>
           </div>
         </div>
       </div>

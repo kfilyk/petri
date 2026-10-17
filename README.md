@@ -18,51 +18,6 @@ npm run build
 npm run preview
 ```
 
-## Project Structure
-
-```
-petri/
-├── src/                    # TypeScript source
-│   ├── main.ts             # Entry point
-│   ├── types.ts            # Type definitions
-│   ├── constants.ts        # Configuration constants
-│   ├── state.ts            # Global state management
-│   ├── entities/           # Core classes
-│   │   ├── Animal.ts       # Creature with neural network
-│   │   ├── Neuron.ts       # Neural network node
-│   │   ├── Eye.ts          # Visual sensor
-│   │   ├── Mouth.ts        # Feeding organ
-│   │   └── Tile.ts         # Food-producing cell
-│   ├── managers/           # Game systems
-│   │   ├── TileManager.ts  # Terrain generation
-│   │   ├── AnimalManager.ts# Creature lifecycle
-│   │   ├── StatManager.ts  # Statistics
-│   │   ├── InputManager.ts # Mouse/keyboard
-│   │   └── Dashboard.ts    # UI updates
-│   ├── genetics/
-│   │   └── mutations.ts    # Mutation algorithms
-│   └── utils/
-│       └── math.ts         # Fast math functions
-├── dist/                   # Production build output
-├── icons/                  # UI icons
-├── index.html              # Main HTML file
-├── style.css               # Styles
-├── package.json
-├── tsconfig.json
-└── vite.config.ts
-```
-
-## Controls
-
-| Action | Control |
-|--------|---------|
-| Spawn creature | Right-click on map |
-| Select creature | Left-click on creature |
-| Pan camera | WASD or Arrow keys |
-| Zoom | Mouse wheel |
-| Pause/Resume | Spacebar or Play button |
-| New simulation | Restart button |
-
 ## Production Build
 
 ```bash
@@ -120,3 +75,8 @@ Key constants in `src/constants.ts`:
 - **Vite** - Fast build tool with hot reload
 - **Chart.js 2.x** - Statistics visualization
 - **Canvas API** - Rendering
+
+
+## Publish to Github.io
+
+npm run build && npx gh-pages -d dist      

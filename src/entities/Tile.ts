@@ -13,6 +13,10 @@ export class Tile {
   GCap: number;
   BCap: number;
 
+  rDelta: number;
+  gDelta: number;
+  bDelta: number;
+
   // Current food levels
   R: number;
   G: number;
@@ -24,6 +28,8 @@ export class Tile {
     this.num = num;
     this.neighbors = neighbors;
     // this.regenRate = Math.random() * 0.1 + 0.05;
+    // this.regenRate = Math.random() * 0.02 + 0.02;
+    // this.regenRate = Math.random() * 0.01 + 0.01;
     this.regenRate = Math.random() * 0.05 + 0.05;
 
     // Initialize capacity with random values
@@ -35,6 +41,11 @@ export class Tile {
     this.R = this.RCap;
     this.G = this.GCap;
     this.B = this.BCap;
+
+    // Change in food over one animation cycle
+    this.rDelta = 0;
+    this.gDelta = 0;
+    this.bDelta = 0;
   }
 
   /**
